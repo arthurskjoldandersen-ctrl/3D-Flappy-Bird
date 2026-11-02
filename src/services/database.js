@@ -937,6 +937,7 @@ function adminUpdateUserSkins(username, options = {}) {
   }
 
   if (changed) {
+    syncAndRebuildOverview();
     logDatabaseEvent(
       'ADMIN_SKIN_CHANGE',
       user.username,

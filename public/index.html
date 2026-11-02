@@ -50,16 +50,12 @@
         <span class="tab-icon">⚙️</span>
         <span class="tab-label">Settings</span>
       </button>
-      <button type="button" class="dock-tab" data-view="account" id="dock-btn-account">
-        <span class="tab-icon">👤</span>
-        <span class="tab-label" id="dock-account-label">Login</span>
-      </button>
     </nav>
 
     <!-- Top Right Quick Controls -->
     <div class="header-right">
       <button type="button" class="profile-capsule-btn" id="open-profile-btn" title="Player Account & Cloud Sync">
-        <span class="capsule-avatar">👤</span>
+        <span class="capsule-avatar" id="capsule-avatar">👤</span>
         <span class="capsule-name" id="capsule-username">Guest Player</span>
         <span class="capsule-count" id="capsule-owned-count">🎨 2/103</span>
       </button>
@@ -208,12 +204,11 @@
             </div>
           </div>
 
-          <!-- Lobby Account / Guest Quick Status Prompt & All Players Shortcut -->
+          <!-- Lobby Account / Guest Quick Status Prompt -->
           <div class="lobby-auth-bar" id="lobby-auth-prompt">
             <span id="lobby-auth-text">👤 Playing as <strong>Guest</strong></span>
             <div style="display:flex; gap:8px; align-items:center;">
               <button type="button" class="btn-lobby-login-trigger" id="btn-lobby-auth-action">🔑 Log In / Register</button>
-              <button type="button" class="btn-lobby-login-trigger btn-see-all-players" id="btn-lobby-goto-all-players" title="View all registered players and global rankings">👥 See All Players</button>
             </div>
           </div>
 
@@ -339,10 +334,6 @@
               <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Multi-entry verified rankings across all 100 spots • Real-time anti-cheat protected</p>
             </div>
             <div class="lb-controls-wrap">
-              <button type="button" class="lb-toggle-top100-btn" id="lb-toggle-top100-btn" title="Toggle between Top 100 Only and All Players">
-                <span class="toggle-icon" id="lb-toggle-icon">🌐</span>
-                <span id="lb-toggle-text">All Players: OFF</span>
-              </button>
               <div class="lb-search-box">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="lb-search-input" placeholder="Search player, rank (#1), or score..." autocomplete="off" />
@@ -721,9 +712,6 @@
                 <button type="button" class="btn-quick-nav" id="btn-account-goto-lb">
                   🏆 Top 100 Ranks
                 </button>
-                <button type="button" class="btn-quick-nav highlight-all-players" id="btn-account-goto-all-players" title="View all registered players and global rankings">
-                  👥 See All Players
-                </button>
               </div>
             </div>
           </div>
@@ -823,6 +811,85 @@
             Continue Playing as Guest (Local Only) →
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dedicated Public Player Profile Modal (Click on any player name on the Leaderboard) -->
+  <div class="modal-backdrop public-profile-backdrop" id="player-public-profile-modal" role="dialog" aria-modal="true" aria-labelledby="public-profile-username" style="display:none;">
+    <div class="card public-profile-card">
+      <div class="public-profile-header">
+        <div class="public-profile-hero">
+          <div class="public-avatar-circle" id="public-profile-avatar">🐤</div>
+          <div class="public-profile-hero-info">
+            <div class="public-profile-tag" id="public-profile-badge">⭐ VERIFIED PILOT</div>
+            <h2 class="public-profile-username" id="public-profile-username">Player</h2>
+            <div class="public-profile-meta" id="public-profile-joined">Member since 2026</div>
+          </div>
+        </div>
+        <button type="button" class="guest-modal-close" id="public-profile-close-btn" title="Close Profile (Esc)">✕</button>
+      </div>
+
+      <div class="public-profile-body">
+        <!-- Loadout -->
+        <div class="public-section-title">🎨 Equipped 3D Loadout</div>
+        <div class="public-loadout-grid">
+          <div class="public-loadout-item" id="public-loadout-bird">
+            <span class="public-loadout-swatch" id="public-bird-swatch">🐤</span>
+            <div>
+              <div class="public-loadout-label">Bird Skin</div>
+              <strong class="public-loadout-name" id="public-bird-name">Classic Yellow</strong>
+            </div>
+          </div>
+          <div class="public-loadout-item" id="public-loadout-pipe">
+            <span class="public-loadout-swatch" id="public-pipe-swatch">🏗️</span>
+            <div>
+              <div class="public-loadout-label">Pipe Skin</div>
+              <strong class="public-loadout-name" id="public-pipe-name">Classic Green</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Verified Gamemode Bests -->
+        <div class="public-section-title" style="margin-top: 14px;">🏆 Verified Gamemode Bests</div>
+        <div class="public-records-grid">
+          <div class="public-record-card mode-easy">
+            <span class="record-mode-pill">🟢 Easy</span>
+            <strong class="record-score-val" id="public-rec-easy">0 pts</strong>
+            <span class="record-rank-pill" id="public-rank-easy">Rank --</span>
+          </div>
+          <div class="public-record-card mode-medium">
+            <span class="record-mode-pill">🟡 Medium</span>
+            <strong class="record-score-val" id="public-rec-med">0 pts</strong>
+            <span class="record-rank-pill" id="public-rank-med">Rank --</span>
+          </div>
+          <div class="public-record-card mode-hard">
+            <span class="record-mode-pill">🔴 Hard</span>
+            <strong class="record-score-val" id="public-rec-hard">0 pts</strong>
+            <span class="record-rank-pill" id="public-rank-hard">Rank --</span>
+          </div>
+        </div>
+
+        <!-- Career Telemetry -->
+        <div class="public-section-title" style="margin-top: 14px;">📊 Flight Telemetry & Accomplishments</div>
+        <div class="public-stats-row">
+          <div class="public-stat-box">
+            <span class="public-stat-label">Total Verified Runs</span>
+            <strong class="public-stat-val" id="public-stat-runs">0</strong>
+          </div>
+          <div class="public-stat-box">
+            <span class="public-stat-label">Cosmetics Mastered</span>
+            <strong class="public-stat-val" id="public-stat-skins">Active</strong>
+          </div>
+          <div class="public-stat-box">
+            <span class="public-stat-label">Active Leaderboard Ranks</span>
+            <strong class="public-stat-val" id="public-stat-top100">3 Modes</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="public-profile-footer">
+        <button type="button" class="btn-public-profile-close" id="public-profile-footer-close-btn">Close Profile</button>
       </div>
     </div>
   </div>

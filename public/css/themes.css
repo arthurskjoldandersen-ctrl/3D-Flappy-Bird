@@ -86,8 +86,8 @@
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 28px);
-  max-width: 1240px;
+  width: calc(100% - 24px);
+  max-width: 1440px;
   height: 56px;
   background: var(--dock-bg);
   backdrop-filter: blur(18px);
@@ -4105,40 +4105,41 @@ body.theme-light *::-webkit-scrollbar-thumb:hover {
 }
 
 /* 2. RESPONSIVE TOP NAVIGATION BAR (#top-app-bar / .app-header)
-      Ensures "3D FLAPPY BIRD" brand text never overflows or squishes on any screen */
+      Ensures "3D FLAPPY BIRD" brand text, nav dock, and profile capsule fit simultaneously without horizontal scrolling */
 .app-header {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  gap: clamp(6px, 1vw, 14px) !important;
-  padding: 0 clamp(8px, 1.4vw, 18px) !important;
+  gap: clamp(4px, 0.8vw, 12px) !important;
+  padding: 0 clamp(8px, 1.2vw, 16px) !important;
   box-sizing: border-box !important;
   min-width: 0 !important;
-  overflow: hidden !important;
+  max-width: 1440px !important;
+  width: calc(100% - 24px) !important;
+  overflow: visible !important;
 }
 
 .brand-badge {
   display: inline-flex !important;
   align-items: center !important;
-  gap: clamp(6px, 0.8vw, 10px) !important;
-  padding: 5px clamp(10px, 1.1vw, 14px) 5px 7px !important;
+  gap: clamp(5px, 0.6vw, 8px) !important;
+  padding: 5px clamp(8px, 0.9vw, 12px) 5px 6px !important;
   border-radius: 999px !important;
-  flex: 0 1 auto !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
   min-width: 0 !important;
-  max-width: 100% !important;
   box-sizing: border-box !important;
-  overflow: hidden !important;
 }
 
 .brand-icon {
-  width: clamp(28px, 2.4vw, 34px) !important;
-  height: clamp(28px, 2.4vw, 34px) !important;
+  width: clamp(26px, 2.2vw, 32px) !important;
+  height: clamp(26px, 2.2vw, 32px) !important;
   border-radius: 10px !important;
   flex-shrink: 0 !important;
 }
 
 .brand-title {
-  font-size: clamp(0.84rem, 1.18vw, 1.12rem) !important;
+  font-size: clamp(0.80rem, 1.1vw, 1.05rem) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -4149,7 +4150,7 @@ body.theme-light *::-webkit-scrollbar-thumb:hover {
 }
 
 .brand-tag {
-  font-size: clamp(0.56rem, 0.72vw, 0.66rem) !important;
+  font-size: clamp(0.54rem, 0.68vw, 0.64rem) !important;
   padding: 2px 6px !important;
   border-radius: 999px !important;
   flex-shrink: 0 !important;
@@ -4158,32 +4159,48 @@ body.theme-light *::-webkit-scrollbar-thumb:hover {
 .nav-dock {
   display: flex !important;
   align-items: center !important;
-  gap: clamp(3px, 0.5vw, 6px) !important;
-  padding: 4px !important;
+  gap: clamp(2px, 0.4vw, 5px) !important;
+  padding: 3px 4px !important;
   border-radius: 999px !important;
   flex: 0 1 auto !important;
   min-width: 0 !important;
-  overflow-x: auto !important;
-  scrollbar-width: none !important;
+  overflow-x: hidden !important;
 }
 .nav-dock::-webkit-scrollbar {
   display: none !important;
 }
 
 .dock-tab {
-  padding: 6px clamp(8px, 1vw, 13px) !important;
-  font-size: clamp(0.72rem, 0.88vw, 0.82rem) !important;
+  padding: 5px clamp(6px, 0.8vw, 11px) !important;
+  font-size: clamp(0.70rem, 0.82vw, 0.80rem) !important;
   border-radius: 999px !important;
   white-space: nowrap !important;
   flex-shrink: 0 !important;
+  gap: 4px !important;
 }
 
 .header-right {
   display: flex !important;
   align-items: center !important;
-  gap: clamp(5px, 0.7vw, 10px) !important;
+  gap: clamp(4px, 0.5vw, 8px) !important;
   flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
   min-width: 0 !important;
+}
+
+.profile-capsule-btn {
+  flex-shrink: 0 !important;
+  max-width: clamp(140px, 18vw, 220px) !important;
+  padding: 4px clamp(8px, 0.9vw, 12px) 4px 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.capsule-name {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 .user-capsule {
@@ -4768,6 +4785,274 @@ input, select, textarea, button {
 }
 .locker-search-input {
   border-radius: 999px !important;
+}
+
+/* 4. GAME OVER SCREEN TOP CLEARANCE */
+/* Guarantees the Game Over card never goes under, overlaps, or collides with the top app bar */
+#gameover-screen {
+  padding-top: clamp(76px, 11vh, 92px) !important;
+  padding-bottom: 24px !important;
+  align-items: flex-start !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
+}
+
+#gameover-screen .gameover-card {
+  margin: 0 auto !important;
+  max-height: calc(100vh - 105px) !important;
+  box-sizing: border-box !important;
+}
+
+/* 5. LEADERBOARD PLAYER NAME CLICKABILITY & OFFLINE INDICATOR */
+.lb-player-name {
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+.lb-player-name:hover {
+  color: #38bdf8 !important;
+  text-decoration: underline !important;
+  background: rgba(56, 189, 248, 0.16) !important;
+}
+
+.lb-offline-notice {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.lb-offline-notice code {
+  background: rgba(15, 23, 42, 0.7);
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: #facc15;
+}
+
+/* 6. SET AS PROFILE PICTURE BUTTON IN SPOTLIGHT */
+.btn-spotlight-avatar {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-spotlight-avatar:hover {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);
+}
+.btn-spotlight-avatar.is-active {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-color: #34d399;
+}
+
+/* 7. DEDICATED PUBLIC PLAYER PROFILE MODAL */
+.public-profile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 250;
+}
+.public-profile-card {
+  width: 100%;
+  max-width: 500px;
+  background: rgba(30, 41, 59, 0.96);
+  border: 2px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 24px;
+  padding: 22px 24px;
+  box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.65);
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+  text-align: left;
+}
+.public-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  position: relative;
+}
+.public-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.public-avatar-circle {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+.public-profile-tag {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 2px 8px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+.public-profile-username {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  margin: 0;
+  line-height: 1.15;
+}
+.public-profile-meta {
+  font-size: 0.74rem;
+  color: var(--text-secondary, #94a3b8);
+}
+.public-section-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.public-loadout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.public-loadout-item {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.public-loadout-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+.public-loadout-label {
+  font-size: 0.68rem;
+  color: var(--text-secondary, #94a3b8);
+}
+.public-loadout-name {
+  font-size: 0.82rem;
+  color: var(--text-primary, #ffffff);
+  display: block;
+}
+.public-records-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.public-record-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.record-mode-pill {
+  font-size: 0.70rem;
+  font-weight: 800;
+  color: var(--text-secondary, #94a3b8);
+}
+.record-score-val {
+  font-size: 1.15rem;
+  font-family: 'Fredoka', sans-serif;
+  color: #fbbf24;
+}
+.record-rank-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.public-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.public-stat-box {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.public-stat-label {
+  font-size: 0.66rem;
+  color: var(--text-secondary, #94a3b8);
+  display: block;
+  margin-bottom: 2px;
+}
+.public-stat-val {
+  font-size: 1.05rem;
+  font-family: 'Fredoka', sans-serif;
+  color: #e2e8f0;
+}
+.public-profile-footer {
+  margin-top: 18px;
+  text-align: center;
+}
+.btn-public-profile-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  border-radius: 999px;
+  padding: 8px 24px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.btn-public-profile-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
 

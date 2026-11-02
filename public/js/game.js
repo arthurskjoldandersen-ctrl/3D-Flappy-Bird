@@ -19,6 +19,7 @@
 
           this.selectedSkinId = localStorage.getItem('flappy3d_skin') || 'classic';
           this.previewSkinId = null;
+          this.avatarSkinId = localStorage.getItem('flappy3d_avatar_skin') || this.selectedSkinId || 'classic';
 
           this.selectedPipeSkinId = localStorage.getItem('flappy3d_pipe_skin') || 'classic_pipe';
           this.previewPipeSkinId = null;
@@ -82,6 +83,7 @@
 
           this.updateHUD();
           this.renderAllCosmeticGrids();
+          this.updateAllProfilePictures();
 
           // Connect to Online Server & poll leaderboards every 5s while in menus
           this.initOnlineSession();
@@ -346,6 +348,22 @@
           if (guestModalOverlay) {
             guestModalOverlay.addEventListener('click', (e) => {
               if (e.target === guestModalOverlay) this.toggleGuestLoginModal(false);
+            });
+          }
+
+          // Dedicated Public Profile Modal Controls
+          const publicProfileClose = document.getElementById('public-profile-close-btn');
+          if (publicProfileClose) {
+            publicProfileClose.addEventListener('click', () => this.closePublicProfileModal());
+          }
+          const publicProfileFooterClose = document.getElementById('public-profile-footer-close-btn');
+          if (publicProfileFooterClose) {
+            publicProfileFooterClose.addEventListener('click', () => this.closePublicProfileModal());
+          }
+          const publicProfileModal = document.getElementById('player-public-profile-modal');
+          if (publicProfileModal) {
+            publicProfileModal.addEventListener('click', (e) => {
+              if (e.target === publicProfileModal) this.closePublicProfileModal();
             });
           }
 

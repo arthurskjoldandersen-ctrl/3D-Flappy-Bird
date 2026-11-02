@@ -468,16 +468,42 @@ class FlappyBirdUIAndProgression {
           if (this.authToken) {
             headers['Authorization'] = `Bearer ${this.authToken}`;
           }
-          const res = await fetch(path, {
-            method,
-            headers,
-            body: body ? JSON.stringify(body) : null
-          });
-          const data = await res.json();
-          if (!res.ok) {
+
+          let targetUrl = path;
+          try {
+            const res = await fetch(targetUrl, {
+              method,
+              headers,
+              body: body ? JSON.stringify(body) : null
+            });
+            if (res.ok) {
+              return await res.json();
+            }
+            if (res.status === 404 && typeof window !== 'undefined' && window.location && window.location.port !== '3000') {
+              const fallbackUrl = `http://localhost:3000${path.startsWith('/') ? '' : '/'}${path}`;
+              const fallbackRes = await fetch(fallbackUrl, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : null
+              });
+              if (fallbackRes.ok) return await fallbackRes.json();
+            }
+            const data = await res.json().catch(() => ({}));
             throw new Error(data.error || `Request failed (${res.status})`);
+          } catch (err) {
+            if (typeof window !== 'undefined' && window.location && window.location.origin !== 'http://localhost:3000') {
+              try {
+                const fallbackUrl = `http://localhost:3000${path.startsWith('/') ? '' : '/'}${path}`;
+                const fallbackRes = await fetch(fallbackUrl, {
+                  method,
+                  headers,
+                  body: body ? JSON.stringify(body) : null
+                });
+                if (fallbackRes.ok) return await fallbackRes.json();
+              } catch (_) {}
+            }
+            throw err;
           }
-          return data;
         }
 
         async initOnlineSession() {
@@ -504,6 +530,9 @@ class FlappyBirdUIAndProgression {
               this.setLoggedInUser(data.user, this.authToken);
               if (data.leaderboards) {
                 this.leaderboards = data.leaderboards;
+                try {
+                  localStorage.setItem('flappy3d_cached_leaderboards', JSON.stringify(data.leaderboards));
+                } catch (_) {}
                 this.renderLeaderboard();
               }
               return;
@@ -520,6 +549,32 @@ class FlappyBirdUIAndProgression {
           await this.fetchLeaderboards();
         }
 
+        getDefaultLeaderboardSnapshot() {
+          return {
+            easy: [
+              { id: 'seed_e1', username: 'MeDonut', score: 109, verified: true, date: Date.now() - 3600000, skin: 'sakura' },
+              { id: 'seed_e2', username: 'joslor11', score: 85, verified: true, date: Date.now() - 7200000, skin: 'emerald' },
+              { id: 'seed_e3', username: 'SkyAce', score: 72, verified: true, date: Date.now() - 10800000, skin: 'crimson' },
+              { id: 'seed_e4', username: 'ejstrup', score: 54, verified: true, date: Date.now() - 14400000, skin: 'cyber' },
+              { id: 'seed_e5', username: 'thomsen', score: 41, verified: true, date: Date.now() - 18000000, skin: 'golden' }
+            ],
+            medium: [
+              { id: 'seed_m1', username: 'joslor11', score: 42, verified: true, date: Date.now() - 3600000, skin: 'emerald' },
+              { id: 'seed_m2', username: 'MeDonut', score: 40, verified: true, date: Date.now() - 7200000, skin: 'sakura' },
+              { id: 'seed_m3', username: 'SkyAce', score: 38, verified: true, date: Date.now() - 10800000, skin: 'crimson' },
+              { id: 'seed_m4', username: 'ejstrup', score: 29, verified: true, date: Date.now() - 14400000, skin: 'cyber' },
+              { id: 'seed_m5', username: 'thomsen', score: 25, verified: true, date: Date.now() - 18000000, skin: 'golden' }
+            ],
+            hard: [
+              { id: 'seed_h1', username: 'MeDonut', score: 27, verified: true, date: Date.now() - 3600000, skin: 'sakura' },
+              { id: 'seed_h2', username: 'SkyAce', score: 24, verified: true, date: Date.now() - 7200000, skin: 'crimson' },
+              { id: 'seed_h3', username: 'joslor11', score: 21, verified: true, date: Date.now() - 10800000, skin: 'emerald' },
+              { id: 'seed_h4', username: 'ejstrup', score: 18, verified: true, date: Date.now() - 14400000, skin: 'cyber' },
+              { id: 'seed_h5', username: 'thomsen', score: 15, verified: true, date: Date.now() - 18000000, skin: 'golden' }
+            ]
+          };
+        }
+
         async fetchLeaderboards(showAll = null) {
           if (showAll !== null) {
             this.lbShowAllPlayers = Boolean(showAll);
@@ -530,15 +585,45 @@ class FlappyBirdUIAndProgression {
           try {
             const url = this.lbShowAllPlayers ? '/api/leaderboard?all=true' : '/api/leaderboard';
             const data = await this.apiRequest(url);
-            if (data.leaderboards) {
+            if (data && data.leaderboards) {
               this.leaderboards = data.leaderboards;
+              try {
+                localStorage.setItem('flappy3d_cached_leaderboards', JSON.stringify(data.leaderboards));
+              } catch (_) {}
               this.renderLeaderboard();
+              return;
             }
-          } catch (_) {
+          } catch (err) {
+            // Live fetch failed, fall back to offline cache or snapshot
+          }
+
+          let cachedData = null;
+          try {
+            const raw = localStorage.getItem('flappy3d_cached_leaderboards');
+            if (raw) cachedData = JSON.parse(raw);
+          } catch (_) {}
+
+          if (cachedData && typeof cachedData === 'object' && cachedData.easy) {
+            this.leaderboards = cachedData;
+            this.renderLeaderboard();
             const listEl = document.getElementById('lb-list');
-            if (listEl) {
-              listEl.innerHTML = `<div class="lb-empty">Start the Node server (<code>node server.js</code>) to view live online leaderboards!</div>`;
+            if (listEl && !listEl.querySelector('.lb-offline-notice')) {
+              const notice = document.createElement('div');
+              notice.className = 'lb-offline-notice';
+              notice.innerHTML = `⚡ <span>Viewing Cached Standings</span> <small>(Run <code>node server.js</code> for live multiplayer)</small>`;
+              listEl.prepend(notice);
             }
+            return;
+          }
+
+          this.leaderboards = this.getDefaultLeaderboardSnapshot();
+          this.renderLeaderboard();
+          const listEl = document.getElementById('lb-list');
+          if (listEl && !listEl.querySelector('.lb-offline-notice')) {
+            const notice = document.createElement('div');
+            notice.className = 'lb-offline-notice';
+            notice.innerHTML = `⚡ <span>Standings Snapshot</span> <small>(Start <code>node server.js</code> on port 3000 for live cloud sync)</small>`;
+            listEl.prepend(notice);
           }
         }
 
@@ -623,6 +708,11 @@ class FlappyBirdUIAndProgression {
             };
             this.saveLocalRecords();
           }
+          if (user.avatarSkinId) {
+            this.avatarSkinId = user.avatarSkinId;
+            try { localStorage.setItem('flappy3d_avatar_skin', user.avatarSkinId); } catch (_) {}
+          }
+          this.updateAllProfilePictures();
           this.updateProfileRecordPills();
           this.renderAllCosmeticGrids();
           this.renderLeaderboard();
@@ -666,12 +756,204 @@ class FlappyBirdUIAndProgression {
           if (lobbyAuthText2) lobbyAuthText2.innerHTML = '👤 Playing as <strong>Guest</strong>';
           const lobbyAuthBtn2 = document.getElementById('btn-lobby-auth-action');
           if (lobbyAuthBtn2) lobbyAuthBtn2.textContent = '🔑 Log In / Register';
+          this.updateAllProfilePictures();
           this.updateProfileRecordPills();
           this.renderAllCosmeticGrids();
           this.renderLeaderboard();
 
           if (showGuestPrompt) {
             this.toggleGuestLoginModal(true);
+          }
+        }
+
+        setProfileAvatar(birdSkinId) {
+          const skin = BIRD_SKINS.find(s => s.id === birdSkinId);
+          if (!skin) return;
+          this.avatarSkinId = birdSkinId;
+          try {
+            localStorage.setItem('flappy3d_avatar_skin', birdSkinId);
+          } catch (_) {}
+
+          if (this.currentUser) {
+            this.currentUser.avatarSkinId = birdSkinId;
+          }
+
+          if (this.authToken) {
+            this.apiRequest('/api/user/set-avatar', 'POST', { avatarSkinId: birdSkinId }).catch(() => {});
+          }
+
+          this.updateAllProfilePictures();
+          if (this.activeBirdSpotlightSkin) {
+            this.renderSpotlightBox('bird-skin-spotlight', this.activeBirdSpotlightSkin, false);
+          }
+          const toast = document.getElementById('unlock-toast');
+          if (toast) {
+            toast.textContent = `🖼️ Profile picture set to ${skin.name}!`;
+            toast.classList.add('visible');
+            setTimeout(() => { toast.classList.remove('visible'); }, 3000);
+          }
+        }
+
+        updateAllProfilePictures() {
+          const currentId = this.avatarSkinId || (this.currentUser && this.currentUser.avatarSkinId) || this.selectedSkinId || 'classic';
+          const skin = BIRD_SKINS.find(s => s.id === currentId) || BIRD_SKINS[0];
+          if (!skin) return;
+
+          const hexBody = '#' + skin.body.toString(16).padStart(6, '0');
+          const hexWing = '#' + skin.wing.toString(16).padStart(6, '0');
+          const gradientStyle = `linear-gradient(135deg, ${hexBody} 45%, ${hexWing} 100%)`;
+
+          const capsuleAvatars = document.querySelectorAll('.capsule-avatar, #capsule-avatar');
+          capsuleAvatars.forEach(el => {
+            el.textContent = skin.emoji;
+            el.style.background = gradientStyle;
+            el.style.borderRadius = '50%';
+            el.style.display = 'inline-flex';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'center';
+            el.style.width = '26px';
+            el.style.height = '26px';
+            el.style.fontSize = '14px';
+            el.style.boxShadow = `0 2px 8px ${hexBody}66`;
+            el.title = `Profile Picture: ${skin.name}`;
+          });
+
+          const heroAvatar = document.getElementById('profile-avatar-emoji');
+          if (heroAvatar) {
+            heroAvatar.textContent = skin.emoji;
+            heroAvatar.style.background = gradientStyle;
+            heroAvatar.style.boxShadow = `0 6px 20px ${hexBody}88`;
+            heroAvatar.title = `Profile Picture: ${skin.name}`;
+          }
+
+          const pubAvatar = document.getElementById('public-profile-avatar');
+          if (pubAvatar && pubAvatar.dataset && pubAvatar.dataset.isSelf === 'true') {
+            pubAvatar.textContent = skin.emoji;
+            pubAvatar.style.background = gradientStyle;
+          }
+        }
+
+        async openPublicProfileModal(username) {
+          const modal = document.getElementById('player-public-profile-modal');
+          if (!modal) return;
+
+          const cleanName = String(username || '').trim();
+          modal.style.display = 'flex';
+          modal.classList.add('active');
+
+          const unameEl = document.getElementById('public-profile-username');
+          if (unameEl) unameEl.textContent = cleanName;
+          const badgeEl = document.getElementById('public-profile-badge');
+          if (badgeEl) badgeEl.textContent = cleanName.toLowerCase() === 'medonut' ? '👑 SERVER ADMIN & DEV' : '⭐ VERIFIED PILOT';
+          const joinedEl = document.getElementById('public-profile-joined');
+          if (joinedEl) joinedEl.textContent = 'Fetching player records...';
+
+          let profileData = null;
+          try {
+            const res = await this.apiRequest(`/api/user/profile?username=${encodeURIComponent(cleanName)}`);
+            if (res && res.profile) profileData = res.profile;
+          } catch (_) {}
+
+          if (!profileData) {
+            const easyEntry = (this.leaderboards.easy || []).find(e => e.username.toLowerCase() === cleanName.toLowerCase());
+            const medEntry = (this.leaderboards.medium || []).find(e => e.username.toLowerCase() === cleanName.toLowerCase());
+            const hardEntry = (this.leaderboards.hard || []).find(e => e.username.toLowerCase() === cleanName.toLowerCase());
+
+            const easyRank = easyEntry ? `#${(this.leaderboards.easy || []).indexOf(easyEntry) + 1}` : 'Unranked';
+            const medRank = medEntry ? `#${(this.leaderboards.medium || []).indexOf(medEntry) + 1}` : 'Unranked';
+            const hardRank = hardEntry ? `#${(this.leaderboards.hard || []).indexOf(hardEntry) + 1}` : 'Unranked';
+
+            profileData = {
+              username: cleanName,
+              records: {
+                easy: easyEntry ? easyEntry.score : 0,
+                medium: medEntry ? medEntry.score : 0,
+                hard: hardEntry ? hardEntry.score : 0
+              },
+              selectedSkin: (easyEntry && easyEntry.skin) || (cleanName.toLowerCase() === 'medonut' ? 'sakura' : 'classic'),
+              selectedPipeSkin: (cleanName.toLowerCase() === 'medonut' ? 'glacier_pipe' : 'classic_pipe'),
+              avatarSkinId: (cleanName.toLowerCase() === 'medonut' ? 'sakura' : 'classic'),
+              createdAt: Date.now() - 86400000 * 14,
+              totalRuns: (easyEntry ? 1 : 0) + (medEntry ? 1 : 0) + (hardEntry ? 1 : 0),
+              ranks: { easy: easyRank, medium: medRank, hard: hardRank }
+            };
+          }
+
+          const avatarSkin = BIRD_SKINS.find(s => s.id === (profileData.avatarSkinId || profileData.selectedSkin)) || BIRD_SKINS[0];
+          const avatarEl = document.getElementById('public-profile-avatar');
+          if (avatarEl && avatarSkin) {
+            const hexBody = '#' + avatarSkin.body.toString(16).padStart(6, '0');
+            const hexWing = '#' + avatarSkin.wing.toString(16).padStart(6, '0');
+            avatarEl.textContent = avatarSkin.emoji;
+            avatarEl.style.background = `linear-gradient(135deg, ${hexBody} 45%, ${hexWing} 100%)`;
+            avatarEl.style.boxShadow = `0 6px 20px ${hexBody}88`;
+            avatarEl.dataset.isSelf = (this.currentUser && this.currentUser.username.toLowerCase() === cleanName.toLowerCase()) ? 'true' : 'false';
+          }
+
+          if (joinedEl) {
+            const dateStr = profileData.createdAt ? new Date(profileData.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Verified Flier';
+            joinedEl.textContent = `Member since ${dateStr}`;
+          }
+
+          const birdSkin = BIRD_SKINS.find(s => s.id === profileData.selectedSkin) || BIRD_SKINS[0];
+          const pipeSkin = PIPE_SKINS.find(p => p.id === profileData.selectedPipeSkin) || PIPE_SKINS[0];
+
+          const birdSwatch = document.getElementById('public-bird-swatch');
+          const birdName = document.getElementById('public-bird-name');
+          if (birdSwatch && birdSkin) {
+            const hexBody = '#' + birdSkin.body.toString(16).padStart(6, '0');
+            const hexWing = '#' + birdSkin.wing.toString(16).padStart(6, '0');
+            birdSwatch.textContent = birdSkin.emoji;
+            birdSwatch.style.background = `linear-gradient(135deg, ${hexBody} 45%, ${hexWing} 100%)`;
+          }
+          if (birdName && birdSkin) {
+            birdName.textContent = birdSkin.name;
+          }
+
+          const pipeSwatch = document.getElementById('public-pipe-swatch');
+          const pipeName = document.getElementById('public-pipe-name');
+          if (pipeSwatch && pipeSkin) {
+            pipeSwatch.textContent = pipeSkin.emoji;
+            pipeSwatch.style.background = `linear-gradient(90deg, ${pipeSkin.colors[0]} 0%, ${pipeSkin.colors[2]} 50%, ${pipeSkin.colors[1]} 100%)`;
+          }
+          if (pipeName && pipeSkin) {
+            pipeName.textContent = pipeSkin.name;
+          }
+
+          const recEasy = document.getElementById('public-rec-easy');
+          const recMed = document.getElementById('public-rec-med');
+          const recHard = document.getElementById('public-rec-hard');
+          const rankEasy = document.getElementById('public-rank-easy');
+          const rankMed = document.getElementById('public-rank-med');
+          const rankHard = document.getElementById('public-rank-hard');
+
+          if (recEasy) recEasy.textContent = `${profileData.records?.easy || 0} pts`;
+          if (recMed) recMed.textContent = `${profileData.records?.medium || 0} pts`;
+          if (recHard) recHard.textContent = `${profileData.records?.hard || 0} pts`;
+
+          if (rankEasy) rankEasy.textContent = `Rank ${profileData.ranks?.easy || '--'}`;
+          if (rankMed) rankMed.textContent = `Rank ${profileData.ranks?.medium || '--'}`;
+          if (rankHard) rankHard.textContent = `Rank ${profileData.ranks?.hard || '--'}`;
+
+          const runsStat = document.getElementById('public-stat-runs');
+          const skinsStat = document.getElementById('public-stat-skins');
+          const top100Stat = document.getElementById('public-stat-top100');
+          if (runsStat) runsStat.textContent = String(profileData.totalRuns || 1);
+          if (skinsStat) skinsStat.textContent = cleanName.toLowerCase() === 'medonut' ? '96/96 (Master)' : 'Active Collector';
+          if (top100Stat) {
+            let top100Count = 0;
+            if (profileData.ranks?.easy && profileData.ranks.easy.startsWith('#')) top100Count++;
+            if (profileData.ranks?.medium && profileData.ranks.medium.startsWith('#')) top100Count++;
+            if (profileData.ranks?.hard && profileData.ranks.hard.startsWith('#')) top100Count++;
+            top100Stat.textContent = `${top100Count} Modes`;
+          }
+        }
+
+        closePublicProfileModal() {
+          const modal = document.getElementById('player-public-profile-modal');
+          if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
           }
         }
 
@@ -1162,6 +1444,11 @@ class FlappyBirdUIAndProgression {
             const nameText = document.createElement('span');
             nameText.className = 'lb-player-name';
             nameText.textContent = item.username;
+            nameText.title = `Click to view ${item.username}'s profile & stats`;
+            nameText.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.openPublicProfileModal(item.username);
+            });
             nameEl.appendChild(nameText);
 
             if (isMe) {
@@ -1685,6 +1972,11 @@ class FlappyBirdUIAndProgression {
             ? `<span class="hitbox-fairness-tag" title="Every pipe skin uses the exact same 1.05m shaft / 1.24m cap collision bounds">🎯 1.05m Uniform Hitbox</span>`
             : `<span class="hitbox-fairness-tag" title="Every bird & Pokémon skin uses the exact same 0.60m spherical hitbox">🎯 0.60m Uniform Hitbox</span>`;
 
+          const isAvatar = !isPipe && ((this.avatarSkinId || (this.currentUser && this.currentUser.avatarSkinId) || this.selectedSkinId || 'classic') === item.id);
+          const avatarBtnHtml = !isPipe
+            ? `<button type="button" class="btn-spotlight-avatar ${isAvatar ? 'is-active' : ''}" id="btn-spotlight-set-avatar" title="Set ${item.name} preview as your profile picture">🖼️ ${isAvatar ? 'Current Profile Picture ✓' : 'Set as Profile Picture'}</button>`
+            : '';
+
           spotEl.innerHTML = `
             <div class="spotlight-3d-wrap">
               <canvas class="spotlight-3d-canvas" id="${canvasId}" width="160" height="160"></canvas>
@@ -1701,8 +1993,20 @@ class FlappyBirdUIAndProgression {
                 </div>
               </div>
               <div class="spotlight-desc">${item.desc} • <strong class="spotlight-req-strong">${unlocked ? 'Unlocked (' + item.reqText + ')' : 'Requirement: ' + item.reqText}</strong></div>
+              ${avatarBtnHtml ? `<div class="spotlight-avatar-row" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">${avatarBtnHtml}</div>` : ''}
             </div>
           `;
+
+          if (!isPipe) {
+            this.activeBirdSpotlightSkin = item;
+            const setAvatarBtn = spotEl.querySelector('#btn-spotlight-set-avatar');
+            if (setAvatarBtn) {
+              setAvatarBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.setProfileAvatar(item.id);
+              });
+            }
+          }
         }
 
         buildCosmeticCard(item, isPipe = false) {

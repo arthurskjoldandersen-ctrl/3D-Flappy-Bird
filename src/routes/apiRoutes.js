@@ -113,6 +113,9 @@ function getLocalAddresses() {
 
 async function handleApiRequest(req, res, pathname, port) {
   const db = getDb();
+  const parsedUrl = new URL(req.url, 'http://localhost');
+  const query = Object.fromEntries(parsedUrl.searchParams.entries());
+  parsedUrl.query = query;
 
   // 1. Server Info & Healthcheck (Used by Render healthCheckPath)
   if (req.method === 'GET' && pathname === '/api/server-info') {
@@ -255,6 +258,7 @@ async function handleApiRequest(req, res, pathname, port) {
         username: auth.user.username,
         selectedSkin: auth.user.selectedSkin || 'classic',
         selectedPipeSkin: auth.user.selectedPipeSkin || 'classic_pipe',
+        avatarSkinId: auth.user.avatarSkinId || auth.user.selectedSkin || 'classic',
         grantedSkins: auth.user.grantedSkins || [],
         adminLockedSkins: auth.user.adminLockedSkins || [],
         records: auth.user.records
@@ -269,7 +273,7 @@ async function handleApiRequest(req, res, pathname, port) {
     if (!auth) {
       return sendJSON(res, 401, { error: 'Not authenticated' });
     }
-    const { skinId, pipeSkinId } = await readJsonBody(req);
+    const { skinId, pipeSkinId, avatarSkinId } = await readJsonBody(req);
     const lockedSkins = auth.user.adminLockedSkins || [];
 
     if (typeof skinId === 'string' && skinId.length <= 40) {
@@ -284,11 +288,76 @@ async function handleApiRequest(req, res, pathname, port) {
       }
       auth.user.selectedPipeSkin = pipeSkinId;
     }
+    if (typeof avatarSkinId === 'string' && avatarSkinId.length <= 40) {
+      auth.user.avatarSkinId = avatarSkinId;
+    }
     saveDatabase();
     return sendJSON(res, 200, {
       ok: true,
       selectedSkin: auth.user.selectedSkin || 'classic',
-      selectedPipeSkin: auth.user.selectedPipeSkin || 'classic_pipe'
+      selectedPipeSkin: auth.user.selectedPipeSkin || 'classic_pipe',
+      avatarSkinId: auth.user.avatarSkinId || auth.user.selectedSkin || 'classic'
+    });
+  }
+
+  // 7b. Dedicated Set Avatar Profile Picture Endpoint
+  if (req.method === 'POST' && pathname === '/api/user/set-avatar') {
+    const auth = getAuthenticatedUser(req);
+    if (!auth) {
+      return sendJSON(res, 401, { error: 'Not authenticated' });
+    }
+    const { avatarSkinId } = await readJsonBody(req);
+    if (typeof avatarSkinId === 'string' && avatarSkinId.length <= 40) {
+      auth.user.avatarSkinId = avatarSkinId.trim();
+      saveDatabase();
+      return sendJSON(res, 200, {
+        ok: true,
+        avatarSkinId: auth.user.avatarSkinId
+      });
+    }
+    return sendJSON(res, 400, { error: 'Invalid avatarSkinId provided' });
+  }
+
+  // 7c. Public Player Profile Inspector Endpoint
+  if (req.method === 'GET' && pathname === '/api/user/profile') {
+    const targetUsername = (parsedUrl.query && parsedUrl.query.username) ? String(parsedUrl.query.username).trim() : '';
+    if (!targetUsername) {
+      return sendJSON(res, 400, { error: 'Missing username parameter' });
+    }
+    const lower = targetUsername.toLowerCase();
+    const user = db.users && db.users[lower];
+    if (!user) {
+      return sendJSON(res, 404, { error: `Player profile for "${targetUsername}" not found.` });
+    }
+
+    // Count user's runs across all modes
+    let totalRuns = 0;
+    ['easy', 'medium', 'hard'].forEach(diff => {
+      if (Array.isArray(db.runs[diff])) {
+        totalRuns += db.runs[diff].filter(r => r.username.toLowerCase() === lower && !r.hidden).length;
+      }
+    });
+
+    // Compute leaderboard ranks
+    const leaderboards = buildLeaderboards(0);
+    const ranks = {};
+    ['easy', 'medium', 'hard'].forEach(diff => {
+      const idx = (leaderboards[diff] || []).findIndex(e => e.username.toLowerCase() === lower);
+      ranks[diff] = idx !== -1 ? `#${idx + 1}` : 'Unranked';
+    });
+
+    return sendJSON(res, 200, {
+      profile: {
+        username: user.username,
+        records: user.records || { easy: 0, medium: 0, hard: 0 },
+        recordTimestamps: user.recordTimestamps || {},
+        selectedSkin: user.selectedSkin || 'classic',
+        selectedPipeSkin: user.selectedPipeSkin || 'classic_pipe',
+        avatarSkinId: user.avatarSkinId || user.selectedSkin || 'classic',
+        createdAt: user.createdAt || Date.now(),
+        totalRuns,
+        ranks
+      }
     });
   }
 

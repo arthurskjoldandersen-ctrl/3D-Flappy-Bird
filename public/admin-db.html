@@ -1151,14 +1151,14 @@
   <!-- DEDICATED PLAYER SKINS & INVENTORY MODAL POPUP               -->
   <!-- ============================================================ -->
   <div class="modal-backdrop" id="player-skins-modal" role="dialog" aria-modal="true" aria-labelledby="modal-skins-title" style="display:none;">
-    <div class="runs-modal-box" style="max-width:880px;">
-      <!-- Modal Header -->
-      <div class="modal-header">
+    <div class="runs-modal-box" style="max-width:840px; max-height:86vh; display:flex; flex-direction:column; overflow:hidden;">
+      <!-- Modal Header (Compact) -->
+      <div class="modal-header" style="padding:10px 18px;">
         <div class="modal-header-left">
-          <div class="modal-avatar-badge" style="background:linear-gradient(135deg, #a855f7, #ec4899);">🎨</div>
+          <div class="modal-avatar-badge" style="background:linear-gradient(135deg, #a855f7, #ec4899); width:34px; height:34px; font-size:16px;">🎨</div>
           <div>
-            <div class="modal-title" id="modal-skins-title">Player Skin Management</div>
-            <div class="modal-subtitle" id="modal-skins-meta">
+            <div class="modal-title" id="modal-skins-title" style="font-size:1.15rem;">Player Skin Management</div>
+            <div class="modal-subtitle" id="modal-skins-meta" style="font-size:0.75rem; margin-top:2px;">
               <span class="modal-pill" id="modal-skins-user-pill">👤 User</span>
               <span class="modal-pill" id="modal-skins-locked-count-pill" style="color:#fca5a5;">🔒 0 Locked</span>
               <span class="modal-pill" id="modal-skins-granted-count-pill" style="color:#d8b4fe;">🎁 0 Granted</span>
@@ -1168,73 +1168,64 @@
         <button type="button" class="modal-close-btn" id="modal-skins-close-btn" title="Close Popup (Esc)">✕</button>
       </div>
 
-      <div class="modal-body" style="padding:16px 20px; display:flex; flex-direction:column; gap:16px;">
-        <!-- SECTION 1: CHANGE CURRENTLY EQUIPPED SKINS -->
-        <div style="background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:14px; padding:14px 16px;">
-          <div style="font-size:0.86rem; font-weight:800; color:#38bdf8; margin-bottom:8px;">⚡ Change Player's Equipped Skins</div>
-          <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:flex-end;">
+      <div class="modal-body" style="padding:10px 18px; display:flex; flex-direction:column; gap:10px; overflow-y:auto; flex:1;">
+        <!-- ROW 1: CHANGE CURRENTLY EQUIPPED SKINS -->
+        <div style="background:rgba(15,23,42,0.65); border:1px solid var(--border); border-radius:12px; padding:10px 14px;">
+          <div style="font-size:0.80rem; font-weight:800; color:#38bdf8; margin-bottom:6px;">⚡ Change Player's Equipped Loadout</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:flex-end;">
             <div>
-              <label style="font-size:0.75rem; color:var(--text-sub); display:block; margin-bottom:4px;">Equipped Bird Skin:</label>
-              <select id="modal-equipped-bird-select" class="search-input" style="width:100%; padding:6px 10px; font-size:0.82rem;"></select>
+              <label style="font-size:0.70rem; color:var(--text-sub); display:block; margin-bottom:3px;">Equipped Bird Skin:</label>
+              <select id="modal-equipped-bird-select" class="search-input" style="width:100%; padding:5px 8px; font-size:0.78rem; height:32px;"></select>
             </div>
             <div>
-              <label style="font-size:0.75rem; color:var(--text-sub); display:block; margin-bottom:4px;">Equipped Pipe Skin:</label>
-              <select id="modal-equipped-pipe-select" class="search-input" style="width:100%; padding:6px 10px; font-size:0.82rem;"></select>
+              <label style="font-size:0.70rem; color:var(--text-sub); display:block; margin-bottom:3px;">Equipped Pipe Skin:</label>
+              <select id="modal-equipped-pipe-select" class="search-input" style="width:100%; padding:5px 8px; font-size:0.78rem; height:32px;"></select>
             </div>
-            <button type="button" class="btn btn-primary" id="modal-save-equipped-btn" style="padding:8px 16px; font-size:0.82rem; height:36px;">
+            <button type="button" class="btn btn-primary" id="modal-save-equipped-btn" style="padding:5px 14px; font-size:0.78rem; height:32px; white-space:nowrap;">
               💾 Save Equipped
             </button>
           </div>
         </div>
 
-        <!-- SECTION 2: GRANT OR ADMIN-LOCK A SKIN -->
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-          <!-- GRANT SKIN -->
-          <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(168,85,247,0.3); border-radius:14px; padding:14px 16px;">
-            <div style="font-size:0.84rem; font-weight:800; color:#d8b4fe; margin-bottom:6px;">🎁 Grant Skin (Add to Inventory)</div>
-            <div style="font-size:0.74rem; color:var(--text-sub); margin-bottom:8px;">Unlocks this skin instantly for the player.</div>
-            <div style="display:flex; gap:8px;">
-              <select id="modal-grant-skin-select" class="search-input" style="flex:1; padding:6px 10px; font-size:0.8rem;"></select>
-              <button type="button" class="btn btn-success" id="modal-grant-skin-btn" style="padding:6px 14px; font-size:0.78rem;">
+        <!-- ROW 2: SIDE-BY-SIDE 2-COLUMN DASHBOARD (GRANT VS LOCK) -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:0; flex:1;">
+          <!-- COLUMN 1: GRANT SKIN & GRANTED INVENTORY -->
+          <div style="background:rgba(15,23,42,0.65); border:1px solid rgba(168,85,247,0.3); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size:0.80rem; font-weight:800; color:#d8b4fe;">🎁 Grant Skin (Add to Inventory)</div>
+              <span id="modal-granted-skins-badge" style="font-size:0.68rem; color:var(--text-sub);">0 granted</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <select id="modal-grant-skin-select" class="search-input" style="flex:1; padding:4px 8px; font-size:0.76rem; height:30px;"></select>
+              <button type="button" class="btn btn-success" id="modal-grant-skin-btn" style="padding:4px 12px; font-size:0.74rem; height:30px;">
                 Grant
               </button>
             </div>
+            <div style="font-size:0.70rem; color:var(--text-sub); margin-top:2px;">Currently Granted Skins:</div>
+            <div id="modal-granted-skins-list" style="display:flex; flex-wrap:wrap; gap:6px; max-height:120px; overflow-y:auto; padding:2px; min-height:40px; background:rgba(0,0,0,0.25); border-radius:8px;"></div>
           </div>
 
-          <!-- ADMIN-LOCK / REVOKE SKIN -->
-          <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(239,68,68,0.3); border-radius:14px; padding:14px 16px;">
-            <div style="font-size:0.84rem; font-weight:800; color:#fca5a5; margin-bottom:6px;">🔒 Admin-Lock / Remove Skin</div>
-            <div style="font-size:0.74rem; color:var(--text-sub); margin-bottom:8px;">Removes from inventory and keeps it strictly locked until you unlock it.</div>
-            <div style="display:flex; gap:8px;">
-              <select id="modal-lock-skin-select" class="search-input" style="flex:1; padding:6px 10px; font-size:0.8rem;"></select>
-              <button type="button" class="btn btn-danger" id="modal-lock-skin-btn" style="padding:6px 14px; font-size:0.78rem;">
+          <!-- COLUMN 2: ADMIN-LOCK SKIN & LOCKED INVENTORY -->
+          <div style="background:rgba(15,23,42,0.65); border:1px solid rgba(239,68,68,0.3); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size:0.80rem; font-weight:800; color:#fca5a5;">🔒 Admin-Lock / Remove Skin</div>
+              <span id="modal-locked-skins-badge" style="font-size:0.68rem; color:var(--text-sub);">0 locked</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <select id="modal-lock-skin-select" class="search-input" style="flex:1; padding:4px 8px; font-size:0.76rem; height:30px;"></select>
+              <button type="button" class="btn btn-danger" id="modal-lock-skin-btn" style="padding:4px 12px; font-size:0.74rem; height:30px;">
                 Lock
               </button>
             </div>
+            <div style="font-size:0.70rem; color:var(--text-sub); margin-top:2px;">Currently Locked (Cannot Unlock):</div>
+            <div id="modal-locked-skins-list" style="display:flex; flex-wrap:wrap; gap:6px; max-height:120px; overflow-y:auto; padding:2px; min-height:40px; background:rgba(0,0,0,0.25); border-radius:8px;"></div>
           </div>
-        </div>
-
-        <!-- SECTION 3: CURRENTLY ADMIN-LOCKED SKINS (WITH UNLOCK BUTTONS) -->
-        <div style="background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:14px; padding:14px 16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-size:0.84rem; font-weight:800; color:#f87171;">🔒 Currently Admin-Locked Skins for this Player</div>
-            <span id="modal-locked-skins-badge" style="font-size:0.72rem; color:var(--text-sub);">0 skins locked</span>
-          </div>
-          <div id="modal-locked-skins-list" style="display:flex; flex-wrap:wrap; gap:8px; max-height:140px; overflow-y:auto; padding:4px 0;"></div>
-        </div>
-
-        <!-- SECTION 4: CURRENTLY GRANTED SKINS (WITH REVOKE BUTTONS) -->
-        <div style="background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:14px; padding:14px 16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-size:0.84rem; font-weight:800; color:#c084fc;">🎁 Currently Admin-Granted Skins for this Player</div>
-            <span id="modal-granted-skins-badge" style="font-size:0.72rem; color:var(--text-sub);">0 skins granted</span>
-          </div>
-          <div id="modal-granted-skins-list" style="display:flex; flex-wrap:wrap; gap:8px; max-height:140px; overflow-y:auto; padding:4px 0;"></div>
         </div>
       </div>
 
-      <div class="modal-footer">
-        <button type="button" class="btn" id="modal-skins-footer-close-btn" style="padding:8px 16px;">Close</button>
+      <!-- Modal Footer (Compact) -->
+      <div class="modal-footer" style="padding:8px 18px;">
+        <button type="button" class="btn" id="modal-skins-footer-close-btn" style="padding:6px 16px; font-size:0.80rem;">Close</button>
       </div>
     </div>
   </div>
@@ -2266,6 +2257,93 @@
       modalSkinsActivePlayer = null;
     }
 
+    function getSkinLabel(skinId) {
+      const birdList = (typeof BIRD_SKINS !== 'undefined' && Array.isArray(BIRD_SKINS)) ? BIRD_SKINS : [];
+      const pipeList = (typeof PIPE_SKINS !== 'undefined' && Array.isArray(PIPE_SKINS)) ? PIPE_SKINS : [];
+      const bird = birdList.find(s => s.id === skinId);
+      if (bird) return `${bird.emoji || '🐤'} ${bird.name} (${bird.rarity})`;
+      const pipe = pipeList.find(p => p.id === skinId);
+      if (pipe) return `${pipe.emoji || '🟢'} ${pipe.name} (${pipe.rarity})`;
+      return skinId;
+    }
+
+    function isSkinOwnedByPlayer(item, p) {
+      if (!item || !p) return false;
+      const skinId = item.id;
+
+      // 1. Admin-locked skins are strictly NOT owned by this player
+      const lockedList = Array.isArray(p.adminLockedSkins) ? p.adminLockedSkins : [];
+      if (lockedList.includes(skinId)) {
+        return false;
+      }
+
+      // 2. Admin-granted skins are always owned
+      const grantedList = Array.isArray(p.grantedSkins) ? p.grantedSkins : [];
+      if (grantedList.includes(skinId)) {
+        return true;
+      }
+
+      // 3. Default starting cosmetics are always owned
+      if (item.reqScore <= 0 || skinId === 'classic' || skinId === 'classic_pipe') {
+        return true;
+      }
+
+      // 4. Currently equipped skins are owned
+      if (p.selectedSkin === skinId || p.selectedPipeSkin === skinId) {
+        return true;
+      }
+
+      // 5. Score requirements from player records
+      const rec = p.records || {};
+      const easyBest = Number(rec.easy) || 0;
+      const medBest = Number(rec.medium) || 0;
+      const hardBest = Number(rec.hard) || 0;
+      const anyBest = Math.max(easyBest, medBest, hardBest, Number(p.allTimeBest) || 0);
+
+      if (item.altScore && anyBest >= item.altScore) return true;
+      if (item.reqMode === 'any') return anyBest >= item.reqScore;
+      if (item.reqMode === 'easy') return easyBest >= item.reqScore;
+      if (item.reqMode === 'medium') return medBest >= item.reqScore;
+      if (item.reqMode === 'hard') return hardBest >= item.reqScore;
+
+      // 6. Pokémon quest evaluation based on best records
+      if (item.reqMode === 'pokemon' && item.pokeQuestId) {
+        const qid = item.pokeQuestId;
+        const checkPoke = (mReq, eReq, hReq) => (medBest >= mReq || easyBest >= eReq || hardBest >= hReq);
+        switch (qid) {
+          case 'poke_pikachu': return checkPoke(50, 95, 32);
+          case 'poke_charmander':
+          case 'poke_eevee': return checkPoke(48, 90, 30);
+          case 'poke_squirtle':
+          case 'poke_jigglypuff': return checkPoke(46, 85, 28);
+          case 'poke_bulbasaur':
+          case 'poke_meowth': return checkPoke(44, 80, 26);
+          case 'poke_bidoof': return checkPoke(35, 60, 20);
+          case 'poke_magikarp': return checkPoke(15, 30, 10);
+          case 'poke_snorlax': return checkPoke(52, 98, 34);
+          case 'poke_gengar': return checkPoke(54, 102, 36);
+          case 'poke_lucario': return checkPoke(56, 106, 38);
+          case 'poke_greninja': return checkPoke(58, 110, 40);
+          case 'poke_charizard': return checkPoke(60, 115, 42);
+          case 'poke_mew': return checkPoke(62, 120, 45);
+          case 'poke_mewtwo': return checkPoke(65, 128, 48);
+          case 'poke_rayquaza': return checkPoke(70, 135, 52);
+          case 'poke_pipe_pokeball': return checkPoke(30, 50, 18);
+          case 'poke_masterball': return checkPoke(65, 128, 48);
+          default:
+            if (item.reqScore) return checkPoke(item.reqScore, item.reqScore * 1.8, Math.round(item.reqScore * 0.65));
+            break;
+        }
+      }
+
+      // 7. Troll / Meme quests fallback
+      if (item.reqMode === 'meme') {
+        if (item.reqScore && anyBest >= item.reqScore) return true;
+      }
+
+      return false;
+    }
+
     function populateSkinsDropdowns(p) {
       const birdSelect = document.getElementById('modal-equipped-bird-select');
       const pipeSelect = document.getElementById('modal-equipped-pipe-select');
@@ -2275,27 +2353,68 @@
       const birdList = (typeof BIRD_SKINS !== 'undefined' && Array.isArray(BIRD_SKINS)) ? BIRD_SKINS : [];
       const pipeList = (typeof PIPE_SKINS !== 'undefined' && Array.isArray(PIPE_SKINS)) ? PIPE_SKINS : [];
 
+      // 1. EQUIPPED BIRDS: Only bird skins the player owns
+      const ownedBirds = birdList.filter(s => isSkinOwnedByPlayer(s, p));
+      if (p.selectedSkin && !ownedBirds.some(s => s.id === p.selectedSkin)) {
+        const curBird = birdList.find(s => s.id === p.selectedSkin);
+        if (curBird) ownedBirds.unshift(curBird);
+      }
       if (birdSelect) {
-        birdSelect.innerHTML = birdList.map(s => `
-          <option value="${s.id}" ${s.id === p.selectedSkin ? 'selected' : ''}>${s.emoji || '🐤'} ${s.name} (${s.rarity})</option>
-        `).join('');
+        if (ownedBirds.length > 0) {
+          birdSelect.innerHTML = ownedBirds.map(s => `
+            <option value="${s.id}" ${s.id === p.selectedSkin ? 'selected' : ''}>${s.emoji || '🐤'} ${s.name} (${s.rarity})</option>
+          `).join('');
+        } else {
+          birdSelect.innerHTML = `<option value="${p.selectedSkin || 'classic'}">🐤 Classic (Default)</option>`;
+        }
       }
 
+      // 2. EQUIPPED PIPES: Only pipe skins the player owns
+      const ownedPipes = pipeList.filter(pSkin => isSkinOwnedByPlayer(pSkin, p));
+      if (p.selectedPipeSkin && !ownedPipes.some(pSkin => pSkin.id === p.selectedPipeSkin)) {
+        const curPipe = pipeList.find(pSkin => pSkin.id === p.selectedPipeSkin);
+        if (curPipe) ownedPipes.unshift(curPipe);
+      }
       if (pipeSelect) {
-        pipeSelect.innerHTML = pipeList.map(pSkin => `
-          <option value="${pSkin.id}" ${pSkin.id === p.selectedPipeSkin ? 'selected' : ''}>${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})</option>
-        `).join('');
+        if (ownedPipes.length > 0) {
+          pipeSelect.innerHTML = ownedPipes.map(pSkin => `
+            <option value="${pSkin.id}" ${pSkin.id === p.selectedPipeSkin ? 'selected' : ''}>${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})</option>
+          `).join('');
+        } else {
+          pipeSelect.innerHTML = `<option value="${p.selectedPipeSkin || 'classic_pipe'}">🟢 Classic Green (Default)</option>`;
+        }
       }
 
-      // Populate Grant and Lock dropdowns with all skins (Birds & Pipes)
+      // Full list of all cosmetics (Birds + Pipes)
       const allSkins = [
-        ...birdList.map(s => ({ id: s.id, name: `[Bird] ${s.emoji || '🐤'} ${s.name} (${s.rarity})` })),
-        ...pipeList.map(pSkin => ({ id: pSkin.id, name: `[Pipe] ${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})` }))
+        ...birdList.map(s => ({ item: s, id: s.id, name: `[Bird] ${s.emoji || '🐤'} ${s.name} (${s.rarity})` })),
+        ...pipeList.map(pSkin => ({ item: pSkin, id: pSkin.id, name: `[Pipe] ${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})` }))
       ];
 
-      const optionsHtml = allSkins.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
-      if (grantSelect) grantSelect.innerHTML = optionsHtml;
-      if (lockSelect) lockSelect.innerHTML = optionsHtml;
+      // 3. GRANT SKIN: Can ONLY choose skins the player does NOT already have
+      const grantableSkins = allSkins.filter(entry => !isSkinOwnedByPlayer(entry.item, p));
+      if (grantSelect) {
+        if (grantableSkins.length > 0) {
+          grantSelect.innerHTML = grantableSkins.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+        } else {
+          grantSelect.innerHTML = '<option value="" disabled selected>✨ Player owns all available skins!</option>';
+        }
+      }
+      const grantBtn = document.getElementById('modal-grant-skin-btn');
+      if (grantBtn) grantBtn.disabled = (grantableSkins.length === 0);
+
+      // 4. LOCK SKIN: Can ONLY choose skins the player currently owns (and not already admin-locked)
+      const lockedList = Array.isArray(p.adminLockedSkins) ? p.adminLockedSkins : [];
+      const lockableSkins = allSkins.filter(entry => isSkinOwnedByPlayer(entry.item, p) && !lockedList.includes(entry.id));
+      if (lockSelect) {
+        if (lockableSkins.length > 0) {
+          lockSelect.innerHTML = lockableSkins.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+        } else {
+          lockSelect.innerHTML = '<option value="" disabled selected>🔒 No lockable owned skins</option>';
+        }
+      }
+      const lockBtn = document.getElementById('modal-lock-skin-btn');
+      if (lockBtn) lockBtn.disabled = (lockableSkins.length === 0);
     }
 
     function renderModalSkins() {
@@ -2328,7 +2447,7 @@
             const chip = document.createElement('div');
             chip.style.cssText = 'background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:8px; padding:4px 10px; display:inline-flex; align-items:center; gap:8px; font-size:0.78rem;';
             chip.innerHTML = `
-              <span style="color:#fca5a5; font-weight:700;">🔒 ${skinId}</span>
+              <span style="color:#fca5a5; font-weight:700;">🔒 ${getSkinLabel(skinId)}</span>
               <button type="button" class="btn btn-primary btn-unlock-skin" data-skin="${skinId}" style="padding:2px 8px; font-size:0.7rem; height:24px;">
                 🔓 Unlock
               </button>
@@ -2348,7 +2467,7 @@
             const chip = document.createElement('div');
             chip.style.cssText = 'background:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.4); border-radius:8px; padding:4px 10px; display:inline-flex; align-items:center; gap:8px; font-size:0.78rem;';
             chip.innerHTML = `
-              <span style="color:#d8b4fe; font-weight:700;">🎁 ${skinId}</span>
+              <span style="color:#d8b4fe; font-weight:700;">🎁 ${getSkinLabel(skinId)}</span>
               <button type="button" class="btn btn-danger btn-revoke-skin" data-skin="${skinId}" style="padding:2px 8px; font-size:0.7rem; height:24px;">
                 ❌ Revoke
               </button>
@@ -2389,8 +2508,9 @@
             const p = currentDbData.playerRecordsOverview[username];
             if (data.grantedSkins) p.grantedSkins = data.grantedSkins;
             if (data.adminLockedSkins) p.adminLockedSkins = data.adminLockedSkins;
-            if (payload.selectedSkin) p.selectedSkin = payload.selectedSkin;
-            if (payload.selectedPipeSkin) p.selectedPipeSkin = payload.selectedPipeSkin;
+            if (data.selectedSkin) p.selectedSkin = data.selectedSkin;
+            if (data.selectedPipeSkin) p.selectedPipeSkin = data.selectedPipeSkin;
+            populateSkinsDropdowns(p);
           }
           renderPlayersTable();
           renderModalSkins();
