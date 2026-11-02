@@ -644,6 +644,7 @@
         },
         {
           id: 'poke_charmander',
+          category: 'pokemon',
           name: 'Charmander (Ember Tail)',
           emoji: '🔥',
           rarity: 'POKEMON',
@@ -659,6 +660,7 @@
         },
         {
           id: 'poke_squirtle',
+          category: 'pokemon',
           name: 'Squirtle Squad Leader',
           emoji: '💧',
           rarity: 'POKEMON',
@@ -674,6 +676,7 @@
         },
         {
           id: 'poke_bulbasaur',
+          category: 'pokemon',
           name: 'Bulbasaur (Vine Whip)',
           emoji: '🌱',
           rarity: 'POKEMON',
@@ -684,11 +687,12 @@
           reqText: 'Pokémon Quest: Score 25+ on Med, 50+ on Easy, or 16+ on Hard',
           body: 0x2dd4bf, belly: 0x99f6e4, wing: 0x16a34a, beak: 0x10b981, iris: 0xdc2626,
           emissive: 0x064e3b, metalness: 0.32, roughness: 0.22, bumpType: 'scales',
-          modelPreset: 'poke_bulbasaur', wingStyle: 'nature_leaf', fierceBrow: false, hideDefaultTail: false, auraRate: 1.4,
+          modelPreset: 'poke_bulbasaur', wingStyle: 'nature_leaf', fierceBrow: false, hideDefaultTail: true, auraRate: 1.4,
           trail: [0x22c55e, 0x2dd4bf, 0xfde047]
         },
         {
           id: 'poke_bidoof',
+          category: 'pokemon',
           name: 'Almighty Bidoof (HM God)',
           emoji: '🦫',
           rarity: 'POKEMON',
@@ -704,6 +708,7 @@
         },
         {
           id: 'poke_mew',
+          category: 'pokemon',
           name: 'Mythical Mew (Psychic Bubble)',
           emoji: '🌸',
           rarity: 'POKEMON',
@@ -719,6 +724,7 @@
         },
         {
           id: 'poke_eevee',
+          category: 'pokemon',
           name: 'Eevee (Evolution Mane)',
           emoji: '🦊',
           rarity: 'POKEMON',
@@ -734,6 +740,7 @@
         },
         {
           id: 'poke_jigglypuff',
+          category: 'pokemon',
           name: 'Jigglypuff (Marker Mic)',
           emoji: '🎤',
           rarity: 'POKEMON',
@@ -744,11 +751,12 @@
           reqText: 'Pokémon Meme Quest: Die at Score 39 once, OR Score 26+ Med / 52+ Easy',
           body: 0xf472b6, belly: 0xfce7f3, wing: 0xf9a8d4, beak: 0xec4899, iris: 0x0d9488,
           emissive: 0x4a044e, metalness: 0.28, roughness: 0.22, bumpType: 'feathers',
-          modelPreset: 'poke_jigglypuff', wingStyle: 'troll_pillow', fierceBrow: false, hideDefaultTail: false, auraRate: 1.4,
+          modelPreset: 'poke_jigglypuff', wingStyle: 'troll_pillow', fierceBrow: false, hideDefaultTail: true, auraRate: 1.4,
           trail: [0xf472b6, 0x2dd4bf, 0xffffff]
         },
         {
           id: 'poke_magikarp',
+          category: 'pokemon',
           name: 'Magikarp (Splash King)',
           emoji: '🐟',
           rarity: 'POKEMON',
@@ -764,6 +772,7 @@
         },
         {
           id: 'poke_meowth',
+          category: 'pokemon',
           name: 'Meowth (Pay Day Coin)',
           emoji: '🪙',
           rarity: 'POKEMON',

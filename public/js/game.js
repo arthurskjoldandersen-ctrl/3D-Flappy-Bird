@@ -78,28 +78,6 @@
           this.spawnLobbyPreviewPipes();
 
           this.bindEvents();
-          
-          // Quick Account Login Buttons
-          document.querySelectorAll('.btn-quick-login-account').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-              e.stopPropagation();
-              const uName = btn.getAttribute('data-username');
-              if (!uName) return;
-              try {
-                const res = await this.apiRequest('/api/quick-switch', 'POST', { username: uName });
-                if (res && res.user && res.token) {
-                  this.setLoggedInUser(res.user, res.token);
-                  const msgEl = document.getElementById('auth-message');
-                  if (msgEl) {
-                    msgEl.className = 'auth-msg success';
-                    msgEl.textContent = 'Logged in as ' + res.user.username + '! Records & skins synced.';
-                  }
-                }
-              } catch (err) {
-                console.error('Quick login failed:', err);
-              }
-            });
-          });
 
           this.updateHUD();
           this.renderAllCosmeticGrids();
@@ -123,10 +101,23 @@
         // ------------------------------------------------------------------------
         bindEvents() {
           window.addEventListener('keydown', (e) => {
-            const tag = document.activeElement && document.activeElement.tagName;
+            const activeEl = document.activeElement;
+            const tag = activeEl && activeEl.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA') {
               if (e.key === 'Enter') {
-                this.handleAuth('login');
+                if (activeEl && (activeEl.id === 'guest-modal-username' || activeEl.id === 'guest-modal-password')) {
+                  this.handleGuestModalAuth('login');
+                } else {
+                  this.handleAuth('login');
+                }
+              }
+              return;
+            }
+
+            const guestModal = document.getElementById('guest-login-modal');
+            if (guestModal && guestModal.classList.contains('active')) {
+              if (e.code === 'Escape') {
+                this.toggleGuestLoginModal(false);
               }
               return;
             }
@@ -142,6 +133,8 @@
               }
             } else if (e.code === 'KeyM') {
               this.sound.toggleMute();
+            } else if (e.code === 'KeyR') {
+              this.resetVisualSceneAndRecover(true);
             } else if (e.code === 'Escape') {
               const pModal = document.getElementById('profile-modal');
               if (pModal && pModal.classList.contains('active')) {
@@ -245,6 +238,51 @@
           if (profileModalOverlay) {
             profileModalOverlay.addEventListener('click', (e) => {
               if (e.target === profileModalOverlay) this.toggleProfileModal(false);
+            });
+          }
+
+          // Instant 3D View / Black Screen Recovery Button
+          const btnResetView = document.getElementById('btn-reset-view');
+          if (btnResetView) {
+            btnResetView.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.resetVisualSceneAndRecover(true);
+            });
+          }
+
+          // Guest Login Prompt Modal Controls
+          const btnGuestModalLogin = document.getElementById('btn-guest-modal-login');
+          if (btnGuestModalLogin) {
+            btnGuestModalLogin.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.handleGuestModalAuth('login');
+            });
+          }
+          const btnGuestModalRegister = document.getElementById('btn-guest-modal-register');
+          if (btnGuestModalRegister) {
+            btnGuestModalRegister.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.handleGuestModalAuth('register');
+            });
+          }
+          const btnGuestModalSkip = document.getElementById('btn-guest-modal-skip');
+          if (btnGuestModalSkip) {
+            btnGuestModalSkip.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.toggleGuestLoginModal(false);
+            });
+          }
+          const btnGuestModalClose = document.getElementById('guest-modal-close-btn');
+          if (btnGuestModalClose) {
+            btnGuestModalClose.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.toggleGuestLoginModal(false);
+            });
+          }
+          const guestModalOverlay = document.getElementById('guest-login-modal');
+          if (guestModalOverlay) {
+            guestModalOverlay.addEventListener('click', (e) => {
+              if (e.target === guestModalOverlay) this.toggleGuestLoginModal(false);
             });
           }
 
@@ -1018,6 +1056,13 @@
             p.mesh.scale.setScalar((1 - progress * 0.5));
           }
 
+          // Guard against NaN / Infinity in coordinates or camera so WebGL never blanks out
+          if (!Number.isFinite(this.simBirdY)) this.simBirdY = CONFIG.birdStartY;
+          if (!Number.isFinite(this.prevBirdY)) this.prevBirdY = CONFIG.birdStartY;
+          if (!Number.isFinite(this.birdVelocityY)) this.birdVelocityY = 0;
+          if (!Number.isFinite(this.birdGroup.position.y)) this.birdGroup.position.set(CONFIG.birdX, CONFIG.birdStartY, 0);
+          if (!Number.isFinite(this.birdGroup.rotation.z)) this.birdGroup.rotation.set(0, 0, 0);
+
           if (this.shakeTimer > 0) {
             this.shakeTimer -= frameDt;
             const intensity = this.shakeTimer * 0.85;
@@ -1031,14 +1076,78 @@
           }
         }
 
+        resetVisualSceneAndRecover(showFeedback = true) {
+          try {
+            const w = Math.max(1, window.innerWidth);
+            const h = Math.max(1, window.innerHeight);
+            const aspect = w / h;
+            if (this.renderer) {
+              this.renderer.setScissorTest(false);
+              this.renderer.setSize(w, h);
+              this.renderer.setViewport(0, 0, w, h);
+            }
+            if (this.camera) {
+              this.camera.aspect = aspect;
+              this.camera.updateProjectionMatrix();
+              this.adjustCameraForAspect(aspect);
+            }
+            const flash = document.getElementById('damage-flash');
+            if (flash) flash.style.opacity = '0';
+
+            if (!Number.isFinite(this.simBirdY) || this.state === GAME_STATE.START) {
+              this.simBirdY = CONFIG.birdStartY;
+              this.prevBirdY = CONFIG.birdStartY;
+              this.birdVelocityY = 0;
+            }
+            if (this.birdGroup) {
+              this.birdGroup.visible = true;
+              this.birdGroup.position.set(CONFIG.birdX, this.simBirdY || CONFIG.birdStartY, 0);
+              this.birdGroup.rotation.set(0, 0, 0);
+            }
+            if (this.birdMeshGroup) {
+              this.birdMeshGroup.visible = true;
+              this.birdMeshGroup.rotation.set(0, 0, 0);
+              this.birdMeshGroup.scale.set(1, 1, 1);
+            }
+            this.applyTheme((this.settings && this.settings.theme) || 'dark');
+            this.applySkin(this.selectedSkinId || 'classic', false);
+            this.applyPipeSkin(this.selectedPipeSkinId || 'classic_pipe', false);
+            if (this.state === GAME_STATE.START && this.pipes.length === 0) {
+              this.spawnLobbyPreviewPipes();
+            }
+            if (this.renderer && this.scene && this.camera) {
+              this.renderer.render(this.scene, this.camera);
+            }
+            if (showFeedback) {
+              const btn = document.getElementById('btn-reset-view');
+              if (btn) {
+                btn.style.transform = 'rotate(360deg)';
+                setTimeout(() => { btn.style.transform = ''; }, 360);
+              }
+            }
+          } catch (err) {
+            console.warn('3D scene recovery error:', err);
+          }
+        }
+
         animate(now) {
           requestAnimationFrame(this.animate);
-          const rawDt = (now - this.lastFrameTime) * 0.001;
+          const rawDt = (now - (this.lastFrameTime || now)) * 0.001;
           this.lastFrameTime = now;
-          const dt = Math.max(0.0001, Math.min(rawDt, 0.05));
-          this.update(dt);
-          this.renderSpotlight3DTurntable();
-          this.renderer.render(this.scene, this.camera);
+          const dt = Number.isFinite(rawDt) ? Math.max(0.0001, Math.min(rawDt, 0.05)) : 0.016;
+          try {
+            this.update(dt);
+          } catch (err) {
+            console.warn('Recoverable frame update error:', err);
+          }
+          try {
+            this.renderSpotlight3DTurntable();
+          } catch (_) {}
+          if (this.renderer && this.scene && this.camera) {
+            this.renderer.setScissorTest(false);
+            this.renderer.setViewport(0, 0, Math.max(1, window.innerWidth), Math.max(1, window.innerHeight));
+            this.renderer.render(this.scene, this.camera);
+          }
         }
       }
 

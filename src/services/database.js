@@ -137,11 +137,27 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
   }
 
   // 2. Ensure every user's best records exist in `db.runs` and track synced state
+  const sessionList = Object.values(db.sessions || {});
   for (const user of Object.values(db.users)) {
     if (!user || !user.username) continue;
     if (!user.records) user.records = { easy: 0, medium: 0, hard: 0 };
     if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
-    if (typeof user.loginCount !== 'number') user.loginCount = 0;
+
+    // Backfill historical login count & last login timestamp from active sessions + account registration
+    const uKeyLower = user.username.toLowerCase();
+    const userSessions = sessionList.filter(
+      s => s && ((s.usernameKey && s.usernameKey.toLowerCase() === uKeyLower) || (s.username && s.username.toLowerCase() === uKeyLower))
+    );
+    const maxSessionTime = userSessions.reduce((maxT, s) => Math.max(maxT, Number(s.createdAt) || 0), 0);
+    const derivedLoginCount = Math.max(userSessions.length, user.createdAt ? 1 : 0);
+    if (typeof user.loginCount !== 'number' || user.loginCount < derivedLoginCount) {
+      user.loginCount = derivedLoginCount;
+    }
+    const derivedLastLogin = Math.max(Number(user.lastLoginAt) || 0, maxSessionTime, Number(user.createdAt) || 0);
+    if (derivedLastLogin > 0) {
+      user.lastLoginAt = derivedLastLogin;
+      user.lastLoginReadable = formatReadableTimestamp(derivedLastLogin);
+    }
 
     // Also check if `user.records` was directly edited in `db.users`
     if (fromExternalFileLoad && user._lastSyncedRecords) {

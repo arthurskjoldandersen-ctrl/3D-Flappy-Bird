@@ -65,7 +65,12 @@
         <span class="capsule-count" id="capsule-owned-count">🎨 2/96</span>
       </button>
 
-      <a href="/database" target="_blank" class="icon-tool-btn" id="btn-open-database" title="Open Live Player & Leaderboard Database Manager (/database)" style="text-decoration:none;"><span>🗄️</span></a>
+      <a href="/database" target="_blank" class="icon-tool-btn" id="btn-open-database" title="MeDonut Admin Only: Open Live Player & Leaderboard Database Manager (/database)" style="display:none; text-decoration:none;"><span>🗄️</span></a>
+
+      <button type="button" class="icon-tool-btn" id="btn-reset-view" title="Reset 3D View & Fix Black Screen (R)">
+        <span>🔄</span>
+      </button>
+
       <button type="button" class="icon-tool-btn" id="btn-theme-toggle" title="Toggle Theme (Dark / Light / Cyber)">
         <span id="theme-icon">🌙</span>
       </button>
@@ -498,25 +503,6 @@
 
             <div class="auth-msg" id="auth-message">Sign in to sync skins & post scores to the online leaderboard!</div>
 
-            <!-- 1-Click Quick Login Section -->
-            <div class="quick-accounts-section" style="margin-top: 14px; border-top: 1px solid var(--border-subtle); padding-top: 12px; text-align: left;">
-              <span style="font-size: 0.74rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;">⚡ 1-Click Quick Login (Existing Accounts):</span>
-              <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-                <button type="button" class="btn-quick-login-account" data-username="MeDonut">
-                  🍩 MeDonut (Record: 109)
-                </button>
-                <button type="button" class="btn-quick-login-account" data-username="joslor11">
-                  👑 joslor11 (Record: 42)
-                </button>
-                <button type="button" class="btn-quick-login-account" data-username="ejstrup">
-                  ⚡ ejstrup (Record: 45)
-                </button>
-                <button type="button" class="btn-quick-login-account" data-username="thomsen">
-                  🦅 thomsen (Record: 26)
-                </button>
-              </div>
-            </div>
-
             <div class="auth-perks-row">
               <div class="auth-perk-item">
                 <span class="perk-icon">☁️</span>
@@ -632,6 +618,52 @@
           </button>
           <button id="restart-btn" class="btn-restart" type="button">
             ↻ Play Again
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Guest Account Login Prompt Screen Modal -->
+    <div id="guest-login-modal" class="guest-modal-overlay">
+      <div class="card guest-modal-card">
+        <button type="button" class="guest-modal-close" id="guest-modal-close-btn" title="Continue as Guest">✕</button>
+        <div class="guest-modal-badge">👤 GUEST ACCOUNT DETECTED</div>
+        <h2 class="guest-modal-title">Log In to Save Your Records & Skins!</h2>
+        <p class="guest-modal-subtitle">
+          You are currently on a <strong>Guest Account</strong>. Sign in or create an account below so your high scores, Pokémon &amp; Meme quests, and Top 100 Leaderboard ranks are saved to the cloud!
+        </p>
+
+        <div class="auth-inputs-grid" style="margin-top: 8px;">
+          <div class="auth-field">
+            <label for="guest-modal-username" class="auth-label">Player Username</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">👤</span>
+              <input type="text" id="guest-modal-username" class="account-input" placeholder="Enter username (3-16 chars)" maxlength="16" autocomplete="username" />
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="guest-modal-password" class="auth-label">Secret Password</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">🔒</span>
+              <input type="password" id="guest-modal-password" class="account-input" placeholder="Enter password (4+ chars)" maxlength="64" autocomplete="current-password" />
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-actions-row" style="margin-top: 10px;">
+          <button type="button" id="btn-guest-modal-login" class="btn-action-primary btn-login">
+            <span>🔑</span> Log In
+          </button>
+          <button type="button" id="btn-guest-modal-register" class="btn-action-secondary btn-register">
+            <span>✨</span> Create New Account
+          </button>
+        </div>
+
+        <div class="auth-msg" id="guest-modal-message">Enter your username and password to sign in or register!</div>
+
+        <div class="guest-modal-footer">
+          <button type="button" class="btn-guest-continue" id="btn-guest-modal-skip">
+            Continue Playing as Guest (Local Only) →
           </button>
         </div>
       </div>

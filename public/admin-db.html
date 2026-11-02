@@ -406,14 +406,76 @@
       display: none;
       z-index: 999;
     }
+
+    .admin-gate-overlay {
+      max-width: 480px;
+      margin: 60px auto;
+      background: rgba(17, 24, 39, 0.96);
+      border: 2px solid rgba(244, 63, 94, 0.45);
+      border-radius: 24px;
+      padding: 28px 26px;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .admin-gate-title {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 1.45rem;
+      color: #fff;
+    }
+
+    .admin-gate-sub {
+      font-size: 0.88rem;
+      color: var(--text-sub);
+      line-height: 1.45;
+    }
+
+    .admin-gate-input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: #090d16;
+      color: #fff;
+      font-size: 0.92rem;
+      font-weight: 800;
+    }
+
+    .admin-gate-input:focus {
+      outline: none;
+      border-color: var(--cyan);
+    }
   </style>
 </head>
 <body>
-  <div class="container">
+  <!-- MeDonut-Only Security Gate -->
+  <div id="admin-auth-gate" class="admin-gate-overlay">
+    <div style="font-size: 2.5rem;">🔒</div>
+    <h2 class="admin-gate-title">MeDonut Administrator Access Only</h2>
+    <p class="admin-gate-sub" id="admin-gate-msg">
+      Only the user <strong style="color:#38bdf8;">MeDonut</strong> has permission to view or edit the Live Database.
+    </p>
+    <div style="display:flex; flex-direction:column; gap:10px; text-align:left; margin-top:4px;">
+      <label style="font-size:0.76rem; font-weight:900; color:var(--text-sub); text-transform:uppercase;">Admin Account</label>
+      <input type="text" id="admin-login-user" class="admin-gate-input" value="MeDonut" readonly style="opacity:0.8; cursor:not-allowed;" />
+      <label style="font-size:0.76rem; font-weight:900; color:var(--text-sub); text-transform:uppercase;">MeDonut Password</label>
+      <input type="password" id="admin-login-pass" class="admin-gate-input" placeholder="Enter MeDonut's password..." />
+    </div>
+    <div id="admin-login-error" style="font-size:0.82rem; font-weight:800; color:#fda4af; min-height:18px;"></div>
+    <div style="display:flex; gap:10px; justify-content:center; margin-top:4px;">
+      <button type="button" class="btn btn-primary" id="btn-admin-unlock" style="flex:1; justify-content:center; padding:11px 16px;">🔑 Unlock as MeDonut</button>
+      <a href="/" class="btn" style="padding:11px 16px;">🎮 Back to Game</a>
+    </div>
+  </div>
+
+  <div class="container" id="db-dashboard-content" style="display:none;">
     <div class="top-header">
       <div class="brand-col">
         <h1>🗄️ 3D Flappy Bird — Live Database & Records Manager</h1>
-        <p id="db-file-path">Auto-updating database • Tracks logins, new personal bests & Top 100 leaderboards in real time</p>
+        <p id="db-file-path">Authenticated as <strong>MeDonut</strong> • Tracks logins, new personal bests & Top 100 leaderboards in real time</p>
       </div>
       <div class="header-actions">
         <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:800; color:var(--text-sub); cursor:pointer;">
@@ -421,7 +483,7 @@
           Auto-Refresh (4s)
         </label>
         <button type="button" class="btn" id="btn-refresh">↻ Refresh Now</button>
-        <a href="/api/database/export" class="btn btn-primary">⬇️ Download db.json</a>
+        <a href="/api/database/export" id="btn-export-db" class="btn btn-primary">⬇️ Download db.json</a>
         <a href="/" class="btn btn-success">🎮 Back to 3D Game</a>
       </div>
     </div>
@@ -531,6 +593,27 @@
     let activeLbMode = 'medium';
     let isEditingInput = false;
 
+    function getAuthToken() {
+      return localStorage.getItem('flappy3d_token') || '';
+    }
+
+    function getAuthHeaders(extra = {}) {
+      const headers = { ...extra };
+      const token = getAuthToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      return headers;
+    }
+
+    function updateExportLink() {
+      const exportBtn = document.getElementById('btn-export-db');
+      const token = getAuthToken();
+      if (exportBtn) {
+        exportBtn.href = token ? `/api/database/export?token=${encodeURIComponent(token)}` : '/api/database/export';
+      }
+    }
+
     function showToast(text) {
       const t = document.getElementById('toast-msg');
       t.textContent = text;
@@ -540,15 +623,69 @@
 
     async function fetchDatabase() {
       if (isEditingInput) return;
+      const gateEl = document.getElementById('admin-auth-gate');
+      const dashEl = document.getElementById('db-dashboard-content');
+      const token = getAuthToken();
+      if (!token) {
+        if (gateEl) gateEl.style.display = 'flex';
+        if (dashEl) dashEl.style.display = 'none';
+        return;
+      }
       try {
-        const res = await fetch('/api/database');
+        const res = await fetch('/api/database', {
+          headers: getAuthHeaders()
+        });
         const data = await res.json();
+        if (!res.ok) {
+          if (gateEl) gateEl.style.display = 'flex';
+          if (dashEl) dashEl.style.display = 'none';
+          const errEl = document.getElementById('admin-login-error');
+          if (errEl) errEl.textContent = data.error || 'Access Denied: Only MeDonut can access the database.';
+          return;
+        }
+        if (gateEl) gateEl.style.display = 'none';
+        if (dashEl) dashEl.style.display = 'flex';
+        updateExportLink();
         currentDbData = data;
         renderDashboard(data);
       } catch (err) {
         console.error('Failed to load database:', err);
       }
     }
+
+    async function handleAdminUnlock() {
+      const passInput = document.getElementById('admin-login-pass');
+      const errEl = document.getElementById('admin-login-error');
+      const password = passInput ? passInput.value : '';
+      if (!password) {
+        if (errEl) errEl.textContent = 'Please enter MeDonut\'s password.';
+        return;
+      }
+      if (errEl) errEl.textContent = 'Verifying MeDonut credentials...';
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'MeDonut', password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (errEl) errEl.textContent = data.error || 'Invalid password for MeDonut.';
+          return;
+        }
+        localStorage.setItem('flappy3d_token', data.token);
+        if (passInput) passInput.value = '';
+        if (errEl) errEl.textContent = '';
+        await fetchDatabase();
+      } catch (err) {
+        if (errEl) errEl.textContent = 'Connection error: ' + err.message;
+      }
+    }
+
+    document.getElementById('btn-admin-unlock').addEventListener('click', handleAdminUnlock);
+    document.getElementById('admin-login-pass').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAdminUnlock();
+    });
 
     function renderDashboard(data) {
       const st = data.databaseStatus || {};
@@ -628,7 +765,7 @@
           try {
             const res = await fetch('/api/database/update-record', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
               body: JSON.stringify({ username, records: { easy, medium, hard } })
             });
             const updated = await res.json();
@@ -694,7 +831,7 @@
           try {
             const res = await fetch('/api/database/delete-run', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
               body: JSON.stringify({ difficulty: activeLbMode, entryId })
             });
             const updated = await res.json();

@@ -457,8 +457,13 @@ class FlappyBirdUIAndProgression {
               }
               return;
             } catch (_) {
-              this.clearLoggedInUser();
+              this.clearLoggedInUser(false);
             }
+          }
+
+          // When on a Guest account, automatically bring up the Login Prompt Screen asking the player to log in!
+          if (!this.currentUser) {
+            this.toggleGuestLoginModal(true);
           }
 
           await this.fetchLeaderboards();
@@ -504,6 +509,15 @@ class FlappyBirdUIAndProgression {
           const lobbyAuthBtn = document.getElementById('btn-lobby-auth-action');
           if (lobbyAuthBtn) lobbyAuthBtn.textContent = '👤 My Account';
 
+          // Only the user MeDonut has access to the Database button & manager!
+          const dbBtn = document.getElementById('btn-open-database');
+          if (dbBtn) {
+            const isMeDonut = Boolean(user && user.username && user.username.toLowerCase() === 'medonut');
+            dbBtn.style.display = isMeDonut ? 'inline-flex' : 'none';
+          }
+
+          this.toggleGuestLoginModal(false);
+
           const skinObj = BIRD_SKINS.find(s => s.id === (user.selectedSkin || this.selectedSkinId));
           if (skinObj && this.isCosmeticUnlocked(skinObj)) {
             this.applySkin(skinObj.id, false);
@@ -529,10 +543,15 @@ class FlappyBirdUIAndProgression {
           this.renderLeaderboard();
         }
 
-        clearLoggedInUser() {
+        clearLoggedInUser(showGuestPrompt = true) {
           this.currentUser = null;
           this.authToken = null;
           localStorage.removeItem('flappy3d_token');
+
+          const dbBtn = document.getElementById('btn-open-database');
+          if (dbBtn) {
+            dbBtn.style.display = 'none';
+          }
 
           const authBox = document.getElementById('auth-form-box');
           if (authBox) authBox.style.display = 'block';
@@ -542,7 +561,7 @@ class FlappyBirdUIAndProgression {
           const statusPill2 = document.querySelector('#profile-summary-box .profile-status-pill');
           if (statusPill2) {
             statusPill2.textContent = '⚪ Guest Session (Local Records)';
-            statusPill2.style.color = '#94a3b8';
+            statusPill2.style.color = '';
           }
           document.querySelectorAll('.btn-logout, #hud-logout-btn').forEach(b => { b.style.display = 'none'; });
           const capsuleNameEl2 = document.getElementById('capsule-username');
@@ -558,6 +577,48 @@ class FlappyBirdUIAndProgression {
           this.updateProfileRecordPills();
           this.renderAllCosmeticGrids();
           this.renderLeaderboard();
+
+          if (showGuestPrompt) {
+            this.toggleGuestLoginModal(true);
+          }
+        }
+
+        toggleGuestLoginModal(forceOpen) {
+          const modal = document.getElementById('guest-login-modal');
+          if (!modal) return;
+          const isOpen = modal.classList.contains('active');
+          const next = typeof forceOpen === 'boolean' ? forceOpen : !isOpen;
+          modal.classList.toggle('active', next);
+        }
+
+        async handleGuestModalAuth(mode) {
+          const usernameInput = document.getElementById('guest-modal-username');
+          const passwordInput = document.getElementById('guest-modal-password');
+          const msgEl = document.getElementById('guest-modal-message');
+          if (!usernameInput || !passwordInput || !msgEl) return;
+
+          const username = usernameInput.value.trim();
+          const password = passwordInput.value;
+
+          msgEl.className = 'auth-msg';
+          msgEl.textContent = mode === 'register' ? 'Creating account...' : 'Logging in...';
+
+          try {
+            const endpoint = mode === 'register' ? '/api/register' : '/api/login';
+            const data = await this.apiRequest(endpoint, 'POST', { username, password });
+            passwordInput.value = '';
+            msgEl.className = 'auth-msg success';
+            msgEl.textContent = `Welcome, ${data.user.username}!`;
+            this.setLoggedInUser(data.user, data.token);
+            if (data.leaderboards) {
+              this.leaderboards = data.leaderboards;
+              this.renderLeaderboard();
+            }
+            this.toggleGuestLoginModal(false);
+          } catch (err) {
+            msgEl.className = 'auth-msg error';
+            msgEl.textContent = err.message;
+          }
         }
 
         updateProfileRecordPills() {
@@ -1331,7 +1392,7 @@ class FlappyBirdUIAndProgression {
                   ${statusHtml}
                 </div>
               </div>
-              <div class="spotlight-desc">${item.desc} • <strong style="color:#fde047;">${unlocked ? 'Unlocked (' + item.reqText + ')' : 'Requirement: ' + item.reqText}</strong></div>
+              <div class="spotlight-desc">${item.desc} • <strong class="spotlight-req-strong">${unlocked ? 'Unlocked (' + item.reqText + ')' : 'Requirement: ' + item.reqText}</strong></div>
             </div>
           `;
         }
@@ -1890,18 +1951,13 @@ class FlappyBirdUIAndProgression {
             }
           }
 
-          if (this.fierceBrowGroup) {
-            this.fierceBrowGroup.visible = Boolean(skin.fierceBrow);
-          }
-
-          if (this.defaultTailGroup) {
-            this.defaultTailGroup.visible = !skin.hideDefaultTail;
-          }
-
-          // Toggle bespoke 3D model preset groups
+          // Toggle bespoke 3D model preset groups and reset any dynamic scale/hop offsets
           if (this.skinModelGroups) {
             Object.keys(this.skinModelGroups).forEach(k => {
-              this.skinModelGroups[k].visible = (k === skin.modelPreset);
+              const grp = this.skinModelGroups[k];
+              grp.visible = (k === skin.modelPreset);
+              grp.scale.set(1, 1, 1);
+              grp.position.set(0, 0, 0);
             });
           }
 
@@ -1909,7 +1965,7 @@ class FlappyBirdUIAndProgression {
           if (this.wingStyleGroups) {
             Object.keys(this.wingStyleGroups).forEach(k => {
               const pair = this.wingStyleGroups[k];
-              const isMatch = (k === skin.wingStyle);
+              const isMatch = !isPokemon && (k === skin.wingStyle);
               pair.left.visible = isMatch;
               pair.right.visible = isMatch;
             });
@@ -2119,12 +2175,29 @@ class FlappyBirdUIAndProgression {
             btn.classList.toggle('active', btn.getAttribute('data-thm') === themeName);
           });
 
-          // Re-render Leaderboard and Stats Menu immediately so any mode-specific elements adapt in real-time
+          // Harmonize 3D WebGL sky & atmosphere fog with the active color scheme
+          if (this.renderer && this.scene && this.scene.fog) {
+            if (themeName === 'light') {
+              this.renderer.setClearColor(0x7dd3fc, 1);
+              this.scene.fog.color.setHex(0x93e1fa);
+            } else if (themeName === 'cyber') {
+              this.renderer.setClearColor(0x1e1136, 1);
+              this.scene.fog.color.setHex(0x2e1065);
+            } else {
+              this.renderer.setClearColor(0x3898d8, 1);
+              this.scene.fog.color.setHex(0x5bb8e8);
+            }
+          }
+
+          // Re-render Leaderboard, Stats Menu, and Cosmetic Grids so mode-specific elements adapt in real-time
           if (typeof this.renderStatsMenu === 'function') {
             this.renderStatsMenu();
           }
           if (typeof this.renderLeaderboard === 'function') {
             this.renderLeaderboard();
+          }
+          if (typeof this.renderAllCosmeticGrids === 'function') {
+            this.renderAllCosmeticGrids();
           }
         }
 

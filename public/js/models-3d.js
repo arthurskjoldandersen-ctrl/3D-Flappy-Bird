@@ -39,6 +39,18 @@ class FlappyBird3DModels {
           this.renderer.outputEncoding = THREE.sRGBEncoding;
 
           this.container.appendChild(this.renderer.domElement);
+
+          // Automatically recover from any browser/GPU WebGL context loss (prevents permanent black screen)
+          this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            console.warn('WebGL context lost — attempting automatic recovery...');
+          }, false);
+          this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+            console.info('WebGL context restored — reinitializing 3D scene visuals.');
+            if (typeof this.resetVisualSceneAndRecover === 'function') {
+              this.resetVisualSceneAndRecover(false);
+            }
+          }, false);
         }
 
         adjustCameraForAspect(aspect) {
@@ -3608,9 +3620,13 @@ class FlappyBird3DModels {
         // ANIMATE 3D SKIN ACCESSORIES, ORBITS & CONTINUOUS AURA TRAILS
         // ------------------------------------------------------------------------
         updateAnimatedSkinEffects(frameDt) {
-          const t = this.elapsedTime;
+          const t = this.elapsedTime || 0;
           const parts = this.animatedSkinParts;
           if (!parts) return;
+
+          const flapAngle = this.leftWingPivot
+            ? this.leftWingPivot.rotation.x
+            : Math.sin(this.wingPhase || 0) * 0.65;
 
           if (parts.shurikenOrbit && this.skinModelGroups.shinobi && this.skinModelGroups.shinobi.visible) {
             parts.shurikenOrbit.rotation.y += frameDt * 4.5;
@@ -3833,22 +3849,32 @@ class FlappyBird3DModels {
 
           // Dynamic Animations for True Pokémon Characters
           if (this.currentSkin && (this.currentSkin.category === 'pokemon' || (this.currentSkin.modelPreset && this.currentSkin.modelPreset.startsWith('poke_')))) {
-            if (parts.pikachuArms) parts.pikachuArms.rotation.x = flapAngle * 0.5;
-            if (parts.pikachuTail) parts.pikachuTail.rotation.z = Math.sin(t * 9) * 0.22;
-            if (parts.charmanderArms) parts.charmanderArms.rotation.x = flapAngle * 0.45;
+            const presetKey = this.currentSkin.modelPreset;
+            const activePokeGroup = presetKey && this.skinModelGroups ? this.skinModelGroups[presetKey] : null;
+            if (activePokeGroup && presetKey !== 'poke_jigglypuff') {
+              const hopBoost = (this.wingFlapBoost || 0) * 0.12;
+              const idleBob = Math.sin(t * 10) * 0.04;
+              activePokeGroup.position.y = idleBob + hopBoost;
+              const stretch = 1.0 + hopBoost * 0.65 + Math.sin(t * 11) * 0.025;
+              const squash = 1.0 / Math.sqrt(Math.max(0.85, stretch));
+              activePokeGroup.scale.set(squash, stretch, squash);
+            }
+            if (parts.pikachuArms) parts.pikachuArms.rotation.x = flapAngle * 0.65;
+            if (parts.pikachuTail) parts.pikachuTail.rotation.z = Math.sin(t * 9) * 0.24 + (this.wingFlapBoost || 0) * 0.25;
+            if (parts.charmanderArms) parts.charmanderArms.rotation.x = flapAngle * 0.6;
             if (parts.charmanderFlame) {
-              const fScale = 0.88 + Math.sin(t * 18) * 0.18 + Math.cos(t * 26) * 0.10;
+              const fScale = 0.88 + Math.sin(t * 18) * 0.18 + Math.cos(t * 26) * 0.10 + (this.wingFlapBoost || 0) * 0.22;
               parts.charmanderFlame.scale.set(fScale, fScale * 1.08, fScale);
               parts.charmanderFlame.rotation.z = -0.45 + Math.sin(t * 12) * 0.16;
             }
             if (parts.charmanderTail) parts.charmanderTail.rotation.z = Math.sin(t * 4.5) * 0.15;
-            if (parts.squirtleFlippers) parts.squirtleFlippers.rotation.x = flapAngle * 0.65;
+            if (parts.squirtleFlippers) parts.squirtleFlippers.rotation.x = flapAngle * 0.75;
             if (parts.squirtleTail) parts.squirtleTail.rotation.z = Math.sin(t * 5) * 0.22;
             if (parts.bulbasaurVines) {
               parts.bulbasaurVines.rotation.z = Math.sin(t * 6) * 0.28;
-              parts.bulbasaurVines.rotation.x = flapAngle * 0.35;
+              parts.bulbasaurVines.rotation.x = flapAngle * 0.45;
             }
-            if (parts.bidoofTail) parts.bidoofTail.rotation.z = Math.sin(t * 7.5) * 0.26;
+            if (parts.bidoofTail) parts.bidoofTail.rotation.z = Math.sin(t * 7.5) * 0.28;
             if (parts.bidoofCrown) {
               parts.bidoofCrown.rotation.y += frameDt * 2.5;
               parts.bidoofCrown.position.y = 1.05 + Math.sin(t * 4) * 0.08;
@@ -3858,9 +3884,9 @@ class FlappyBird3DModels {
               parts.mewAura.rotation.z += frameDt * 1.6;
               parts.mewAura.scale.setScalar(0.95 + Math.sin(t * 4.5) * 0.07);
             }
-            if (parts.eeveeTail) parts.eeveeTail.rotation.z = -Math.PI / 3 + Math.sin(t * 5.5) * 0.26;
+            if (parts.eeveeTail) parts.eeveeTail.rotation.z = -Math.PI / 3 + Math.sin(t * 5.5) * 0.28;
             if (this.skinModelGroups.poke_jigglypuff && this.skinModelGroups.poke_jigglypuff.visible) {
-              const squish = 1.0 + Math.sin(t * 9) * 0.05;
+              const squish = 1.0 + Math.sin(t * 9) * 0.06 + (this.wingFlapBoost || 0) * 0.08;
               this.skinModelGroups.poke_jigglypuff.scale.set(squish, 2.0 - squish, squish);
             }
             if (parts.magikarpTail) parts.magikarpTail.rotation.y = Math.sin(t * 16) * 0.58;
@@ -3905,7 +3931,8 @@ class FlappyBird3DModels {
          * using a single WebGL context before the main full-window render pass!
          */
         renderSpotlight3DTurntable() {
-          if (this.state !== GAME_STATE.START || !this.spotlightCamera) return;
+          if (this.state !== GAME_STATE.START || !this.spotlightCamera || !this.renderer) return;
+          if (this.currentAppView !== 'skins') return;
 
           const birdView = document.getElementById('panel-view-bird-skins');
           const pipeView = document.getElementById('panel-view-pipe-skins');
@@ -3917,58 +3944,69 @@ class FlappyBird3DModels {
           if (!targetCanvas) return;
 
           const size = 160;
-          const savedRotY = this.birdMeshGroup.rotation.y;
-          const savedRotZ = this.birdGroup.rotation.z;
+          const savedRotY = this.birdMeshGroup ? this.birdMeshGroup.rotation.y : 0;
+          const savedRotZ = this.birdGroup ? this.birdGroup.rotation.z : 0;
 
-          if (isBirdTab) {
-            // Smooth 360-degree turntable rotation so the player sees horns, wings, back katanas, jetpacks & tails!
-            this.birdMeshGroup.rotation.y = this.elapsedTime * 1.35;
-            this.birdGroup.rotation.z = 0.06;
-            const bx = this.birdGroup.position.x;
-            const by = this.birdGroup.position.y + 0.12;
-            this.spotlightCamera.position.set(bx + 0.45, by + 0.42, 4.15);
-            this.spotlightCamera.lookAt(bx - 0.15, by + 0.08, 0);
-          } else if (isPipeTab && this.pipes.length > 0) {
-            const p0 = this.pipes[0];
-            const px = p0.x;
-            const py = p0.bottomTopY - 0.45;
-            const angle = Math.sin(this.elapsedTime * 1.1) * 0.55;
-            this.spotlightCamera.position.set(
-              px + Math.sin(angle) * 5.2,
-              py + 0.65,
-              Math.cos(angle) * 5.2
-            );
-            this.spotlightCamera.lookAt(px, py, 0);
-          }
+          try {
+            if (isBirdTab && this.birdMeshGroup && this.birdGroup) {
+              // Smooth 360-degree turntable rotation so the player sees horns, wings, back katanas, jetpacks & tails!
+              this.birdMeshGroup.rotation.y = this.elapsedTime * 1.35;
+              this.birdGroup.rotation.z = 0.06;
+              const bx = this.birdGroup.position.x;
+              const by = this.birdGroup.position.y + 0.12;
+              this.spotlightCamera.position.set(bx + 0.45, by + 0.42, 4.15);
+              this.spotlightCamera.lookAt(bx - 0.15, by + 0.08, 0);
+            } else if (isPipeTab && this.pipes.length > 0) {
+              const p0 = this.pipes[0];
+              const px = p0.x;
+              const py = p0.bottomTopY - 0.45;
+              const angle = Math.sin(this.elapsedTime * 1.1) * 0.55;
+              this.spotlightCamera.position.set(
+                px + Math.sin(angle) * 5.2,
+                py + 0.65,
+                Math.cos(angle) * 5.2
+              );
+              this.spotlightCamera.lookAt(px, py, 0);
+            }
 
-          this.renderer.setViewport(0, 0, size, size);
-          this.renderer.setScissor(0, 0, size, size);
-          this.renderer.setScissorTest(true);
-          this.renderer.render(this.scene, this.spotlightCamera);
-          this.renderer.setScissorTest(false);
+            const w = Math.max(1, window.innerWidth);
+            const h = Math.max(1, window.innerHeight);
+            const safeSize = Math.min(size, w, h);
 
-          const ctx = targetCanvas.getContext('2d');
-          if (ctx) {
-            const dpr = this.renderer.getPixelRatio();
-            const srcSize = Math.round(size * dpr);
+            this.renderer.setViewport(0, 0, safeSize, safeSize);
+            this.renderer.setScissor(0, 0, safeSize, safeSize);
+            this.renderer.setScissorTest(true);
+            this.renderer.render(this.scene, this.spotlightCamera);
+            this.renderer.setScissorTest(false);
+
+            const ctx = targetCanvas.getContext('2d');
             const glCanvas = this.renderer.domElement;
-            ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-            ctx.drawImage(
-              glCanvas,
-              0,
-              glCanvas.height - srcSize,
-              srcSize,
-              srcSize,
-              0,
-              0,
-              targetCanvas.width,
-              targetCanvas.height
-            );
+            if (ctx && glCanvas && glCanvas.width > 0 && glCanvas.height > 0) {
+              const dpr = this.renderer.getPixelRatio();
+              const srcSize = Math.min(Math.round(safeSize * dpr), glCanvas.width, glCanvas.height);
+              if (srcSize > 0) {
+                ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+                ctx.drawImage(
+                  glCanvas,
+                  0,
+                  Math.max(0, glCanvas.height - srcSize),
+                  srcSize,
+                  srcSize,
+                  0,
+                  0,
+                  targetCanvas.width,
+                  targetCanvas.height
+                );
+              }
+            }
+          } catch (err) {
+            // Never allow a spotlight thumbnail error to interrupt the main 3D viewport
+          } finally {
+            this.renderer.setScissorTest(false);
+            if (this.birdMeshGroup) this.birdMeshGroup.rotation.y = savedRotY;
+            if (this.birdGroup) this.birdGroup.rotation.z = savedRotZ;
+            this.renderer.setViewport(0, 0, Math.max(1, window.innerWidth), Math.max(1, window.innerHeight));
           }
-
-          this.birdMeshGroup.rotation.y = savedRotY;
-          this.birdGroup.rotation.z = savedRotZ;
-          this.renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
         }
 }
 

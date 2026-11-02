@@ -68,14 +68,29 @@ function readJsonBody(req) {
 
 function getAuthenticatedUser(req) {
   const db = getDb();
+  let token = '';
   const authHeader = req.headers['authorization'] || '';
-  if (!authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.slice(7).trim();
+  if (authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7).trim();
+  } else if (req.url && req.url.includes('token=')) {
+    try {
+      const parsedUrl = new URL(req.url, 'http://localhost');
+      token = (parsedUrl.searchParams.get('token') || '').trim();
+    } catch (_) {}
+  }
+  if (!token) return null;
   const session = db.sessions && db.sessions[token];
   if (!session) return null;
   const user = db.users[session.usernameKey];
   if (!user) return null;
   return { token, user, usernameKey: session.usernameKey };
+}
+
+function isMeDonutAdmin(req) {
+  const auth = getAuthenticatedUser(req);
+  if (!auth || !auth.user || typeof auth.user.username !== 'string') return null;
+  if (auth.user.username.toLowerCase() !== 'medonut') return null;
+  return auth;
 }
 
 function getLocalAddresses() {
@@ -172,33 +187,7 @@ async function handleApiRequest(req, res, pathname, port) {
     });
   }
 
-  // 3. Quick Switch to Existing Account (1-Click Login)
-  if (req.method === 'POST' && pathname === '/api/quick-switch') {
-    const { username } = await readJsonBody(req);
-    const cleanName = typeof username === 'string' ? username.trim() : '';
-    const usernameKey = cleanName.toLowerCase();
-    const user = db.users[usernameKey];
-    if (!user) {
-      return sendJSON(res, 404, { error: 'Account not found: ' + cleanName });
-    }
-
-    const token = crypto.randomBytes(24).toString('hex');
-    db.sessions[token] = { usernameKey, username: user.username, createdAt: Date.now() };
-    recordUserLogin(user, 'quick-switch');
-
-    return sendJSON(res, 200, {
-      token,
-      user: {
-        username: user.username,
-        selectedSkin: user.selectedSkin || 'classic',
-        selectedPipeSkin: user.selectedPipeSkin || 'classic_pipe',
-        records: user.records || { easy: 0, medium: 0, hard: 0 }
-      },
-      leaderboards: buildLeaderboards()
-    });
-  }
-
-  // 4. Password Login
+  // 3. Password Login
   if (req.method === 'POST' && pathname === '/api/login') {
     const { username, password } = await readJsonBody(req);
     const cleanName = typeof username === 'string' ? username.trim() : '';
@@ -384,7 +373,17 @@ async function handleApiRequest(req, res, pathname, port) {
 
   // --------------------------------------------------------------------------
   // 11. LIVE DATABASE VIEWER & RECORD EDITOR ENDPOINTS (/api/database/*)
+  // RESTRICTED STRICTLY TO MEDONUT ONLY!
   // --------------------------------------------------------------------------
+  if (pathname.startsWith('/api/database')) {
+    const adminAuth = isMeDonutAdmin(req);
+    if (!adminAuth) {
+      return sendJSON(res, 403, {
+        error: 'Access Denied: Only the user MeDonut has access to the database.'
+      });
+    }
+  }
+
   if (req.method === 'GET' && pathname === '/api/database') {
     return sendJSON(res, 200, {
       dbFilePath: DB_FILE,
