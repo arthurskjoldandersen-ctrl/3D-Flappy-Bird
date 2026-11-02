@@ -356,16 +356,71 @@
             });
           }
 
-          // Live Skin Sorting in Locker
+          // Live Skin Sorting in Locker (Rounded Custom Dropdown + Native Fallback)
+          const customSortDropdown = document.getElementById('custom-sort-dropdown');
+          const customSortTrigger = document.getElementById('custom-sort-trigger');
+          const customSortLabel = document.getElementById('custom-sort-label');
+          const customSortMenu = document.getElementById('custom-sort-menu');
           const lockerSortSelect = document.getElementById('locker-sort-select');
+
+          const updateLockerSort = (val, text) => {
+            this.lockerSortOrder = val || 'default';
+            if (lockerSortSelect && lockerSortSelect.value !== this.lockerSortOrder) {
+              lockerSortSelect.value = this.lockerSortOrder;
+            }
+            if (customSortLabel && text) {
+              customSortLabel.textContent = text.startsWith('Sort:') ? text : `Sort: ${text}`;
+            }
+            if (customSortMenu) {
+              customSortMenu.querySelectorAll('.custom-sort-item').forEach(item => {
+                if (item.getAttribute('data-val') === this.lockerSortOrder) {
+                  item.classList.add('active');
+                } else {
+                  item.classList.remove('active');
+                }
+              });
+            }
+            if (this.currentLockerTab === 'pipes') {
+              this.renderPipeSkinsGrid();
+            } else {
+              this.renderBirdSkinsGrid();
+            }
+          };
+
+          if (customSortTrigger && customSortDropdown) {
+            customSortTrigger.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const isOpen = customSortDropdown.classList.toggle('is-open');
+              customSortTrigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            });
+
+            if (customSortMenu) {
+              customSortMenu.querySelectorAll('.custom-sort-item').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  const val = btn.getAttribute('data-val') || 'default';
+                  const text = btn.textContent.trim().replace(/^[^a-zA-Z0-9]+/, '').trim();
+                  updateLockerSort(val, text);
+                  customSortDropdown.classList.remove('is-open');
+                  customSortTrigger.setAttribute('aria-expanded', 'false');
+                });
+              });
+            }
+
+            if (typeof window !== 'undefined' && window.addEventListener) {
+              window.addEventListener('click', (e) => {
+                if (customSortDropdown && !customSortDropdown.contains(e.target)) {
+                  customSortDropdown.classList.remove('is-open');
+                  customSortTrigger.setAttribute('aria-expanded', 'false');
+                }
+              });
+            }
+          }
+
           if (lockerSortSelect) {
             lockerSortSelect.addEventListener('change', (e) => {
-              this.lockerSortOrder = e.target.value || 'default';
-              if (this.currentLockerTab === 'pipes') {
-                this.renderPipeSkinsGrid();
-              } else {
-                this.renderBirdSkinsGrid();
-              }
+              const selectedOption = lockerSortSelect.options[lockerSortSelect.selectedIndex];
+              updateLockerSort(e.target.value, selectedOption ? selectedOption.textContent : '');
             });
           }
 

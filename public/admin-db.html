@@ -3,19 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🗄️ 3D Flappy Bird — Live Database & Records Manager</title>
+  <title>🗄️ 3D Flappy Bird — Live Database & Records Manager (MeDonut)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #090d16;
-      --bg-card: #111827;
+      --bg-dark: #070a13;
+      --bg-card: rgba(15, 23, 42, 0.92);
+      --bg-card-hover: rgba(30, 41, 59, 0.95);
       --bg-row: #1e293b;
       --border: rgba(255, 255, 255, 0.12);
+      --border-accent: rgba(56, 189, 248, 0.35);
       --text-main: #f8fafc;
       --text-sub: #94a3b8;
       --cyan: #38bdf8;
+      --cyan-glow: rgba(56, 189, 248, 0.25);
       --green: #22c55e;
       --amber: #f59e0b;
       --rose: #f43f5e;
@@ -29,47 +32,62 @@
     }
 
     body {
-      background: radial-gradient(circle at top, #0f172a 0%, #090d16 100%);
+      background: radial-gradient(circle at 50% 0%, #0f1f3d 0%, #070a13 100%);
       color: var(--text-main);
       font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100vh;
-      padding: 24px 20px 60px;
+      padding: 24px 20px 80px;
     }
 
     .container {
-      max-width: 1280px;
+      max-width: 1340px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 22px;
     }
 
+    /* Top Header */
     .top-header {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 14px;
-      background: rgba(15, 23, 42, 0.92);
+      gap: 16px;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
       border: 1.5px solid var(--border);
-      padding: 16px 22px;
-      border-radius: 20px;
-      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+      padding: 18px 24px;
+      border-radius: 22px;
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.45);
     }
 
     .brand-col h1 {
       font-family: 'Fredoka', sans-serif;
-      font-size: 1.55rem;
+      font-size: 1.6rem;
       color: #fff;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      letter-spacing: 0.01em;
+    }
+
+    .brand-col .medonut-badge {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.4);
     }
 
     .brand-col p {
-      font-size: 0.85rem;
+      font-size: 0.86rem;
       color: var(--text-sub);
-      margin-top: 3px;
+      margin-top: 4px;
     }
 
     .header-actions {
@@ -80,8 +98,8 @@
     }
 
     .btn {
-      padding: 9px 16px;
-      border-radius: 12px;
+      padding: 10px 18px;
+      border-radius: 14px;
       font-weight: 800;
       font-size: 0.84rem;
       border: 1.5px solid var(--border);
@@ -91,55 +109,68 @@
       text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      transition: all 0.16s ease;
+      gap: 7px;
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .btn:hover {
-      transform: translateY(-1px);
+      transform: translateY(-1.5px);
       border-color: var(--cyan);
       background: #334155;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, #0284c7, #2563eb);
+      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
       border-color: #38bdf8;
+      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
+      box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
     }
 
     .btn-success {
-      background: linear-gradient(135deg, #16a34a, #059669);
+      background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
       border-color: #4ade80;
+      box-shadow: 0 4px 16px rgba(22, 163, 74, 0.35);
+    }
+    .btn-success:hover {
+      background: linear-gradient(135deg, #15803d 0%, #047857 100%);
     }
 
     .btn-danger {
       background: rgba(244, 63, 94, 0.16);
       border-color: rgba(244, 63, 94, 0.45);
       color: #fda4af;
-      padding: 5px 10px;
-      font-size: 0.76rem;
+      padding: 6px 12px;
+      font-size: 0.78rem;
     }
 
     .btn-danger:hover {
       background: #e11d48;
       color: #fff;
+      border-color: #e11d48;
     }
 
+    /* Live Event Banner */
     .live-banner {
-      background: linear-gradient(135deg, rgba(2, 132, 199, 0.22) 0%, rgba(16, 185, 129, 0.16) 100%);
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(16, 185, 129, 0.15) 100%);
       border: 1.5px solid rgba(56, 189, 248, 0.45);
-      border-radius: 16px;
-      padding: 14px 20px;
+      border-radius: 18px;
+      padding: 14px 22px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
     }
 
     .live-banner-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
     }
 
     .pulse-dot {
@@ -147,72 +178,116 @@
       height: 12px;
       border-radius: 50%;
       background: #22c55e;
-      box-shadow: 0 0 12px #22c55e;
+      box-shadow: 0 0 14px #22c55e;
       animation: pulse 1.6s infinite;
       flex-shrink: 0;
     }
 
     @keyframes pulse {
       0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.25); opacity: 0.65; }
+      50% { transform: scale(1.3); opacity: 0.6; }
     }
 
+    /* Navigation Tabs Bar */
+    .nav-tabs-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.8);
+      padding: 8px 12px;
+      border-radius: 18px;
+      border: 1.5px solid var(--border);
+    }
+
+    .nav-tab-btn {
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--text-sub);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.18s ease;
+    }
+
+    .nav-tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-tab-btn.active {
+      color: #fff;
+      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+    }
+
+    /* KPI Grid */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
     }
 
     .kpi-card {
-      background: rgba(17, 24, 39, 0.92);
+      background: var(--bg-card);
+      backdrop-filter: blur(10px);
       border: 1.5px solid var(--border);
-      border-radius: 16px;
-      padding: 14px 18px;
+      border-radius: 18px;
+      padding: 16px 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+      transition: transform 0.18s ease, border-color 0.18s ease;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--cyan);
     }
 
     .kpi-label {
-      font-size: 0.74rem;
+      font-size: 0.76rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
       color: var(--text-sub);
       font-weight: 800;
     }
 
     .kpi-val {
-      font-size: 1.45rem;
+      font-size: 1.6rem;
       font-weight: 900;
-      margin-top: 4px;
+      margin-top: 6px;
       color: #fff;
     }
 
     .kpi-sub {
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       color: var(--cyan);
-      margin-top: 2px;
+      margin-top: 3px;
       font-weight: 700;
     }
 
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1.65fr 1fr;
+    /* Tab Panes */
+    .tab-pane {
+      display: none;
+      flex-direction: column;
       gap: 20px;
     }
-
-    @media (max-width: 1024px) {
-      .main-grid {
-        grid-template-columns: 1fr;
-      }
+    .tab-pane.active {
+      display: flex;
     }
 
     .panel {
-      background: rgba(17, 24, 39, 0.94);
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
       border: 1.5px solid var(--border);
-      border-radius: 20px;
-      padding: 18px 20px;
+      border-radius: 22px;
+      padding: 22px 24px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+      gap: 16px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.4);
     }
 
     .panel-header {
@@ -220,63 +295,97 @@
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 12px;
+      gap: 12px;
+      border-bottom: 1.5px solid var(--border);
+      padding-bottom: 16px;
     }
 
     .panel-title {
       font-family: 'Fredoka', sans-serif;
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
     .search-input {
       background: #090d16;
       border: 1.5px solid var(--border);
       color: #fff;
-      padding: 8px 14px;
-      border-radius: 10px;
-      font-size: 0.85rem;
+      padding: 9px 16px;
+      border-radius: 12px;
+      font-size: 0.88rem;
       font-weight: 700;
-      min-width: 240px;
+      min-width: 250px;
+      transition: border-color 0.16s ease;
     }
 
     .search-input:focus {
       outline: none;
       border-color: var(--cyan);
+      box-shadow: 0 0 12px var(--cyan-glow);
     }
 
+    /* Quick Filter Chips */
+    .quick-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chip-btn {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1.5px solid var(--border);
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+    .chip-btn:hover {
+      color: #fff;
+      border-color: var(--cyan);
+    }
+    .chip-btn.active {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: var(--cyan);
+      color: #7dd3fc;
+    }
+
+    /* Tables */
     .table-wrap {
       overflow-x: auto;
-      max-height: 620px;
+      max-height: 640px;
       overflow-y: auto;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.85rem;
+      font-size: 0.88rem;
     }
 
     th {
       text-align: left;
-      padding: 10px 10px;
+      padding: 12px 14px;
       color: var(--text-sub);
       font-size: 0.74rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
       border-bottom: 1.5px solid var(--border);
       position: sticky;
       top: 0;
-      background: #111827;
+      background: #0f172a;
       z-index: 2;
     }
 
     td {
-      padding: 12px 10px;
+      padding: 14px 14px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       vertical-align: middle;
     }
@@ -287,23 +396,26 @@
 
     .player-name {
       font-weight: 900;
-      font-size: 0.96rem;
+      font-size: 1rem;
       color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .player-meta {
-      font-size: 0.74rem;
+      font-size: 0.76rem;
       color: var(--text-sub);
-      margin-top: 2px;
+      margin-top: 3px;
     }
 
     .status-badge {
       display: inline-block;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 8px;
-      font-size: 0.73rem;
+      font-size: 0.74rem;
       font-weight: 800;
-      margin-top: 4px;
+      margin-top: 3px;
     }
 
     .badge-login {
@@ -319,49 +431,57 @@
     }
 
     .score-input {
-      width: 68px;
-      padding: 6px 8px;
-      border-radius: 8px;
+      width: 72px;
+      padding: 7px 8px;
+      border-radius: 10px;
       border: 1.5px solid rgba(255, 255, 255, 0.18);
       background: #090d16;
       color: #fff;
       font-weight: 900;
-      font-size: 0.88rem;
+      font-size: 0.92rem;
       text-align: center;
+      transition: all 0.15s ease;
     }
 
     .score-input:focus {
       outline: none;
       border-color: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan-glow);
     }
 
     .score-input.easy-in { border-color: rgba(34, 197, 94, 0.45); color: #86efac; }
     .score-input.med-in { border-color: rgba(245, 158, 11, 0.45); color: #fde047; }
     .score-input.hard-in { border-color: rgba(244, 63, 94, 0.45); color: #fda4af; }
 
+    /* Feed List */
     .feed-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      max-height: 580px;
+      gap: 12px;
+      max-height: 620px;
       overflow-y: auto;
-      padding-right: 4px;
+      padding-right: 6px;
     }
 
     .feed-item {
       background: #1e293b;
       border: 1.5px solid rgba(255, 255, 255, 0.08);
       border-left: 4px solid var(--cyan);
-      border-radius: 12px;
-      padding: 10px 14px;
+      border-radius: 14px;
+      padding: 12px 16px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
+      transition: transform 0.15s ease;
+    }
+
+    .feed-item:hover {
+      transform: translateX(2px);
     }
 
     .feed-item.type-NEW_BEST {
       border-left-color: #22c55e;
-      background: linear-gradient(135deg, rgba(22, 163, 74, 0.18) 0%, rgba(30, 41, 59, 0.95) 100%);
+      background: linear-gradient(135deg, rgba(22, 163, 74, 0.16) 0%, rgba(30, 41, 59, 0.95) 100%);
     }
 
     .feed-item.type-LOGIN {
@@ -381,105 +501,335 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.72rem;
+      font-size: 0.74rem;
       color: var(--text-sub);
       font-weight: 800;
     }
 
     .feed-msg {
-      font-size: 0.84rem;
+      font-size: 0.86rem;
       font-weight: 800;
       color: #f8fafc;
-      line-height: 1.35;
+      line-height: 1.4;
     }
 
+    /* Toast */
     .toast {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
+      bottom: 28px;
+      right: 28px;
       background: #16a34a;
       color: #fff;
-      padding: 12px 20px;
-      border-radius: 12px;
+      padding: 14px 24px;
+      border-radius: 14px;
       font-weight: 900;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
       display: none;
-      z-index: 999;
+      z-index: 9999;
+      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* MeDonut Auth Gate */
     .admin-gate-overlay {
-      max-width: 480px;
-      margin: 60px auto;
+      max-width: 500px;
+      margin: 80px auto;
       background: rgba(17, 24, 39, 0.96);
-      border: 2px solid rgba(244, 63, 94, 0.45);
-      border-radius: 24px;
-      padding: 28px 26px;
+      border: 2px solid rgba(244, 63, 94, 0.5);
+      border-radius: 26px;
+      padding: 34px 30px;
       text-align: center;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.75);
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
     }
 
     .admin-gate-title {
       font-family: 'Fredoka', sans-serif;
-      font-size: 1.45rem;
+      font-size: 1.55rem;
       color: #fff;
     }
 
     .admin-gate-sub {
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       color: var(--text-sub);
-      line-height: 1.45;
+      line-height: 1.5;
     }
 
     .admin-gate-input {
       width: 100%;
-      padding: 11px 14px;
-      border-radius: 12px;
+      padding: 12px 16px;
+      border-radius: 14px;
       border: 1.5px solid var(--border);
       background: #090d16;
       color: #fff;
-      font-size: 0.92rem;
+      font-size: 0.94rem;
       font-weight: 800;
     }
 
     .admin-gate-input:focus {
       outline: none;
       border-color: var(--cyan);
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    /* ============================================================ */
+    /* DEDICATED PLAYER RUNS MODAL POPUP (#player-runs-modal)       */
+    /* ============================================================ */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(3, 7, 18, 0.82);
+      backdrop-filter: blur(10px);
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.is-open {
+      display: flex;
+    }
+
+    .runs-modal-box {
+      width: 100%;
+      max-width: 920px;
+      max-height: 88vh;
+      background: #0f172a;
+      border: 2px solid rgba(56, 189, 248, 0.4);
+      border-radius: 24px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 40px rgba(56, 189, 248, 0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalScaleIn {
+      from { transform: scale(0.94); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-header {
+      padding: 20px 26px;
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border-bottom: 1.5px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .modal-header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .modal-avatar-badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #0284c7 0%, #a855f7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: 0 4px 16px rgba(168, 85, 247, 0.35);
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 1.35rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      margin-top: 3px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .modal-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+    }
+
+    .modal-close-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.16s ease;
+      flex-shrink: 0;
+    }
+    .modal-close-btn:hover {
+      background: #e11d48;
+      color: #fff;
+      border-color: #e11d48;
+      transform: rotate(90deg);
+    }
+
+    .modal-toolbar {
+      padding: 14px 26px;
+      background: #090d16;
+      border-bottom: 1.5px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .modal-controls-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-sort-select {
+      background: #1e293b;
+      border: 1.5px solid rgba(56, 189, 248, 0.45);
+      color: #f8fafc;
+      padding: 7px 12px;
+      border-radius: 12px;
+      font-size: 0.84rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: border-color 0.16s ease;
+    }
+    .modal-sort-select:focus {
+      outline: none;
+      border-color: var(--cyan);
+    }
+
+    .modal-filter-pills {
+      display: flex;
+      gap: 6px;
+    }
+
+    .modal-filter-btn {
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--border);
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+    .modal-filter-btn:hover {
+      color: #fff;
+    }
+    .modal-filter-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--cyan);
+      color: #7dd3fc;
+    }
+
+    /* Modal Add Run Bar */
+    .modal-add-bar {
+      padding: 10px 26px;
+      background: rgba(30, 41, 59, 0.35);
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-body {
+      padding: 16px 26px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-runs-table-wrap {
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .modal-footer {
+      padding: 14px 26px;
+      background: #090d16;
+      border-top: 1.5px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
     }
   </style>
 </head>
 <body>
   <!-- MeDonut-Only Security Gate -->
   <div id="admin-auth-gate" class="admin-gate-overlay">
-    <div style="font-size: 2.5rem;">🔒</div>
+    <div style="font-size: 2.8rem;">🔒</div>
     <h2 class="admin-gate-title">MeDonut Administrator Access Only</h2>
     <p class="admin-gate-sub" id="admin-gate-msg">
-      Only the user <strong style="color:#38bdf8;">MeDonut</strong> has permission to view or edit the Live Database.
+      Only the user <strong style="color:#38bdf8;">MeDonut</strong> has permission to view, manage, or edit the Live Database and leaderboard records.
     </p>
-    <div style="display:flex; flex-direction:column; gap:10px; text-align:left; margin-top:4px;">
+    <div style="display:flex; flex-direction:column; gap:10px; text-align:left; margin-top:6px;">
       <label style="font-size:0.76rem; font-weight:900; color:var(--text-sub); text-transform:uppercase;">Admin Account</label>
-      <input type="text" id="admin-login-user" class="admin-gate-input" value="MeDonut" readonly style="opacity:0.8; cursor:not-allowed;" />
+      <input type="text" id="admin-login-user" class="admin-gate-input" value="MeDonut" readonly style="opacity:0.85; cursor:not-allowed;" />
       <label style="font-size:0.76rem; font-weight:900; color:var(--text-sub); text-transform:uppercase;">MeDonut Password</label>
       <input type="password" id="admin-login-pass" class="admin-gate-input" placeholder="Enter MeDonut's password..." />
     </div>
     <div id="admin-login-error" style="font-size:0.82rem; font-weight:800; color:#fda4af; min-height:18px;"></div>
-    <div style="display:flex; gap:10px; justify-content:center; margin-top:4px;">
-      <button type="button" class="btn btn-primary" id="btn-admin-unlock" style="flex:1; justify-content:center; padding:11px 16px;">🔑 Unlock as MeDonut</button>
-      <a href="/" class="btn" style="padding:11px 16px;">🎮 Back to Game</a>
+    <div style="display:flex; gap:10px; justify-content:center; margin-top:6px;">
+      <button type="button" class="btn btn-primary" id="btn-admin-unlock" style="flex:1; justify-content:center; padding:12px 18px;">🔑 Unlock as MeDonut</button>
+      <a href="/" class="btn" style="padding:12px 18px;">🎮 Back to Game</a>
     </div>
   </div>
 
+  <!-- Main Authenticated Dashboard -->
   <div class="container" id="db-dashboard-content" style="display:none;">
+    <!-- Top Header -->
     <div class="top-header">
       <div class="brand-col">
-        <h1>🗄️ 3D Flappy Bird — Live Database & Records Manager</h1>
-        <p id="db-file-path">Authenticated as <strong>MeDonut</strong> • Tracks logins, new personal bests & Top 100 leaderboards in real time</p>
+        <h1>
+          🗄️ 3D Flappy Bird — Live Database & Records Manager
+          <span class="medonut-badge">⭐ MeDonut VIP</span>
+        </h1>
+        <p id="db-file-path">Authenticated as <strong>MeDonut</strong> • Live synced with db.json & Top 100 Leaderboards</p>
       </div>
       <div class="header-actions">
-        <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:800; color:var(--text-sub); cursor:pointer;">
-          <input type="checkbox" id="auto-refresh-cb" checked style="width:16px; height:16px;" />
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.84rem; font-weight:800; color:var(--text-sub); cursor:pointer;">
+          <input type="checkbox" id="auto-refresh-cb" checked style="width:16px; height:16px; cursor:pointer;" />
           Auto-Refresh (4s)
         </label>
         <button type="button" class="btn" id="btn-refresh">↻ Refresh Now</button>
@@ -488,17 +838,19 @@
       </div>
     </div>
 
+    <!-- Live Event Banner -->
     <div class="live-banner">
       <div class="live-banner-left">
         <div class="pulse-dot"></div>
         <div>
-          <div style="font-size:0.72rem; font-weight:900; text-transform:uppercase; color:#7dd3fc; letter-spacing:0.05em;">Latest Live Database Event</div>
-          <div id="latest-event-banner" style="font-size:0.95rem; font-weight:900; color:#fff; margin-top:2px;">Loading database status...</div>
+          <div style="font-size:0.72rem; font-weight:900; text-transform:uppercase; color:#7dd3fc; letter-spacing:0.06em;">Latest Live Database Event</div>
+          <div id="latest-event-banner" style="font-size:0.96rem; font-weight:900; color:#fff; margin-top:2px;">Loading database status...</div>
         </div>
       </div>
       <div id="last-updated-text" style="font-size:0.78rem; color:#cbd5e1; font-weight:800;"></div>
     </div>
 
+    <!-- KPI Summary Grid -->
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-label">👥 Total Registered Players</div>
@@ -522,97 +874,232 @@
       </div>
     </div>
 
-    <div class="main-grid">
-      <!-- Left: Editable Player Records Table -->
+    <!-- Navigation Tabs Bar -->
+    <div class="nav-tabs-bar">
+      <button type="button" class="nav-tab-btn active" data-tab="tab-players">
+        <span>👥</span> Player Accounts & Bests
+      </button>
+      <button type="button" class="nav-tab-btn" data-tab="tab-all-runs">
+        <span>🏅</span> All Leaderboard Runs & Inspector
+      </button>
+      <button type="button" class="nav-tab-btn" data-tab="tab-activity">
+        <span>⚡</span> Live Activity & Audit Log
+      </button>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 1: PLAYER ACCOUNTS & BESTS                               -->
+    <!-- ============================================================ -->
+    <div class="tab-pane active" id="tab-players">
       <div class="panel">
         <div class="panel-header">
-          <div class="panel-title">🏆 Player Accounts, Login Status & Editable Records</div>
-          <input type="text" id="player-search" class="search-input" placeholder="🔍 Search player by username..." />
+          <div>
+            <div class="panel-title">👥 Player Accounts, Bests & Inspection</div>
+            <div style="font-size:0.78rem; color:var(--text-sub); margin-top:4px;">
+              Manage player personal records, view equipped skins, or click <strong>📋 Inspect Runs</strong> to open the full pop-up run viewer!
+            </div>
+          </div>
+          <input type="text" id="player-search" class="search-input" placeholder="🔍 Search player by username or skin..." />
         </div>
-        <div style="font-size:0.78rem; color:var(--text-sub);">
-          💡 <strong>Tip:</strong> Change any player's <strong>Easy</strong>, <strong>Medium</strong>, or <strong>Hard</strong> best score below and click <strong>💾 Save</strong> to immediately update their profile & the Top 100 Leaderboard!
+
+        <!-- Quick Filter Chips -->
+        <div class="quick-chips-row">
+          <span style="font-size:0.76rem; font-weight:900; color:var(--cyan); text-transform:uppercase;">Quick Filter:</span>
+          <button type="button" class="chip-btn active" data-chip="all">All Players</button>
+          <button type="button" class="chip-btn" data-chip="active">⚡ Active Recently</button>
+          <button type="button" class="chip-btn" data-chip="hidden">🚫 Has Hidden Runs</button>
+          <button type="button" class="chip-btn" data-chip="top">🏆 Has Top Record</button>
         </div>
+
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Player & Skins</th>
-                <th>Login & New Best Status</th>
-                <th>🟢 Easy</th>
-                <th>🟡 Medium</th>
-                <th>🔴 Hard</th>
-                <th>Action</th>
+                <th>Player & Equipped Skins</th>
+                <th>Login & Best Status</th>
+                <th>🟢 Easy Best</th>
+                <th>🟡 Medium Best</th>
+                <th>🔴 Hard Best</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="players-tbody"></tbody>
           </table>
         </div>
       </div>
+    </div>
 
-      <!-- Right: Live Activity Log (Logins, New Bests, Runs) + Leaderboard Inspector -->
-      <div style="display:flex; flex-direction:column; gap:20px;">
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">⚡ Live Database Activity Log</div>
-            <span style="font-size:0.74rem; color:var(--cyan); font-weight:800;">Logins & New Bests</span>
+    <!-- ============================================================ -->
+    <!-- TAB 2: ALL LEADERBOARD RUNS                                  -->
+    <!-- ============================================================ -->
+    <div class="tab-pane" id="tab-all-runs">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">🏅 Leaderboard Runs & Visibility Manager</div>
+            <div style="font-size:0.78rem; color:var(--text-sub); margin-top:4px;">
+              Inspect all runs submitted across modes, toggle visibility on/off, edit scores, or add new runs.
+            </div>
           </div>
-          <div class="feed-list" id="activity-feed-list"></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn lb-mode-btn" data-mode="all" style="padding:6px 12px; font-size:0.78rem;">🌐 All Modes</button>
+            <button type="button" class="btn lb-mode-btn" data-mode="easy" style="padding:6px 12px; font-size:0.78rem;">🟢 Easy</button>
+            <button type="button" class="btn btn-primary lb-mode-btn" data-mode="medium" style="padding:6px 12px; font-size:0.78rem;">🟡 Medium</button>
+            <button type="button" class="btn lb-mode-btn" data-mode="hard" style="padding:6px 12px; font-size:0.78rem;">🔴 Hard</button>
+          </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">🏅 All Player Runs, Score Editor & Leaderboard Visibility</div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button type="button" class="btn lb-mode-btn" data-mode="all" style="padding:5px 10px; font-size:0.76rem;">🌐 All Modes</button>
-              <button type="button" class="btn lb-mode-btn" data-mode="easy" style="padding:5px 10px; font-size:0.76rem;">🟢 Easy</button>
-              <button type="button" class="btn btn-primary lb-mode-btn" data-mode="medium" style="padding:5px 10px; font-size:0.76rem;">🟡 Medium</button>
-              <button type="button" class="btn lb-mode-btn" data-mode="hard" style="padding:5px 10px; font-size:0.76rem;">🔴 Hard</button>
-            </div>
-          </div>
-
-          <!-- Filter by User + Bulk Visibility Controls -->
-          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; background:#090d16; padding:10px 12px; border-radius:12px; border:1px solid var(--border);">
-            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; flex:1;">
-              <span style="font-size:0.76rem; font-weight:900; color:var(--cyan); text-transform:uppercase;">👤 Filter Player:</span>
-              <select id="runs-user-filter" class="search-input" style="min-width:170px; padding:6px 10px; cursor:pointer;">
-                <option value="">All Players (Everyone)</option>
-              </select>
-              <button type="button" class="btn" id="btn-clear-user-filter" style="padding:5px 10px; font-size:0.75rem; display:none;">✖ Show All Players</button>
-            </div>
-            <div id="bulk-user-vis-controls" style="display:none; gap:6px; align-items:center;">
-              <button type="button" class="btn btn-success" id="btn-show-all-user-runs" style="padding:5px 10px; font-size:0.74rem;">👁️ Show All User Runs</button>
-              <button type="button" class="btn btn-danger" id="btn-hide-all-user-runs" style="padding:5px 10px; font-size:0.74rem;">🚫 Hide All User Runs</button>
-            </div>
-          </div>
-
-          <!-- Add New Run Bar for Any User -->
-          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:rgba(30, 41, 59, 0.55); padding:9px 12px; border-radius:12px; border:1px dashed rgba(56, 189, 248, 0.35);">
-            <span style="font-size:0.75rem; font-weight:900; color:#fde047;">➕ Add Run:</span>
-            <input type="text" id="add-run-user" class="search-input" placeholder="Username (e.g. MeDonut)" style="min-width:135px; flex:1; padding:5px 9px; font-size:0.8rem;" />
-            <select id="add-run-mode" class="search-input" style="min-width:105px; padding:5px 8px; font-size:0.8rem;">
-              <option value="easy">🟢 Easy</option>
-              <option value="medium" selected>🟡 Medium</option>
-              <option value="hard">🔴 Hard</option>
+        <!-- Filter by User + Bulk Visibility Controls -->
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; background:#090d16; padding:12px 16px; border-radius:14px; border:1px solid var(--border);">
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; flex:1;">
+            <span style="font-size:0.78rem; font-weight:900; color:var(--cyan); text-transform:uppercase;">👤 Filter Player:</span>
+            <select id="runs-user-filter" class="search-input" style="min-width:180px; padding:7px 12px; cursor:pointer;">
+              <option value="">All Players (Everyone)</option>
             </select>
-            <input type="number" id="add-run-score" class="score-input" min="1" placeholder="Score" value="50" style="width:78px;" />
-            <button type="button" class="btn btn-primary" id="btn-add-run" style="padding:5px 12px; font-size:0.78rem;">➕ Add Run</button>
+            <button type="button" class="btn" id="btn-clear-user-filter" style="padding:6px 12px; font-size:0.76rem; display:none;">✖ Show All Players</button>
           </div>
-
-          <div class="table-wrap" style="max-height: 420px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>Status / Rank</th>
-                  <th>Player & Mode</th>
-                  <th>Edit Score</th>
-                  <th>Leaderboard Visibility</th>
-                  <th>Delete</th>
-                </tr>
-              </thead>
-              <tbody id="lb-runs-tbody"></tbody>
-            </table>
+          <div id="bulk-user-vis-controls" style="display:none; gap:8px; align-items:center;">
+            <button type="button" class="btn btn-success" id="btn-show-all-user-runs" style="padding:6px 12px; font-size:0.76rem;">👁️ Show All User Runs</button>
+            <button type="button" class="btn btn-danger" id="btn-hide-all-user-runs" style="padding:6px 12px; font-size:0.76rem;">🚫 Hide All User Runs</button>
           </div>
         </div>
+
+        <!-- Add New Run Bar for Any User -->
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:rgba(30, 41, 59, 0.55); padding:10px 14px; border-radius:14px; border:1px dashed rgba(56, 189, 248, 0.4);">
+          <span style="font-size:0.76rem; font-weight:900; color:#fde047;">➕ Add Run to Database:</span>
+          <input type="text" id="add-run-user" class="search-input" placeholder="Username (e.g. MeDonut)" style="min-width:140px; flex:1; padding:6px 10px; font-size:0.82rem;" />
+          <select id="add-run-mode" class="search-input" style="min-width:110px; padding:6px 10px; font-size:0.82rem;">
+            <option value="easy">🟢 Easy</option>
+            <option value="medium" selected>🟡 Medium</option>
+            <option value="hard">🔴 Hard</option>
+          </select>
+          <input type="number" id="add-run-score" class="score-input" min="1" placeholder="Score" value="50" style="width:84px;" />
+          <button type="button" class="btn btn-primary" id="btn-add-run" style="padding:6px 14px; font-size:0.8rem;">➕ Add Run</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Status / Rank</th>
+                <th>Player & Mode</th>
+                <th>Edit Score</th>
+                <th>Leaderboard Visibility</th>
+                <th>Delete</th>
+              </tr>
+            </thead>
+            <tbody id="lb-runs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 3: LIVE ACTIVITY AUDIT LOG                               -->
+    <!-- ============================================================ -->
+    <div class="tab-pane" id="tab-activity">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">⚡ Live Database Activity & Audit Log</div>
+          <span style="font-size:0.78rem; color:var(--cyan); font-weight:800;">Real-time Logins, New Bests & Admin Edits</span>
+        </div>
+        <div class="feed-list" id="activity-feed-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- DEDICATED PLAYER RUNS MODAL POPUP                            -->
+  <!-- ============================================================ -->
+  <div class="modal-backdrop" id="player-runs-modal" role="dialog" aria-modal="true" aria-labelledby="modal-player-title">
+    <div class="runs-modal-box">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-avatar-badge">👤</div>
+          <div>
+            <div class="modal-title" id="modal-player-title">Player Run History</div>
+            <div class="modal-subtitle" id="modal-player-meta">
+              <span class="modal-pill" id="modal-bird-pill">🐦 Default</span>
+              <span class="modal-pill" id="modal-pipe-pill">🏗️ Classic</span>
+              <span class="modal-pill" id="modal-stats-pill" style="color:#7dd3fc;">📊 0 Runs</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="modal-close-btn" title="Close Popup (Esc)">✕</button>
+      </div>
+
+      <!-- Modal Toolbar: Sort + Mode Filters + Visibility Filters -->
+      <div class="modal-toolbar">
+        <div class="modal-controls-group">
+          <!-- Sort Dropdown (Requested: Lowest to Highest, Highest to Lowest, etc.) -->
+          <label style="font-size:0.75rem; font-weight:900; color:var(--cyan); text-transform:uppercase;">🔃 Sort Runs:</label>
+          <select id="modal-sort-select" class="modal-sort-select">
+            <option value="score_asc">📈 Score: Lowest → Highest</option>
+            <option value="score_desc" selected>📉 Score: Highest → Lowest</option>
+            <option value="date_desc">⏱️ Date: Newest First</option>
+            <option value="date_asc">⏳ Date: Oldest First</option>
+            <option value="mode">🎮 Mode: Easy → Med → Hard</option>
+          </select>
+        </div>
+
+        <!-- Mode Filter Pills -->
+        <div class="modal-filter-pills" id="modal-mode-pills">
+          <button type="button" class="modal-filter-btn active" data-mode="all">🌐 All Modes</button>
+          <button type="button" class="modal-filter-btn" data-mode="easy">🟢 Easy</button>
+          <button type="button" class="modal-filter-btn" data-mode="medium">🟡 Medium</button>
+          <button type="button" class="modal-filter-btn" data-mode="hard">🔴 Hard</button>
+        </div>
+
+        <!-- Visibility Filter Pills -->
+        <div class="modal-filter-pills" id="modal-vis-pills">
+          <button type="button" class="modal-filter-btn active" data-vis="all">All</button>
+          <button type="button" class="modal-filter-btn" data-vis="visible">👁️ Visible</button>
+          <button type="button" class="modal-filter-btn" data-vis="hidden">🚫 Hidden</button>
+        </div>
+      </div>
+
+      <!-- Modal Quick Add Run Bar -->
+      <div class="modal-add-bar">
+        <span style="font-size:0.75rem; font-weight:900; color:#fde047;">➕ Add Run for this Player:</span>
+        <select id="modal-add-mode" class="search-input" style="min-width:110px; padding:5px 9px; font-size:0.8rem;">
+          <option value="easy">🟢 Easy</option>
+          <option value="medium" selected>🟡 Medium</option>
+          <option value="hard">🔴 Hard</option>
+        </select>
+        <input type="number" id="modal-add-score" class="score-input" min="1" placeholder="Score" value="50" style="width:78px; padding:5px 8px;" />
+        <button type="button" class="btn btn-primary" id="modal-btn-add-run" style="padding:5px 12px; font-size:0.78rem;">➕ Add Run</button>
+        <div style="flex:1;"></div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-success" id="modal-btn-show-all" style="padding:5px 10px; font-size:0.74rem;">👁️ Show All</button>
+          <button type="button" class="btn btn-danger" id="modal-btn-hide-all" style="padding:5px 10px; font-size:0.74rem;">🚫 Hide All</button>
+        </div>
+      </div>
+
+      <!-- Modal Runs Body Table -->
+      <div class="modal-body">
+        <div class="modal-runs-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Status / Rank</th>
+                <th>Mode & Date</th>
+                <th>Edit Score</th>
+                <th>Leaderboard Visibility</th>
+                <th>Delete</th>
+              </tr>
+            </thead>
+            <tbody id="modal-runs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <div style="font-size:0.76rem; color:var(--text-sub);">
+          💡 <strong>Tip:</strong> Runs hidden here will not appear on the public Top 100 Leaderboards.
+        </div>
+        <button type="button" class="btn" id="modal-footer-close-btn" style="padding:8px 16px;">Done</button>
       </div>
     </div>
   </div>
@@ -623,6 +1110,13 @@
     let currentDbData = null;
     let activeLbMode = 'medium';
     let isEditingInput = false;
+    let activePlayerChip = 'all';
+
+    // Player Runs Modal State
+    let modalActivePlayer = null;
+    let modalSortOrder = 'score_asc'; // Default as requested: Lowest to Highest option easily testable & accessible
+    let modalFilterMode = 'all';
+    let modalFilterVis = 'all';
 
     function getAuthToken() {
       return localStorage.getItem('flappy3d_token') || '';
@@ -647,6 +1141,7 @@
 
     function showToast(text) {
       const t = document.getElementById('toast-msg');
+      if (!t) return;
       t.textContent = text;
       t.style.display = 'block';
       setTimeout(() => { t.style.display = 'none'; }, 2800);
@@ -738,30 +1233,97 @@
       renderPlayersTable();
       renderActivityFeed(data.activityFeed || []);
       renderLeaderboardRuns();
+
+      // If modal is currently open, refresh its contents seamlessly
+      if (modalActivePlayer && document.getElementById('player-runs-modal').classList.contains('is-open')) {
+        renderModalRuns();
+      }
     }
 
+    // ============================================================
+    // TAB NAVIGATION
+    // ============================================================
+    document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const targetId = btn.getAttribute('data-tab');
+        const targetPane = document.getElementById(targetId);
+        if (targetPane) targetPane.classList.add('active');
+      });
+    });
+
+    // Quick Filter Chips in Tab 1
+    document.querySelectorAll('.chip-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activePlayerChip = btn.getAttribute('data-chip') || 'all';
+        renderPlayersTable();
+      });
+    });
+
+    // ============================================================
+    // TAB 1: RENDER PLAYERS TABLE
+    // ============================================================
     function renderPlayersTable() {
       if (!currentDbData || !currentDbData.playerRecordsOverview) return;
       const tbody = document.getElementById('players-tbody');
       const query = (document.getElementById('player-search').value || '').trim().toLowerCase();
       tbody.innerHTML = '';
 
-      const players = Object.values(currentDbData.playerRecordsOverview).filter(p =>
-        !query || p.username.toLowerCase().includes(query)
-      );
+      let players = Object.values(currentDbData.playerRecordsOverview).filter(p => {
+        if (!query) return true;
+        return (
+          p.username.toLowerCase().includes(query) ||
+          (p.selectedSkin && p.selectedSkin.toLowerCase().includes(query)) ||
+          (p.selectedPipeSkin && p.selectedPipeSkin.toLowerCase().includes(query))
+        );
+      });
+
+      // Apply Chip Filters
+      if (activePlayerChip === 'hidden') {
+        players = players.filter(p => (p.leaderboardPlacements && p.leaderboardPlacements.hiddenRuns > 0));
+      } else if (activePlayerChip === 'top') {
+        players = players.filter(p => {
+          const easy = p.records?.easy || 0;
+          const med = p.records?.medium || 0;
+          const hard = p.records?.hard || 0;
+          return easy >= 50 || med >= 30 || hard >= 20;
+        });
+      } else if (activePlayerChip === 'active') {
+        players = players.filter(p => p.loginStatus && p.loginStatus.toLowerCase().includes('today'));
+      }
+
+      if (players.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center; color:var(--text-sub); padding:24px;">
+              No players found matching your query or active filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
 
       players.forEach(p => {
         const totalRuns = (p.leaderboardPlacements && p.leaderboardPlacements.totalRecordedRuns !== undefined)
           ? p.leaderboardPlacements.totalRecordedRuns
           : ((p.leaderboardPlacements && p.leaderboardPlacements.total) || 0);
         const hiddenRuns = (p.leaderboardPlacements && p.leaderboardPlacements.hiddenRuns) || 0;
+        const visibleRuns = Math.max(0, totalRuns - hiddenRuns);
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>
-            <div class="player-name">👤 ${p.username}</div>
+            <div class="player-name">
+              <span>👤 ${p.username}</span>
+              ${p.username.toLowerCase() === 'medonut' ? '<span style="font-size:0.68rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:2px 8px; border-radius:999px;">ADMIN</span>' : ''}
+            </div>
             <div class="player-meta">🐦 ${p.selectedSkin} • 🏗️ ${p.selectedPipeSkin}</div>
             <div class="player-meta" style="color:${hiddenRuns > 0 ? '#fde047' : '#7dd3fc'};">
-              📊 ${totalRuns} total run(s) ${hiddenRuns > 0 ? `• 🚫 ${hiddenRuns} hidden` : '• 👁️ All visible'}
+              📊 ${totalRuns} total run(s) • 👁️ ${visibleRuns} visible ${hiddenRuns > 0 ? `• 🚫 ${hiddenRuns} hidden` : ''}
             </div>
           </td>
           <td>
@@ -779,11 +1341,11 @@
           </td>
           <td>
             <div style="display:flex; flex-direction:column; gap:6px; align-items:stretch;">
-              <button type="button" class="btn btn-success save-record-btn" data-user="${p.username}" style="padding:6px 10px; font-size:0.76rem; justify-content:center;">
+              <button type="button" class="btn btn-success save-record-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center;">
                 💾 Save Bests
               </button>
-              <button type="button" class="btn inspect-user-runs-btn" data-user="${p.username}" style="padding:5px 10px; font-size:0.73rem; justify-content:center; border-color:rgba(56,189,248,0.4); color:#7dd3fc;">
-                📋 Runs (${totalRuns})
+              <button type="button" class="btn inspect-user-runs-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(56,189,248,0.5); color:#7dd3fc; background:rgba(2,132,199,0.15);">
+                📋 Inspect Runs (${totalRuns})
               </button>
             </div>
           </td>
@@ -796,21 +1358,11 @@
         inp.addEventListener('blur', () => { setTimeout(() => { isEditingInput = false; }, 300); });
       });
 
+      // Hook up Inspect Runs button -> Opens the dedicated Modal Pop-up!
       tbody.querySelectorAll('.inspect-user-runs-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const username = btn.getAttribute('data-user');
-          const filterSelect = document.getElementById('runs-user-filter');
-          const addRunUser = document.getElementById('add-run-user');
-          if (filterSelect) filterSelect.value = username;
-          if (addRunUser) addRunUser.value = username;
-          activeLbMode = 'all';
-          document.querySelectorAll('.lb-mode-btn').forEach(b => {
-            b.classList.toggle('btn-primary', b.getAttribute('data-mode') === 'all');
-          });
-          renderLeaderboardRuns();
-          const runsTable = document.getElementById('lb-runs-tbody');
-          if (runsTable) runsTable.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          showToast(`📋 Viewing all runs across Easy, Medium & Hard for ${username}`);
+          openPlayerRunsModal(username);
         });
       });
 
@@ -847,11 +1399,14 @@
       });
     }
 
+    // ============================================================
+    // TAB 3: ACTIVITY FEED
+    // ============================================================
     function renderActivityFeed(feed) {
       const list = document.getElementById('activity-feed-list');
       list.innerHTML = '';
-      if (!feed.length) {
-        list.innerHTML = '<div style="color:var(--text-sub); font-size:0.84rem;">No events logged yet.</div>';
+      if (!feed || !feed.length) {
+        list.innerHTML = '<div style="color:var(--text-sub); font-size:0.86rem; padding:16px;">No events logged yet.</div>';
         return;
       }
       feed.forEach(item => {
@@ -868,6 +1423,9 @@
       });
     }
 
+    // ============================================================
+    // TAB 2: ALL LEADERBOARD RUNS
+    // ============================================================
     function populateRunsUserDropdown() {
       const selectEl = document.getElementById('runs-user-filter');
       if (!selectEl || !currentDbData || !currentDbData.playerRecordsOverview) return;
@@ -900,9 +1458,9 @@
       const allRunsObj = currentDbData.allRuns || currentDbData.leaderboards || { easy: [], medium: [], hard: [] };
       const modesToShow = activeLbMode === 'all' ? ['easy', 'medium', 'hard'] : [activeLbMode];
       const modeBadges = {
-        easy: '<span style="color:#4ade80; font-weight:900; font-size:0.74rem;">🟢 EASY</span>',
-        medium: '<span style="color:#fde047; font-weight:900; font-size:0.74rem;">🟡 MEDIUM</span>',
-        hard: '<span style="color:#fda4af; font-weight:900; font-size:0.74rem;">🔴 HARD</span>'
+        easy: '<span style="color:#4ade80; font-weight:900; font-size:0.76rem;">🟢 EASY</span>',
+        medium: '<span style="color:#fde047; font-weight:900; font-size:0.76rem;">🟡 MEDIUM</span>',
+        hard: '<span style="color:#fda4af; font-weight:900; font-size:0.76rem;">🔴 HARD</span>'
       };
 
       const combinedRuns = [];
@@ -921,7 +1479,7 @@
       if (combinedRuns.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="5" style="text-align:center; color:var(--text-sub); padding:20px;">
+            <td colspan="5" style="text-align:center; color:var(--text-sub); padding:24px;">
               No runs recorded for ${filterUser ? `<strong>${filterUser}</strong> in ` : ''}${activeLbMode.toUpperCase()} mode yet. Use <strong>➕ Add Run</strong> above to add one!
             </td>
           </tr>
@@ -932,8 +1490,8 @@
       combinedRuns.forEach(r => {
         const isHidden = Boolean(r.hidden);
         const rankLabel = isHidden
-          ? `<span style="background:rgba(245,158,11,0.18); color:#fde047; border:1px solid rgba(245,158,11,0.45); padding:2px 8px; border-radius:999px; font-size:0.72rem; font-weight:900;">🚫 HIDDEN</span>`
-          : `<span style="background:rgba(34,197,94,0.16); color:#4ade80; border:1px solid rgba(34,197,94,0.4); padding:2px 8px; border-radius:999px; font-size:0.74rem; font-weight:900;">#${r.visibleRank || r.fallbackRank} Visible</span>`;
+          ? `<span style="background:rgba(245,158,11,0.18); color:#fde047; border:1px solid rgba(245,158,11,0.45); padding:3px 10px; border-radius:999px; font-size:0.72rem; font-weight:900;">🚫 HIDDEN</span>`
+          : `<span style="background:rgba(34,197,94,0.16); color:#4ade80; border:1px solid rgba(34,197,94,0.4); padding:3px 10px; border-radius:999px; font-size:0.74rem; font-weight:900;">#${r.visibleRank || r.fallbackRank} Visible</span>`;
 
         const tr = document.createElement('tr');
         if (isHidden) {
@@ -944,17 +1502,17 @@
           <td>${rankLabel}</td>
           <td>
             <div style="font-weight:900; color:#fff;">👤 ${r.username}</div>
-            <div style="margin-top:2px;">${modeBadges[r.difficulty] || r.difficulty} • <span style="font-size:0.7rem; color:var(--text-sub);">${r.readableTime || ''}</span></div>
+            <div style="margin-top:2px;">${modeBadges[r.difficulty] || r.difficulty} • <span style="font-size:0.72rem; color:var(--text-sub);">${r.readableTime || ''}</span></div>
           </td>
           <td>
             <div style="display:flex; align-items:center; gap:6px;">
-              <input type="number" min="1" class="score-input run-score-edit" data-id="${r.id}" data-mode="${r.difficulty}" value="${r.score}" style="width:66px; padding:4px 6px;" />
-              <button type="button" class="btn btn-success save-run-score-btn" data-id="${r.id}" data-mode="${r.difficulty}" style="padding:4px 8px; font-size:0.72rem;" title="Save edited run score">💾</button>
+              <input type="number" min="1" class="score-input run-score-edit" data-id="${r.id}" data-mode="${r.difficulty}" value="${r.score}" style="width:68px; padding:5px 7px;" />
+              <button type="button" class="btn btn-success save-run-score-btn" data-id="${r.id}" data-mode="${r.difficulty}" style="padding:5px 9px; font-size:0.74rem;" title="Save edited run score">💾</button>
             </div>
           </td>
           <td>
             <button type="button" class="btn toggle-run-vis-btn" data-id="${r.id}" data-mode="${r.difficulty}" data-hidden="${isHidden ? '1' : '0'}"
-              style="padding:5px 10px; font-size:0.74rem; border-color:${isHidden ? '#22c55e' : '#f59e0b'}; color:${isHidden ? '#4ade80' : '#fde047'};">
+              style="padding:6px 12px; font-size:0.76rem; border-color:${isHidden ? '#22c55e' : '#f59e0b'}; color:${isHidden ? '#4ade80' : '#fde047'};">
               ${isHidden ? '👁️ Turn ON (Show)' : '🚫 Turn OFF (Hide)'}
             </button>
           </td>
@@ -1027,6 +1585,7 @@
         btn.addEventListener('click', async () => {
           const entryId = btn.getAttribute('data-id');
           const difficulty = btn.getAttribute('data-mode') || activeLbMode;
+          if (!confirm('Are you sure you want to delete this run?')) return;
           try {
             const res = await fetch('/api/database/delete-run', {
               method: 'POST',
@@ -1060,9 +1619,9 @@
     });
 
     async function handleBulkUserVisibility(makeHidden) {
-      const username = (document.getElementById('runs-user-filter')?.value || '').trim();
+      const username = (document.getElementById('runs-user-filter')?.value || modalActivePlayer || '').trim();
       if (!username) return;
-      const difficulty = activeLbMode === 'all' ? null : activeLbMode;
+      const difficulty = (activeLbMode === 'all' || modalFilterMode === 'all') ? null : (modalActivePlayer ? modalFilterMode : activeLbMode);
       try {
         const res = await fetch('/api/database/toggle-user-visibility', {
           method: 'POST',
@@ -1125,9 +1684,321 @@
       });
     });
 
+    // ============================================================
+    // DEDICATED PLAYER RUNS MODAL POPUP LOGIC
+    // ============================================================
+    function openPlayerRunsModal(username) {
+      modalActivePlayer = username;
+      const modal = document.getElementById('player-runs-modal');
+      const playerObj = currentDbData?.playerRecordsOverview?.[username] || {
+        username,
+        selectedSkin: 'Classic Yellow',
+        selectedPipeSkin: 'Classic Green',
+        records: { easy: 0, medium: 0, hard: 0 }
+      };
+
+      document.getElementById('modal-player-title').innerHTML = `
+        👤 Run History: <span style="color:#38bdf8;">${username}</span>
+      `;
+      document.getElementById('modal-bird-pill').textContent = `🐦 ${playerObj.selectedSkin || 'Classic Yellow'}`;
+      document.getElementById('modal-pipe-pill').textContent = `🏗️ ${playerObj.selectedPipeSkin || 'Classic Green'}`;
+
+      modal.classList.add('is-open');
+      renderModalRuns();
+    }
+
+    function closePlayerRunsModal() {
+      const modal = document.getElementById('player-runs-modal');
+      modal.classList.remove('is-open');
+      modalActivePlayer = null;
+    }
+
+    document.getElementById('modal-close-btn').addEventListener('click', closePlayerRunsModal);
+    document.getElementById('modal-footer-close-btn').addEventListener('click', closePlayerRunsModal);
+
+    // Close on backdrop click
+    document.getElementById('player-runs-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'player-runs-modal') {
+        closePlayerRunsModal();
+      }
+    });
+
+    // Close on Esc key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('player-runs-modal').classList.contains('is-open')) {
+        closePlayerRunsModal();
+      }
+    });
+
+    // Modal Sort Dropdown Event (Lowest to Highest, Highest to Lowest, etc.)
+    document.getElementById('modal-sort-select').addEventListener('change', (e) => {
+      modalSortOrder = e.target.value;
+      renderModalRuns();
+    });
+
+    // Modal Mode Filter Pills
+    document.querySelectorAll('#modal-mode-pills .modal-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#modal-mode-pills .modal-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        modalFilterMode = btn.getAttribute('data-mode') || 'all';
+        renderModalRuns();
+      });
+    });
+
+    // Modal Visibility Filter Pills
+    document.querySelectorAll('#modal-vis-pills .modal-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#modal-vis-pills .modal-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        modalFilterVis = btn.getAttribute('data-vis') || 'all';
+        renderModalRuns();
+      });
+    });
+
+    // Modal Bulk Buttons
+    document.getElementById('modal-btn-show-all').addEventListener('click', async () => {
+      if (!modalActivePlayer) return;
+      await handleBulkUserVisibility(false);
+      renderModalRuns();
+    });
+
+    document.getElementById('modal-btn-hide-all').addEventListener('click', async () => {
+      if (!modalActivePlayer) return;
+      await handleBulkUserVisibility(true);
+      renderModalRuns();
+    });
+
+    // Modal Add Run Button
+    document.getElementById('modal-btn-add-run').addEventListener('click', async () => {
+      if (!modalActivePlayer) return;
+      const difficulty = document.getElementById('modal-add-mode').value || 'medium';
+      const score = Math.max(1, Number(document.getElementById('modal-add-score').value) || 1);
+      try {
+        const res = await fetch('/api/database/add-run', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ username: modalActivePlayer, difficulty, score, hidden: false })
+        });
+        const updated = await res.json();
+        if (res.ok) {
+          currentDbData = updated;
+          renderDashboard(updated);
+          renderModalRuns();
+          showToast(`➕ Added ${difficulty.toUpperCase()} run of ${score} pts for ${modalActivePlayer}!`);
+        } else {
+          alert(updated.error || 'Failed to add run');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    // Render Runs inside the Modal with Sorting and Filtering
+    function renderModalRuns() {
+      if (!modalActivePlayer || !currentDbData) return;
+      const tbody = document.getElementById('modal-runs-tbody');
+      tbody.innerHTML = '';
+
+      const allRunsObj = currentDbData.allRuns || currentDbData.leaderboards || { easy: [], medium: [], hard: [] };
+      const modes = ['easy', 'medium', 'hard'];
+      const playerRuns = [];
+
+      modes.forEach(m => {
+        const list = allRunsObj[m] || [];
+        list.forEach((r, idx) => {
+          if (r.username.toLowerCase() === modalActivePlayer.toLowerCase()) {
+            playerRuns.push({
+              ...r,
+              difficulty: m,
+              modeIndex: m === 'easy' ? 1 : m === 'medium' ? 2 : 3,
+              fallbackRank: idx + 1
+            });
+          }
+        });
+      });
+
+      // Update Header Stats Pill
+      const totalRuns = playerRuns.length;
+      const hiddenCount = playerRuns.filter(r => r.hidden).length;
+      const visibleCount = totalRuns - hiddenCount;
+      document.getElementById('modal-stats-pill').innerHTML = `
+        📊 ${totalRuns} Runs (${visibleCount} Visible • ${hiddenCount} Hidden)
+      `;
+
+      // Filter by Mode
+      let filteredRuns = playerRuns;
+      if (modalFilterMode !== 'all') {
+        filteredRuns = filteredRuns.filter(r => r.difficulty === modalFilterMode);
+      }
+
+      // Filter by Visibility
+      if (modalFilterVis === 'visible') {
+        filteredRuns = filteredRuns.filter(r => !r.hidden);
+      } else if (modalFilterVis === 'hidden') {
+        filteredRuns = filteredRuns.filter(r => Boolean(r.hidden));
+      }
+
+      // Sort Runs according to user selection
+      filteredRuns.sort((a, b) => {
+        if (modalSortOrder === 'score_asc') {
+          // Lowest to Highest (explicit user request)
+          return a.score - b.score;
+        } else if (modalSortOrder === 'score_desc') {
+          // Highest to Lowest
+          return b.score - a.score;
+        } else if (modalSortOrder === 'date_desc') {
+          return (new Date(b.date || b.timestamp || 0)) - (new Date(a.date || a.timestamp || 0));
+        } else if (modalSortOrder === 'date_asc') {
+          return (new Date(a.date || a.timestamp || 0)) - (new Date(b.date || b.timestamp || 0));
+        } else if (modalSortOrder === 'mode') {
+          return a.modeIndex - b.modeIndex || b.score - a.score;
+        }
+        return b.score - a.score;
+      });
+
+      if (filteredRuns.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align:center; color:var(--text-sub); padding:32px;">
+              No runs found for <strong>${modalActivePlayer}</strong> matching the selected mode/visibility filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      const modeBadges = {
+        easy: '<span style="color:#4ade80; font-weight:900; font-size:0.76rem;">🟢 EASY</span>',
+        medium: '<span style="color:#fde047; font-weight:900; font-size:0.76rem;">🟡 MEDIUM</span>',
+        hard: '<span style="color:#fda4af; font-weight:900; font-size:0.76rem;">🔴 HARD</span>'
+      };
+
+      filteredRuns.forEach(r => {
+        const isHidden = Boolean(r.hidden);
+        const rankLabel = isHidden
+          ? `<span style="background:rgba(245,158,11,0.18); color:#fde047; border:1px solid rgba(245,158,11,0.45); padding:3px 10px; border-radius:999px; font-size:0.72rem; font-weight:900;">🚫 HIDDEN</span>`
+          : `<span style="background:rgba(34,197,94,0.16); color:#4ade80; border:1px solid rgba(34,197,94,0.4); padding:3px 10px; border-radius:999px; font-size:0.74rem; font-weight:900;">#${r.visibleRank || r.fallbackRank} Visible</span>`;
+
+        const tr = document.createElement('tr');
+        if (isHidden) {
+          tr.style.opacity = '0.74';
+          tr.style.background = 'rgba(245, 158, 11, 0.05)';
+        }
+        tr.innerHTML = `
+          <td>${rankLabel}</td>
+          <td>
+            <div style="font-weight:900;">${modeBadges[r.difficulty] || r.difficulty}</div>
+            <div style="font-size:0.72rem; color:var(--text-sub); margin-top:2px;">🕒 ${r.readableTime || r.date || 'Recorded run'}</div>
+          </td>
+          <td>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <input type="number" min="1" class="score-input modal-score-edit" data-id="${r.id}" data-mode="${r.difficulty}" value="${r.score}" style="width:68px; padding:5px 7px;" />
+              <button type="button" class="btn btn-success modal-save-score-btn" data-id="${r.id}" data-mode="${r.difficulty}" style="padding:5px 9px; font-size:0.74rem;" title="Save edited score">💾</button>
+            </div>
+          </td>
+          <td>
+            <button type="button" class="btn modal-toggle-vis-btn" data-id="${r.id}" data-mode="${r.difficulty}" data-hidden="${isHidden ? '1' : '0'}"
+              style="padding:6px 12px; font-size:0.76rem; border-color:${isHidden ? '#22c55e' : '#f59e0b'}; color:${isHidden ? '#4ade80' : '#fde047'};">
+              ${isHidden ? '👁️ Turn ON (Show)' : '🚫 Turn OFF (Hide)'}
+            </button>
+          </td>
+          <td>
+            <button type="button" class="btn btn-danger modal-del-run-btn" data-id="${r.id}" data-mode="${r.difficulty}">🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('.modal-score-edit').forEach(inp => {
+        inp.addEventListener('focus', () => { isEditingInput = true; });
+        inp.addEventListener('blur', () => { setTimeout(() => { isEditingInput = false; }, 300); });
+      });
+
+      tbody.querySelectorAll('.modal-save-score-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const entryId = btn.getAttribute('data-id');
+          const difficulty = btn.getAttribute('data-mode');
+          const row = btn.closest('tr');
+          const score = Math.max(1, Number(row.querySelector('.modal-score-edit').value) || 1);
+          btn.textContent = '⏳';
+          try {
+            const res = await fetch('/api/database/update-run', {
+              method: 'POST',
+              headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ difficulty, entryId, score })
+            });
+            const updated = await res.json();
+            if (res.ok) {
+              isEditingInput = false;
+              currentDbData = updated;
+              renderDashboard(updated);
+              renderModalRuns();
+              showToast(`✅ Updated run to ${score} pts & synced leaderboard!`);
+            } else {
+              alert(updated.error || 'Failed to update run');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        });
+      });
+
+      tbody.querySelectorAll('.modal-toggle-vis-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const entryId = btn.getAttribute('data-id');
+          const difficulty = btn.getAttribute('data-mode');
+          const currentlyHidden = btn.getAttribute('data-hidden') === '1';
+          try {
+            const res = await fetch('/api/database/update-run', {
+              method: 'POST',
+              headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ difficulty, entryId, hidden: !currentlyHidden })
+            });
+            const updated = await res.json();
+            if (res.ok) {
+              currentDbData = updated;
+              renderDashboard(updated);
+              renderModalRuns();
+              showToast(!currentlyHidden
+                ? '🚫 Run hidden from public leaderboard!'
+                : '👁️ Run visibility restored on public leaderboard!');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        });
+      });
+
+      tbody.querySelectorAll('.modal-del-run-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const entryId = btn.getAttribute('data-id');
+          const difficulty = btn.getAttribute('data-mode');
+          if (!confirm('Are you sure you want to delete this run?')) return;
+          try {
+            const res = await fetch('/api/database/delete-run', {
+              method: 'POST',
+              headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+              body: JSON.stringify({ difficulty, entryId })
+            });
+            const updated = await res.json();
+            if (res.ok) {
+              currentDbData = updated;
+              renderDashboard(updated);
+              renderModalRuns();
+              showToast('🗑️ Run removed from player history!');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        });
+      });
+    }
+
+    // Initialize Database
     fetchDatabase();
     setInterval(() => {
-      const auto = document.getElementById('auto-refresh-cb').checked;
+      const auto = document.getElementById('auto-refresh-cb')?.checked;
       if (auto && !isEditingInput) {
         fetchDatabase();
       }

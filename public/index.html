@@ -259,8 +259,22 @@
                 <input type="text" id="skin-search-input" placeholder="Search by name, requirement, or rarity..." autocomplete="off" />
               </div>
               <div class="locker-sort-box">
-                <span class="sort-icon">🔃</span>
-                <select id="locker-sort-select" class="locker-sort-select" title="Sort Locker Items">
+                <div class="custom-sort-dropdown" id="custom-sort-dropdown">
+                  <button type="button" class="custom-sort-trigger" id="custom-sort-trigger" aria-haspopup="true" aria-expanded="false">
+                    <span>🔃</span>
+                    <span id="custom-sort-label">Sort: Default</span>
+                    <span class="sort-arrow">▼</span>
+                  </button>
+                  <div class="custom-sort-menu" id="custom-sort-menu" role="menu">
+                    <button type="button" class="custom-sort-item active" data-val="default">✨ Default</button>
+                    <button type="button" class="custom-sort-item" data-val="score_asc">📈 Req Score: Low → High</button>
+                    <button type="button" class="custom-sort-item" data-val="score_desc">📉 Req Score: High → Low</button>
+                    <button type="button" class="custom-sort-item" data-val="rarity">💎 Rarest First</button>
+                    <button type="button" class="custom-sort-item" data-val="name">🔤 Alphabetical: A → Z</button>
+                    <button type="button" class="custom-sort-item" data-val="status">✅ Owned First</button>
+                  </div>
+                </div>
+                <select id="locker-sort-select" class="locker-sort-select" style="display:none;" title="Sort Locker Items">
                   <option value="default">Sort: Default</option>
                   <option value="score_asc">Req Score: Low → High</option>
                   <option value="score_desc">Req Score: High → Low</option>
