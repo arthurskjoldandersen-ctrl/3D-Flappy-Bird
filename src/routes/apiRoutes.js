@@ -23,6 +23,7 @@ const {
   toggleUserRunsVisibilityAdmin,
   getAllRunsAdmin,
   deleteLeaderboardEntryAdmin,
+  adminUpdateUserSkins,
   formatReadableTimestamp
 } = require('../services/database');
 
@@ -185,6 +186,8 @@ async function handleApiRequest(req, res, pathname, port) {
         username: cleanName,
         selectedSkin: 'classic',
         selectedPipeSkin: 'classic_pipe',
+        grantedSkins: db.users[usernameKey].grantedSkins || [],
+        adminLockedSkins: db.users[usernameKey].adminLockedSkins || [],
         records: db.users[usernameKey].records
       },
       leaderboards: buildLeaderboards()
@@ -222,6 +225,8 @@ async function handleApiRequest(req, res, pathname, port) {
         username: user.username,
         selectedSkin: user.selectedSkin || 'classic',
         selectedPipeSkin: user.selectedPipeSkin || 'classic_pipe',
+        grantedSkins: user.grantedSkins || [],
+        adminLockedSkins: user.adminLockedSkins || [],
         records: user.records
       },
       leaderboards: buildLeaderboards()
@@ -250,6 +255,8 @@ async function handleApiRequest(req, res, pathname, port) {
         username: auth.user.username,
         selectedSkin: auth.user.selectedSkin || 'classic',
         selectedPipeSkin: auth.user.selectedPipeSkin || 'classic_pipe',
+        grantedSkins: auth.user.grantedSkins || [],
+        adminLockedSkins: auth.user.adminLockedSkins || [],
         records: auth.user.records
       },
       leaderboards: buildLeaderboards()
@@ -263,10 +270,18 @@ async function handleApiRequest(req, res, pathname, port) {
       return sendJSON(res, 401, { error: 'Not authenticated' });
     }
     const { skinId, pipeSkinId } = await readJsonBody(req);
+    const lockedSkins = auth.user.adminLockedSkins || [];
+
     if (typeof skinId === 'string' && skinId.length <= 40) {
+      if (lockedSkins.includes(skinId)) {
+        return sendJSON(res, 403, { error: `The skin "${skinId}" has been locked by Administrator and cannot be equipped.` });
+      }
       auth.user.selectedSkin = skinId;
     }
     if (typeof pipeSkinId === 'string' && pipeSkinId.length <= 40) {
+      if (lockedSkins.includes(pipeSkinId)) {
+        return sendJSON(res, 403, { error: `The pipe skin "${pipeSkinId}" has been locked by Administrator and cannot be equipped.` });
+      }
       auth.user.selectedPipeSkin = pipeSkinId;
     }
     saveDatabase();
@@ -277,10 +292,13 @@ async function handleApiRequest(req, res, pathname, port) {
     });
   }
 
-  // 8. Get All 3 Difficulty Leaderboards
+  // 8. Get All 3 Difficulty Leaderboards (Supports ?all=true for full leaderboard beyond Top 100)
   if (req.method === 'GET' && pathname === '/api/leaderboard') {
+    const showAll = parsedUrl.query && (parsedUrl.query.all === 'true' || parsedUrl.query.all === '1');
+    const limit = showAll ? 0 : 100;
     return sendJSON(res, 200, {
-      leaderboards: buildLeaderboards(),
+      leaderboards: buildLeaderboards(limit),
+      isAll: Boolean(showAll),
       databaseStatus: db.databaseStatus
     });
   }
@@ -395,7 +413,8 @@ async function handleApiRequest(req, res, pathname, port) {
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: (db.activityFeed || []).slice(0, 100),
       leaderboards: buildLeaderboards(),
-      allRuns: getAllRunsAdmin()
+      allRuns: getAllRunsAdmin(),
+      loginHistory: (db.loginHistory || []).slice(0, 300)
     });
   }
 
@@ -493,8 +512,39 @@ async function handleApiRequest(req, res, pathname, port) {
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: (db.activityFeed || []).slice(0, 100),
       leaderboards: buildLeaderboards(),
-      allRuns: getAllRunsAdmin()
+      allRuns: getAllRunsAdmin(),
+      loginHistory: (db.loginHistory || []).slice(0, 300)
     });
+  }
+
+  // 12. Admin Skin Inventory & Lock Manager (Grant, Revoke, Lock, or Change Equipped)
+  if (req.method === 'POST' && pathname === '/api/database/update-user-skins') {
+    const { username, grantSkinId, revokeSkinId, lockSkinId, unlockSkinId, selectedSkin, selectedPipeSkin } = await readJsonBody(req);
+    if (!username) {
+      return sendJSON(res, 400, { error: 'Username is required.' });
+    }
+    try {
+      const result = adminUpdateUserSkins(username, {
+        grantSkinId,
+        revokeSkinId,
+        lockSkinId,
+        unlockSkinId,
+        selectedSkin,
+        selectedPipeSkin
+      });
+      return sendJSON(res, 200, {
+        ok: true,
+        userSkins: result,
+        databaseStatus: db.databaseStatus,
+        playerRecordsOverview: db.playerRecordsOverview,
+        activityFeed: (db.activityFeed || []).slice(0, 100),
+        leaderboards: buildLeaderboards(),
+        allRuns: getAllRunsAdmin(),
+        loginHistory: (db.loginHistory || []).slice(0, 300)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
   }
 
   return sendJSON(res, 404, { error: 'API endpoint not found: ' + pathname });

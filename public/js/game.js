@@ -29,6 +29,7 @@
           this.lockerSortOrder = 'default';
 
           this.leaderboards = { easy: [], medium: [], hard: [] };
+          this.lbShowAllPlayers = false;
           this.selectedDifficulty = 'medium';
           this.activeLbTab = 'medium';
           this.isStartingRun = false;
@@ -85,9 +86,12 @@
           // Connect to Online Server & poll leaderboards every 5s while in menus
           this.initOnlineSession();
           this.switchView('lobby');
+          if (typeof this.updateLeaderboardToggleBtn === 'function') {
+            this.updateLeaderboardToggleBtn();
+          }
           setInterval(() => {
             if (this.state === GAME_STATE.START || this.state === GAME_STATE.GAMEOVER) {
-              this.fetchLeaderboards();
+              this.fetchLeaderboards(this.lbShowAllPlayers);
             }
           }, 5000);
 
@@ -168,6 +172,39 @@
             e.stopPropagation();
             this.showLobbyScreen();
           });
+
+          // Dedicated "See All Players" & Leaderboard Top 100 Toggle Actions
+          const openAllPlayersHandler = (e) => {
+            if (e) e.stopPropagation();
+            this.lbShowAllPlayers = true;
+            if (typeof this.updateLeaderboardToggleBtn === 'function') {
+              this.updateLeaderboardToggleBtn();
+            }
+            this.switchView('leaderboard');
+            this.fetchLeaderboards(true);
+          };
+
+          const btnLobbyAllPlayers = document.getElementById('btn-lobby-goto-all-players');
+          if (btnLobbyAllPlayers) {
+            btnLobbyAllPlayers.addEventListener('click', openAllPlayersHandler);
+          }
+
+          const btnAccountAllPlayers = document.getElementById('btn-account-goto-all-players');
+          if (btnAccountAllPlayers) {
+            btnAccountAllPlayers.addEventListener('click', openAllPlayersHandler);
+          }
+
+          const lbToggleBtn = document.getElementById('lb-toggle-top100-btn');
+          if (lbToggleBtn) {
+            lbToggleBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.lbShowAllPlayers = !this.lbShowAllPlayers;
+              if (typeof this.updateLeaderboardToggleBtn === 'function') {
+                this.updateLeaderboardToggleBtn();
+              }
+              this.fetchLeaderboards(this.lbShowAllPlayers);
+            });
+          }
 
           document.getElementById('mute-btn').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -711,7 +748,10 @@
           const topBarEl = document.getElementById('top-app-bar');
           if (topBarEl) {
             topBarEl.classList.remove('in-game');
-            topBarEl.style.removeProperty('display');
+            if (topBarEl.style) {
+              if (typeof topBarEl.style.removeProperty === 'function') topBarEl.style.removeProperty('display');
+              else topBarEl.style.display = '';
+            }
           }
           this.switchView('lobby');
           this.state = GAME_STATE.START;
@@ -916,7 +956,10 @@
             const topBarEl = document.getElementById('top-app-bar');
             if (topBarEl) {
               topBarEl.classList.remove('in-game');
-              topBarEl.style.removeProperty('display');
+              if (topBarEl.style) {
+                if (typeof topBarEl.style.removeProperty === 'function') topBarEl.style.removeProperty('display');
+                else topBarEl.style.display = '';
+              }
             }
             document.getElementById('gameover-screen').classList.add('active');
           }, 380);

@@ -24,7 +24,6 @@
       <div class="brand-badge" id="brand-home-btn" title="3D Flappy Bird Home">
         <span class="brand-icon">🐤</span>
         <span class="brand-title">3D FLAPPY BIRD</span>
-        <span class="fps-pill" id="header-fps-badge">⚡ 120 FPS</span>
       </div>
     </div>
 
@@ -209,10 +208,13 @@
             </div>
           </div>
 
-          <!-- Lobby Account / Guest Quick Status Prompt -->
+          <!-- Lobby Account / Guest Quick Status Prompt & All Players Shortcut -->
           <div class="lobby-auth-bar" id="lobby-auth-prompt">
             <span id="lobby-auth-text">👤 Playing as <strong>Guest</strong></span>
-            <button type="button" class="btn-lobby-login-trigger" id="btn-lobby-auth-action">🔑 Log In / Register</button>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button type="button" class="btn-lobby-login-trigger" id="btn-lobby-auth-action">🔑 Log In / Register</button>
+              <button type="button" class="btn-lobby-login-trigger btn-see-all-players" id="btn-lobby-goto-all-players" title="View all registered players and global rankings">👥 See All Players</button>
+            </div>
           </div>
 
           <!-- Hero Glowing Play Button -->
@@ -337,6 +339,10 @@
               <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Multi-entry verified rankings across all 100 spots • Real-time anti-cheat protected</p>
             </div>
             <div class="lb-controls-wrap">
+              <button type="button" class="lb-toggle-top100-btn" id="lb-toggle-top100-btn" title="Toggle between Top 100 Only and All Players">
+                <span class="toggle-icon" id="lb-toggle-icon">🌐</span>
+                <span id="lb-toggle-text">All Players: OFF</span>
+              </button>
               <div class="lb-search-box">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="lb-search-input" placeholder="Search player, rank (#1), or score..." autocomplete="off" />
@@ -701,19 +707,22 @@
                 </div>
               </div>
 
-              <!-- Bottom 4-Button Quick Navigation Bar -->
+              <!-- Bottom 5-Button Quick Navigation Bar -->
               <div class="profile-quick-nav">
                 <button type="button" class="btn-quick-nav" id="btn-account-goto-lobby">
                   🎮 Play Game
                 </button>
                 <button type="button" class="btn-quick-nav" id="btn-account-goto-locker">
-                  🎨 3D Locker (96 Skins)
+                  🎨 3D Locker
                 </button>
                 <button type="button" class="btn-quick-nav" id="open-stats-btn">
                   📊 Detailed Stats
                 </button>
                 <button type="button" class="btn-quick-nav" id="btn-account-goto-lb">
                   🏆 Top 100 Ranks
+                </button>
+                <button type="button" class="btn-quick-nav highlight-all-players" id="btn-account-goto-all-players" title="View all registered players and global rankings">
+                  👥 See All Players
                 </button>
               </div>
             </div>
@@ -761,11 +770,11 @@
 
 
         <div class="gameover-actions">
-          <button id="back-hub-btn" class="btn-hub" type="button">
-            🎨 Skins & Menu
-          </button>
           <button id="restart-btn" class="btn-restart" type="button">
             ↻ Play Again
+          </button>
+          <button id="back-hub-btn" class="btn-hub" type="button">
+            🏠 Back to Lobby
           </button>
         </div>
       </div>

@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <script src="/js/skins-data.js"></script>
   <style>
     :root {
       --bg-dark: #070a13;
@@ -885,6 +886,9 @@
       <button type="button" class="nav-tab-btn" data-tab="tab-activity">
         <span>⚡</span> Live Activity & Audit Log
       </button>
+      <button type="button" class="nav-tab-btn" data-tab="tab-logins">
+        <span>🔑</span> Login History (All Users)
+      </button>
     </div>
 
     <!-- ============================================================ -->
@@ -908,6 +912,8 @@
           <button type="button" class="chip-btn active" data-chip="all">All Players</button>
           <button type="button" class="chip-btn" data-chip="active">⚡ Active Recently</button>
           <button type="button" class="chip-btn" data-chip="hidden">🚫 Has Hidden Runs</button>
+          <button type="button" class="chip-btn" data-chip="locked-skins">🔒 Has Admin-Locked Skins</button>
+          <button type="button" class="chip-btn" data-chip="granted-skins">🎁 Has Granted Skins</button>
           <button type="button" class="chip-btn" data-chip="top">🏆 Has Top Record</button>
         </div>
 
@@ -1006,6 +1012,43 @@
         <div class="feed-list" id="activity-feed-list"></div>
       </div>
     </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 4: COMPLETE LOGIN HISTORY (ALL USERS)                    -->
+    <!-- ============================================================ -->
+    <div class="tab-pane" id="tab-logins">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">🔑 Complete Player Login History & Audit</div>
+            <div style="font-size:0.78rem; color:var(--text-sub); margin-top:4px;">
+              Every login event across all players with exact timestamps, login method, session count, and snapshot bests.
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <select id="login-user-filter" class="search-input" style="max-width:200px; padding:6px 10px; font-size:0.8rem;">
+              <option value="all">👥 All Players</option>
+            </select>
+            <input type="text" id="login-search" class="search-input" placeholder="🔍 Search by user or method..." style="max-width:240px;" />
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Player Username</th>
+                <th>Login Timestamp</th>
+                <th>Login Method</th>
+                <th>Session Count</th>
+                <th>Bests At Login</th>
+              </tr>
+            </thead>
+            <tbody id="logins-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ============================================================ -->
@@ -1100,6 +1143,98 @@
           💡 <strong>Tip:</strong> Runs hidden here will not appear on the public Top 100 Leaderboards.
         </div>
         <button type="button" class="btn" id="modal-footer-close-btn" style="padding:8px 16px;">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- DEDICATED PLAYER SKINS & INVENTORY MODAL POPUP               -->
+  <!-- ============================================================ -->
+  <div class="modal-backdrop" id="player-skins-modal" role="dialog" aria-modal="true" aria-labelledby="modal-skins-title" style="display:none;">
+    <div class="runs-modal-box" style="max-width:880px;">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-avatar-badge" style="background:linear-gradient(135deg, #a855f7, #ec4899);">🎨</div>
+          <div>
+            <div class="modal-title" id="modal-skins-title">Player Skin Management</div>
+            <div class="modal-subtitle" id="modal-skins-meta">
+              <span class="modal-pill" id="modal-skins-user-pill">👤 User</span>
+              <span class="modal-pill" id="modal-skins-locked-count-pill" style="color:#fca5a5;">🔒 0 Locked</span>
+              <span class="modal-pill" id="modal-skins-granted-count-pill" style="color:#d8b4fe;">🎁 0 Granted</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="modal-skins-close-btn" title="Close Popup (Esc)">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding:16px 20px; display:flex; flex-direction:column; gap:16px;">
+        <!-- SECTION 1: CHANGE CURRENTLY EQUIPPED SKINS -->
+        <div style="background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:14px; padding:14px 16px;">
+          <div style="font-size:0.86rem; font-weight:800; color:#38bdf8; margin-bottom:8px;">⚡ Change Player's Equipped Skins</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:flex-end;">
+            <div>
+              <label style="font-size:0.75rem; color:var(--text-sub); display:block; margin-bottom:4px;">Equipped Bird Skin:</label>
+              <select id="modal-equipped-bird-select" class="search-input" style="width:100%; padding:6px 10px; font-size:0.82rem;"></select>
+            </div>
+            <div>
+              <label style="font-size:0.75rem; color:var(--text-sub); display:block; margin-bottom:4px;">Equipped Pipe Skin:</label>
+              <select id="modal-equipped-pipe-select" class="search-input" style="width:100%; padding:6px 10px; font-size:0.82rem;"></select>
+            </div>
+            <button type="button" class="btn btn-primary" id="modal-save-equipped-btn" style="padding:8px 16px; font-size:0.82rem; height:36px;">
+              💾 Save Equipped
+            </button>
+          </div>
+        </div>
+
+        <!-- SECTION 2: GRANT OR ADMIN-LOCK A SKIN -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <!-- GRANT SKIN -->
+          <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(168,85,247,0.3); border-radius:14px; padding:14px 16px;">
+            <div style="font-size:0.84rem; font-weight:800; color:#d8b4fe; margin-bottom:6px;">🎁 Grant Skin (Add to Inventory)</div>
+            <div style="font-size:0.74rem; color:var(--text-sub); margin-bottom:8px;">Unlocks this skin instantly for the player.</div>
+            <div style="display:flex; gap:8px;">
+              <select id="modal-grant-skin-select" class="search-input" style="flex:1; padding:6px 10px; font-size:0.8rem;"></select>
+              <button type="button" class="btn btn-success" id="modal-grant-skin-btn" style="padding:6px 14px; font-size:0.78rem;">
+                Grant
+              </button>
+            </div>
+          </div>
+
+          <!-- ADMIN-LOCK / REVOKE SKIN -->
+          <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(239,68,68,0.3); border-radius:14px; padding:14px 16px;">
+            <div style="font-size:0.84rem; font-weight:800; color:#fca5a5; margin-bottom:6px;">🔒 Admin-Lock / Remove Skin</div>
+            <div style="font-size:0.74rem; color:var(--text-sub); margin-bottom:8px;">Removes from inventory and keeps it strictly locked until you unlock it.</div>
+            <div style="display:flex; gap:8px;">
+              <select id="modal-lock-skin-select" class="search-input" style="flex:1; padding:6px 10px; font-size:0.8rem;"></select>
+              <button type="button" class="btn btn-danger" id="modal-lock-skin-btn" style="padding:6px 14px; font-size:0.78rem;">
+                Lock
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: CURRENTLY ADMIN-LOCKED SKINS (WITH UNLOCK BUTTONS) -->
+        <div style="background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:14px; padding:14px 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:0.84rem; font-weight:800; color:#f87171;">🔒 Currently Admin-Locked Skins for this Player</div>
+            <span id="modal-locked-skins-badge" style="font-size:0.72rem; color:var(--text-sub);">0 skins locked</span>
+          </div>
+          <div id="modal-locked-skins-list" style="display:flex; flex-wrap:wrap; gap:8px; max-height:140px; overflow-y:auto; padding:4px 0;"></div>
+        </div>
+
+        <!-- SECTION 4: CURRENTLY GRANTED SKINS (WITH REVOKE BUTTONS) -->
+        <div style="background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:14px; padding:14px 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:0.84rem; font-weight:800; color:#c084fc;">🎁 Currently Admin-Granted Skins for this Player</div>
+            <span id="modal-granted-skins-badge" style="font-size:0.72rem; color:var(--text-sub);">0 skins granted</span>
+          </div>
+          <div id="modal-granted-skins-list" style="display:flex; flex-wrap:wrap; gap:8px; max-height:140px; overflow-y:auto; padding:4px 0;"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn" id="modal-skins-footer-close-btn" style="padding:8px 16px;">Close</button>
       </div>
     </div>
   </div>
@@ -1233,10 +1368,15 @@
       renderPlayersTable();
       renderActivityFeed(data.activityFeed || []);
       renderLeaderboardRuns();
+      renderLoginHistoryTable();
 
-      // If modal is currently open, refresh its contents seamlessly
+      // If player runs modal is open, refresh it
       if (modalActivePlayer && document.getElementById('player-runs-modal').classList.contains('is-open')) {
         renderModalRuns();
+      }
+      // If player skins modal is open, refresh it
+      if (modalSkinsActivePlayer && document.getElementById('player-skins-modal')?.style.display !== 'none') {
+        renderModalSkins();
       }
     }
 
@@ -1251,6 +1391,9 @@
         const targetId = btn.getAttribute('data-tab');
         const targetPane = document.getElementById(targetId);
         if (targetPane) targetPane.classList.add('active');
+        if (targetId === 'tab-logins') {
+          renderLoginHistoryTable();
+        }
       });
     });
 
@@ -1294,6 +1437,13 @@
         });
       } else if (activePlayerChip === 'active') {
         players = players.filter(p => p.loginStatus && p.loginStatus.toLowerCase().includes('today'));
+      } else if (activePlayerChip === 'locked-skins') {
+        players = players.filter(p => (p.adminLockedSkins && p.adminLockedSkins.length > 0));
+        // Sort players with the most admin-locked skins first as requested by MeDonut
+        players.sort((a, b) => ((b.adminLockedSkins?.length || 0) - (a.adminLockedSkins?.length || 0)));
+      } else if (activePlayerChip === 'granted-skins') {
+        players = players.filter(p => (p.grantedSkins && p.grantedSkins.length > 0));
+        players.sort((a, b) => ((b.grantedSkins?.length || 0) - (a.grantedSkins?.length || 0)));
       }
 
       if (players.length === 0) {
@@ -1322,7 +1472,11 @@
               ${p.username.toLowerCase() === 'medonut' ? '<span style="font-size:0.68rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:2px 8px; border-radius:999px;">ADMIN</span>' : ''}
             </div>
             <div class="player-meta">🐦 ${p.selectedSkin} • 🏗️ ${p.selectedPipeSkin}</div>
-            <div class="player-meta" style="color:${hiddenRuns > 0 ? '#fde047' : '#7dd3fc'};">
+            <div class="player-meta" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:3px;">
+              ${(p.adminLockedSkins && p.adminLockedSkins.length > 0) ? `<span style="font-size:0.68rem; background:rgba(239,68,68,0.22); color:#fca5a5; padding:1px 7px; border-radius:999px; border:1px solid rgba(239,68,68,0.5);">🔒 ${p.adminLockedSkins.length} Locked Skin(s)</span>` : ''}
+              ${(p.grantedSkins && p.grantedSkins.length > 0) ? `<span style="font-size:0.68rem; background:rgba(168,85,247,0.22); color:#d8b4fe; padding:1px 7px; border-radius:999px; border:1px solid rgba(168,85,247,0.5);">🎁 ${p.grantedSkins.length} Granted</span>` : ''}
+            </div>
+            <div class="player-meta" style="color:${hiddenRuns > 0 ? '#fde047' : '#7dd3fc'}; margin-top:2px;">
               📊 ${totalRuns} total run(s) • 👁️ ${visibleRuns} visible ${hiddenRuns > 0 ? `• 🚫 ${hiddenRuns} hidden` : ''}
             </div>
           </td>
@@ -1344,6 +1498,9 @@
               <button type="button" class="btn btn-success save-record-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center;">
                 💾 Save Bests
               </button>
+              <button type="button" class="btn manage-player-skins-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(168,85,247,0.5); color:#d8b4fe; background:rgba(168,85,247,0.15);">
+                🎨 Manage Skins (${(p.adminLockedSkins || []).length} locked)
+              </button>
               <button type="button" class="btn inspect-user-runs-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(56,189,248,0.5); color:#7dd3fc; background:rgba(2,132,199,0.15);">
                 📋 Inspect Runs (${totalRuns})
               </button>
@@ -1356,6 +1513,14 @@
       tbody.querySelectorAll('.score-input').forEach(inp => {
         inp.addEventListener('focus', () => { isEditingInput = true; });
         inp.addEventListener('blur', () => { setTimeout(() => { isEditingInput = false; }, 300); });
+      });
+
+      // Hook up Manage Skins button -> Opens dedicated Player Skins Modal!
+      tbody.querySelectorAll('.manage-player-skins-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const username = btn.getAttribute('data-user');
+          openPlayerSkinsModal(username);
+        });
       });
 
       // Hook up Inspect Runs button -> Opens the dedicated Modal Pop-up!
@@ -1994,6 +2159,270 @@
         });
       });
     }
+
+    // ============================================================
+    // TAB 4: RENDER LOGIN HISTORY TABLE (ALL USERS)
+    // ============================================================
+    function renderLoginHistoryTable() {
+      if (!currentDbData) return;
+      const tbody = document.getElementById('logins-tbody');
+      if (!tbody) return;
+      const search = (document.getElementById('login-search')?.value || '').trim().toLowerCase();
+      const userFilter = document.getElementById('login-user-filter')?.value || 'all';
+
+      // Update user filter select dropdown if needed
+      const selectEl = document.getElementById('login-user-filter');
+      if (selectEl && currentDbData.playerRecordsOverview) {
+        const users = Object.keys(currentDbData.playerRecordsOverview).sort();
+        const curVal = selectEl.value;
+        selectEl.innerHTML = '<option value="all">👥 All Players</option>' +
+          users.map(u => `<option value="${u}" ${u === curVal ? 'selected' : ''}>👤 ${u}</option>`).join('');
+      }
+
+      const list = (currentDbData.loginHistory || []).filter(item => {
+        if (userFilter !== 'all' && item.username !== userFilter) return false;
+        if (!search) return true;
+        return (
+          (item.username && item.username.toLowerCase().includes(search)) ||
+          (item.method && item.method.toLowerCase().includes(search)) ||
+          (item.timeString && item.timeString.toLowerCase().includes(search))
+        );
+      });
+
+      tbody.innerHTML = '';
+      if (list.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align:center; color:var(--text-sub); padding:24px;">
+              No login history events recorded yet matching your filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      list.forEach(entry => {
+        const tr = document.createElement('tr');
+        const b = entry.recordsSnapshot || {};
+        const isMedonut = entry.username && entry.username.toLowerCase() === 'medonut';
+        tr.innerHTML = `
+          <td>
+            <div class="player-name">
+              <span>👤 ${entry.username}</span>
+              ${isMedonut ? '<span style="font-size:0.68rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:2px 8px; border-radius:999px;">ADMIN</span>' : ''}
+            </div>
+          </td>
+          <td>
+            <div style="font-family:monospace; font-size:0.82rem; color:#7dd3fc;">
+              📅 ${entry.timeString || new Date(entry.timestamp).toLocaleString()}
+            </div>
+          </td>
+          <td>
+            <span class="status-badge badge-login" style="font-size:0.75rem;">
+              🔑 ${entry.method || 'Standard Login'}
+            </span>
+          </td>
+          <td>
+            <span style="font-weight:800; color:#fde047;">#${entry.loginCount || 1}</span>
+          </td>
+          <td>
+            <div style="font-size:0.78rem; color:var(--text-sub);">
+              🟢 ${b.easy || 0} • 🟡 ${b.medium || 0} • 🔴 ${b.hard || 0}
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('login-search')?.addEventListener('input', renderLoginHistoryTable);
+    document.getElementById('login-user-filter')?.addEventListener('change', renderLoginHistoryTable);
+
+    // ============================================================
+    // PLAYER SKINS & INVENTORY MODAL MANAGEMENT
+    // ============================================================
+    let modalSkinsActivePlayer = null;
+
+    function openPlayerSkinsModal(username) {
+      if (!currentDbData || !currentDbData.playerRecordsOverview) return;
+      const p = currentDbData.playerRecordsOverview[username];
+      if (!p) return;
+      modalSkinsActivePlayer = username;
+
+      const modal = document.getElementById('player-skins-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+
+      document.getElementById('modal-skins-title').textContent = `🎨 Manage Skins & Equipped: ${username}`;
+      document.getElementById('modal-skins-user-pill').textContent = `👤 ${username}`;
+
+      populateSkinsDropdowns(p);
+      renderModalSkins();
+    }
+
+    function closePlayerSkinsModal() {
+      const modal = document.getElementById('player-skins-modal');
+      if (modal) modal.style.display = 'none';
+      modalSkinsActivePlayer = null;
+    }
+
+    function populateSkinsDropdowns(p) {
+      const birdSelect = document.getElementById('modal-equipped-bird-select');
+      const pipeSelect = document.getElementById('modal-equipped-pipe-select');
+      const grantSelect = document.getElementById('modal-grant-skin-select');
+      const lockSelect = document.getElementById('modal-lock-skin-select');
+
+      const birdList = (typeof BIRD_SKINS !== 'undefined' && Array.isArray(BIRD_SKINS)) ? BIRD_SKINS : [];
+      const pipeList = (typeof PIPE_SKINS !== 'undefined' && Array.isArray(PIPE_SKINS)) ? PIPE_SKINS : [];
+
+      if (birdSelect) {
+        birdSelect.innerHTML = birdList.map(s => `
+          <option value="${s.id}" ${s.id === p.selectedSkin ? 'selected' : ''}>${s.emoji || '🐤'} ${s.name} (${s.rarity})</option>
+        `).join('');
+      }
+
+      if (pipeSelect) {
+        pipeSelect.innerHTML = pipeList.map(pSkin => `
+          <option value="${pSkin.id}" ${pSkin.id === p.selectedPipeSkin ? 'selected' : ''}>${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})</option>
+        `).join('');
+      }
+
+      // Populate Grant and Lock dropdowns with all skins (Birds & Pipes)
+      const allSkins = [
+        ...birdList.map(s => ({ id: s.id, name: `[Bird] ${s.emoji || '🐤'} ${s.name} (${s.rarity})` })),
+        ...pipeList.map(pSkin => ({ id: pSkin.id, name: `[Pipe] ${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})` }))
+      ];
+
+      const optionsHtml = allSkins.map(item => `<option value="${item.id}">${item.name}</option>`).join('');
+      if (grantSelect) grantSelect.innerHTML = optionsHtml;
+      if (lockSelect) lockSelect.innerHTML = optionsHtml;
+    }
+
+    function renderModalSkins() {
+      if (!modalSkinsActivePlayer || !currentDbData || !currentDbData.playerRecordsOverview) return;
+      const p = currentDbData.playerRecordsOverview[modalSkinsActivePlayer];
+      if (!p) return;
+
+      const lockedList = p.adminLockedSkins || [];
+      const grantedList = p.grantedSkins || [];
+
+      const lockedPill = document.getElementById('modal-skins-locked-count-pill');
+      if (lockedPill) lockedPill.textContent = `🔒 ${lockedList.length} Locked`;
+
+      const grantedPill = document.getElementById('modal-skins-granted-count-pill');
+      if (grantedPill) grantedPill.textContent = `🎁 ${grantedList.length} Granted`;
+
+      const lockedBadge = document.getElementById('modal-locked-skins-badge');
+      if (lockedBadge) lockedBadge.textContent = `${lockedList.length} skin(s) locked`;
+
+      const grantedBadge = document.getElementById('modal-granted-skins-badge');
+      if (grantedBadge) grantedBadge.textContent = `${grantedList.length} skin(s) granted`;
+
+      const lockedContainer = document.getElementById('modal-locked-skins-list');
+      if (lockedContainer) {
+        lockedContainer.innerHTML = '';
+        if (lockedList.length === 0) {
+          lockedContainer.innerHTML = '<span style="font-size:0.75rem; color:var(--text-sub); font-style:italic;">No skins currently admin-locked for this player.</span>';
+        } else {
+          lockedList.forEach(skinId => {
+            const chip = document.createElement('div');
+            chip.style.cssText = 'background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); border-radius:8px; padding:4px 10px; display:inline-flex; align-items:center; gap:8px; font-size:0.78rem;';
+            chip.innerHTML = `
+              <span style="color:#fca5a5; font-weight:700;">🔒 ${skinId}</span>
+              <button type="button" class="btn btn-primary btn-unlock-skin" data-skin="${skinId}" style="padding:2px 8px; font-size:0.7rem; height:24px;">
+                🔓 Unlock
+              </button>
+            `;
+            lockedContainer.appendChild(chip);
+          });
+        }
+      }
+
+      const grantedContainer = document.getElementById('modal-granted-skins-list');
+      if (grantedContainer) {
+        grantedContainer.innerHTML = '';
+        if (grantedList.length === 0) {
+          grantedContainer.innerHTML = '<span style="font-size:0.75rem; color:var(--text-sub); font-style:italic;">No skins currently admin-granted for this player.</span>';
+        } else {
+          grantedList.forEach(skinId => {
+            const chip = document.createElement('div');
+            chip.style.cssText = 'background:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.4); border-radius:8px; padding:4px 10px; display:inline-flex; align-items:center; gap:8px; font-size:0.78rem;';
+            chip.innerHTML = `
+              <span style="color:#d8b4fe; font-weight:700;">🎁 ${skinId}</span>
+              <button type="button" class="btn btn-danger btn-revoke-skin" data-skin="${skinId}" style="padding:2px 8px; font-size:0.7rem; height:24px;">
+                ❌ Revoke
+              </button>
+            `;
+            grantedContainer.appendChild(chip);
+          });
+        }
+      }
+
+      // Hook unlock buttons
+      lockedContainer?.querySelectorAll('.btn-unlock-skin').forEach(b => {
+        b.addEventListener('click', async () => {
+          const skinId = b.getAttribute('data-skin');
+          await updatePlayerSkinsApi(modalSkinsActivePlayer, { unlockSkinId: skinId });
+        });
+      });
+
+      // Hook revoke buttons
+      grantedContainer?.querySelectorAll('.btn-revoke-skin').forEach(b => {
+        b.addEventListener('click', async () => {
+          const skinId = b.getAttribute('data-skin');
+          await updatePlayerSkinsApi(modalSkinsActivePlayer, { revokeSkinId: skinId });
+        });
+      });
+    }
+
+    async function updatePlayerSkinsApi(username, payload) {
+      try {
+        const res = await fetch('/api/database/update-user-skins', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ username, ...payload })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast(`✅ ${data.message || 'Updated player skins!'}`);
+          if (currentDbData && currentDbData.playerRecordsOverview && currentDbData.playerRecordsOverview[username]) {
+            const p = currentDbData.playerRecordsOverview[username];
+            if (data.grantedSkins) p.grantedSkins = data.grantedSkins;
+            if (data.adminLockedSkins) p.adminLockedSkins = data.adminLockedSkins;
+            if (payload.selectedSkin) p.selectedSkin = payload.selectedSkin;
+            if (payload.selectedPipeSkin) p.selectedPipeSkin = payload.selectedPipeSkin;
+          }
+          renderPlayersTable();
+          renderModalSkins();
+        } else {
+          showToast(`❌ Error: ${data.error || 'Failed to update player skins'}`);
+        }
+      } catch (err) {
+        showToast('❌ Network error updating skins');
+      }
+    }
+
+    document.getElementById('modal-save-equipped-btn')?.addEventListener('click', async () => {
+      if (!modalSkinsActivePlayer) return;
+      const selectedSkin = document.getElementById('modal-equipped-bird-select')?.value;
+      const selectedPipeSkin = document.getElementById('modal-equipped-pipe-select')?.value;
+      await updatePlayerSkinsApi(modalSkinsActivePlayer, { selectedSkin, selectedPipeSkin });
+    });
+
+    document.getElementById('modal-grant-skin-btn')?.addEventListener('click', async () => {
+      if (!modalSkinsActivePlayer) return;
+      const grantSkinId = document.getElementById('modal-grant-skin-select')?.value;
+      if (grantSkinId) await updatePlayerSkinsApi(modalSkinsActivePlayer, { grantSkinId });
+    });
+
+    document.getElementById('modal-lock-skin-btn')?.addEventListener('click', async () => {
+      if (!modalSkinsActivePlayer) return;
+      const lockSkinId = document.getElementById('modal-lock-skin-select')?.value;
+      if (lockSkinId) await updatePlayerSkinsApi(modalSkinsActivePlayer, { lockSkinId });
+    });
+
+    document.getElementById('modal-skins-close-btn')?.addEventListener('click', closePlayerSkinsModal);
+    document.getElementById('modal-skins-footer-close-btn')?.addEventListener('click', closePlayerSkinsModal);
 
     // Initialize Database
     fetchDatabase();

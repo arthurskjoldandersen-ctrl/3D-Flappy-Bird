@@ -347,6 +347,10 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       Number(u.lastNewBestAt) || 0
     );
 
+    if (!u.grantedSkins) u.grantedSkins = [];
+    if (!u.adminLockedSkins) u.adminLockedSkins = [];
+    if (!u.loginHistory) u.loginHistory = [];
+
     overview[u.username] = {
       username: u.username,
       summary: `🏆 Best: ${allTimeBest} pts (Easy: ${eBest} | Medium: ${mBest} | Hard: ${hBest})`,
@@ -372,12 +376,16 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       },
       selectedSkin: u.selectedSkin || 'classic',
       selectedPipeSkin: u.selectedPipeSkin || 'classic_pipe',
+      grantedSkins: u.grantedSkins || [],
+      adminLockedSkins: u.adminLockedSkins || [],
+      loginHistory: (u.loginHistory || []).slice(0, 30),
       loginCount: u.loginCount || 0,
       lastLoginAtReadable: formatReadableTimestamp(u.lastLoginAt),
       lastNewBestAtReadable: formatReadableTimestamp(latestBestTime),
       createdAtReadable: formatReadableTimestamp(u.createdAt)
     };
   }
+  if (!db.loginHistory) db.loginHistory = [];
   db.playerRecordsOverview = overview;
 
   // 5. Update `databaseStatus` summary header at the very top of `db.json`
@@ -479,34 +487,39 @@ fs.watchFile(DB_FILE, { interval: 1500, persistent: false }, (curr, prev) => {
 });
 
 /**
- * Builds the 3-Difficulty Leaderboards (Top 100 per difficulty)
+ * Builds the 3-Difficulty Leaderboards (Top 100 or All Players/Runs if limit is 0/null)
  */
-function buildLeaderboards() {
+function buildLeaderboards(limit = 100) {
   const result = { easy: [], medium: [], hard: [] };
 
   ['easy', 'medium', 'hard'].forEach(diff => {
     const runsList = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
-    result[diff] = runsList
+    let filtered = runsList
       .filter(entry => entry && typeof entry.score === 'number' && entry.score > 0 && !entry.hidden)
       .slice()
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return (a.createdAt || 0) - (b.createdAt || 0);
-      })
-      .slice(0, 100)
-      .map(entry => ({
-        id: entry.id,
-        username: entry.username,
-        score: entry.score,
-        updatedAt: entry.createdAt
-      }));
+      });
+
+    if (limit && limit > 0) {
+      filtered = filtered.slice(0, limit);
+    }
+
+    result[diff] = filtered.map((entry, idx) => ({
+      id: entry.id,
+      username: entry.username,
+      score: entry.score,
+      rank: idx + 1,
+      updatedAt: entry.createdAt
+    }));
   });
 
   return result;
 }
 
 /**
- * Records a user login (password login or quick-switch) in the database
+ * Records a user login (password login or quick-switch) in the database and audit history
  */
 function recordUserLogin(user, method = 'login') {
   const now = Date.now();
@@ -514,6 +527,27 @@ function recordUserLogin(user, method = 'login') {
   user.lastLoginAt = now;
   user.lastLoginReadable = formatReadableTimestamp(now);
   user.lastLoginMethod = method;
+
+  if (!user.loginHistory) user.loginHistory = [];
+  user.loginHistory.unshift({
+    timestamp: now,
+    readable: formatReadableTimestamp(now),
+    method: method || 'login',
+    loginNumber: user.loginCount
+  });
+  if (user.loginHistory.length > 50) user.loginHistory.length = 50;
+
+  if (!db.loginHistory) db.loginHistory = [];
+  db.loginHistory.unshift({
+    id: 'login_' + now + '_' + Math.random().toString(36).substr(2, 6),
+    username: user.username,
+    timestamp: now,
+    readable: formatReadableTimestamp(now),
+    method: method || 'login',
+    loginCount: user.loginCount,
+    records: { ...(user.records || {}) }
+  });
+  if (db.loginHistory.length > 500) db.loginHistory.length = 500;
 
   const r = user.records || { easy: 0, medium: 0, hard: 0 };
   const msg = `🔑 ${user.username} logged in (${method === 'quick-switch' ? 'Quick Login' : 'Password Login'} #${user.loginCount}) — Current Bests: Easy ${r.easy || 0} | Medium ${r.medium || 0} | Hard ${r.hard || 0}`;
@@ -836,6 +870,93 @@ function deleteLeaderboardEntryAdmin(difficulty, entryId) {
   return removed;
 }
 
+/**
+ * Allows MeDonut Admin to grant skins, lock/ban skins for a player, or change their equipped skin.
+ */
+function adminUpdateUserSkins(username, options = {}) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  const user = db.users && db.users[uKey];
+  if (!user) {
+    throw new Error(`Player "${username}" does not exist in database.`);
+  }
+
+  if (!user.grantedSkins) user.grantedSkins = [];
+  if (!user.adminLockedSkins) user.adminLockedSkins = [];
+
+  const { grantSkinId, revokeSkinId, lockSkinId, unlockSkinId, selectedSkin, selectedPipeSkin } = options;
+  let changed = false;
+  const actionLog = [];
+
+  if (grantSkinId) {
+    const skinId = String(grantSkinId).trim();
+    if (!user.grantedSkins.includes(skinId)) {
+      user.grantedSkins.push(skinId);
+    }
+    user.adminLockedSkins = user.adminLockedSkins.filter(id => id !== skinId);
+    actionLog.push(`Granted skin "${skinId}"`);
+    changed = true;
+  }
+
+  if (revokeSkinId) {
+    const skinId = String(revokeSkinId).trim();
+    user.grantedSkins = user.grantedSkins.filter(id => id !== skinId);
+    actionLog.push(`Revoked skin "${skinId}"`);
+    changed = true;
+  }
+
+  if (lockSkinId) {
+    const skinId = String(lockSkinId).trim();
+    if (!user.adminLockedSkins.includes(skinId)) {
+      user.adminLockedSkins.push(skinId);
+    }
+    user.grantedSkins = user.grantedSkins.filter(id => id !== skinId);
+    if (user.selectedSkin === skinId) user.selectedSkin = 'classic';
+    if (user.selectedPipeSkin === skinId) user.selectedPipeSkin = 'classic_pipe';
+    actionLog.push(`Admin-locked skin "${skinId}" (player cannot unlock)`);
+    changed = true;
+  }
+
+  if (unlockSkinId) {
+    const skinId = String(unlockSkinId).trim();
+    user.adminLockedSkins = user.adminLockedSkins.filter(id => id !== skinId);
+    actionLog.push(`Removed admin-lock on skin "${skinId}"`);
+    changed = true;
+  }
+
+  if (typeof selectedSkin === 'string' && selectedSkin.trim()) {
+    user.selectedSkin = selectedSkin.trim();
+    actionLog.push(`Set bird skin to "${user.selectedSkin}"`);
+    changed = true;
+  }
+
+  if (typeof selectedPipeSkin === 'string' && selectedPipeSkin.trim()) {
+    user.selectedPipeSkin = selectedPipeSkin.trim();
+    actionLog.push(`Set pipe skin to "${user.selectedPipeSkin}"`);
+    changed = true;
+  }
+
+  if (changed) {
+    logDatabaseEvent(
+      'ADMIN_SKIN_CHANGE',
+      user.username,
+      `👑 MeDonut updated skins for ${user.username}: ${actionLog.join(', ')}`,
+      { options }
+    );
+    saveDatabase();
+  }
+
+  return {
+    success: true,
+    username: user.username,
+    grantedSkins: user.grantedSkins,
+    adminLockedSkins: user.adminLockedSkins,
+    selectedSkin: user.selectedSkin,
+    selectedPipeSkin: user.selectedPipeSkin,
+    user
+  };
+}
+
 loadDatabase(false);
 
 module.exports = {
@@ -854,5 +975,6 @@ module.exports = {
   toggleUserRunsVisibilityAdmin,
   getAllRunsAdmin,
   deleteLeaderboardEntryAdmin,
+  adminUpdateUserSkins,
   formatReadableTimestamp
 };

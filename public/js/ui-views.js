@@ -428,6 +428,15 @@ class FlappyBirdUIAndProgression {
         }
 
         isCosmeticUnlocked(item) {
+          if (!item) return false;
+          // Priority 1: Admin-locked skins stay locked and cannot be unlocked until MeDonut unlocks them
+          if (this.currentUser && Array.isArray(this.currentUser.adminLockedSkins) && this.currentUser.adminLockedSkins.includes(item.id)) {
+            return false;
+          }
+          // Priority 2: Admin-granted skins are unlocked immediately
+          if (this.currentUser && Array.isArray(this.currentUser.grantedSkins) && this.currentUser.grantedSkins.includes(item.id)) {
+            return true;
+          }
           if (item.reqMode === 'meme' && item.trollQuestId) {
             return this.getTrollQuestProgress(item.trollQuestId, item.reqScore).unlocked;
           }
@@ -511,16 +520,43 @@ class FlappyBirdUIAndProgression {
           await this.fetchLeaderboards();
         }
 
-        async fetchLeaderboards() {
+        async fetchLeaderboards(showAll = null) {
+          if (showAll !== null) {
+            this.lbShowAllPlayers = Boolean(showAll);
+          }
+          if (typeof this.updateLeaderboardToggleBtn === 'function') {
+            this.updateLeaderboardToggleBtn();
+          }
           try {
-            const data = await this.apiRequest('/api/leaderboard');
+            const url = this.lbShowAllPlayers ? '/api/leaderboard?all=true' : '/api/leaderboard';
+            const data = await this.apiRequest(url);
             if (data.leaderboards) {
               this.leaderboards = data.leaderboards;
               this.renderLeaderboard();
             }
           } catch (_) {
             const listEl = document.getElementById('lb-list');
-            listEl.innerHTML = `<div class="lb-empty">Start the Node server (<code>node server.js</code>) to view live online leaderboards!</div>`;
+            if (listEl) {
+              listEl.innerHTML = `<div class="lb-empty">Start the Node server (<code>node server.js</code>) to view live online leaderboards!</div>`;
+            }
+          }
+        }
+
+        updateLeaderboardToggleBtn() {
+          const btn = document.getElementById('lb-toggle-top100-btn');
+          const icon = document.getElementById('lb-toggle-icon');
+          const text = document.getElementById('lb-toggle-text');
+          if (!btn) return;
+          if (this.lbShowAllPlayers) {
+            btn.classList.add('active');
+            if (icon) icon.textContent = '👥';
+            if (text) text.textContent = 'All Players: ON';
+            btn.title = 'Showing All Players! Click to view Top 100 Only.';
+          } else {
+            btn.classList.remove('active');
+            if (icon) icon.textContent = '🌐';
+            if (text) text.textContent = 'All Players: OFF';
+            btn.title = 'Showing Top 100 Only. Click to view All Players.';
           }
         }
 
@@ -1042,7 +1078,7 @@ class FlappyBirdUIAndProgression {
                 <span class="standing-crown">⭐</span>
                 <div>
                   <div class="standing-title">Your Verified ${label} Standing</div>
-                  <strong class="standing-rank">Rank #${myIndex + 1} of ${entries.length}</strong>
+                  <strong class="standing-rank">Rank #${myIndex + 1} of ${entries.length} ${this.lbShowAllPlayers ? '(All Players)' : '(Top 100)'}</strong>
                 </div>
               </div>
               <div class="standing-pill-right">
@@ -1058,11 +1094,11 @@ class FlappyBirdUIAndProgression {
                 <span class="standing-crown">🎯</span>
                 <div>
                   <div class="standing-title">Your ${label} Best: <strong>${userBest} pts</strong></div>
-                  <div class="standing-sub">${entries.length > 0 ? `Score ${entries[entries.length - 1].score + 1}+ pts to enter the Top 100!` : 'Submit a run to claim #1!'}</div>
+                  <div class="standing-sub">${entries.length > 0 ? (this.lbShowAllPlayers ? `Play a run on ${label} to appear on the global leaderboard!` : `Score ${entries[entries.length - 1].score + 1}+ pts to enter the Top 100!`) : 'Submit a run to claim #1!'}</div>
                 </div>
               </div>
               <div class="standing-pill-right">
-                <span class="standing-tag unranked">Unranked in Top 100</span>
+                <span class="standing-tag unranked">${this.lbShowAllPlayers ? 'Unranked' : 'Unranked in Top 100'}</span>
               </div>
             `;
           } else {
@@ -1674,6 +1710,8 @@ class FlappyBirdUIAndProgression {
           const equipped = isPipe ? (this.selectedPipeSkinId === item.id) : (this.selectedSkinId === item.id);
           const previewing = isPipe ? (this.previewPipeSkinId === item.id) : (this.previewSkinId === item.id);
           const prog = this.getCosmeticProgress(item);
+          const isAdminLocked = Boolean(this.currentUser && Array.isArray(this.currentUser.adminLockedSkins) && this.currentUser.adminLockedSkins.includes(item.id));
+          const isGranted = Boolean(this.currentUser && Array.isArray(this.currentUser.grantedSkins) && this.currentUser.grantedSkins.includes(item.id));
 
           const tierClass = item.rarity === 'POKEMON'
             ? ' tier-pokemon'
@@ -1709,51 +1747,77 @@ class FlappyBirdUIAndProgression {
           const info = document.createElement('div');
           info.className = 'skin-info';
 
-          const headerRow = document.createElement('div');
-          headerRow.className = 'skin-header-row';
+          // 1. Skin Title Row (Clean, dedicated row for name and rarity without clutter)
+          const titleRow = document.createElement('div');
+          titleRow.className = 'skin-title-row';
 
           const nameEl = document.createElement('span');
           nameEl.className = 'skin-name';
           nameEl.textContent = item.name;
 
+          // Responsive font scaling for long Pokemon and Meme names to prevent clipping
+          if (item.name.length > 20) {
+            nameEl.style.fontSize = '0.72rem';
+            nameEl.style.letterSpacing = '-0.2px';
+            nameEl.style.lineHeight = '1.15';
+          } else if (item.name.length > 14) {
+            nameEl.style.fontSize = '0.78rem';
+            nameEl.style.lineHeight = '1.18';
+          } else {
+            nameEl.style.fontSize = '0.84rem';
+            nameEl.style.lineHeight = '1.2';
+          }
+
           const rarityEl = document.createElement('span');
           rarityEl.className = `rarity-tag rarity-${item.rarity}`;
           rarityEl.textContent = item.rarity;
 
-          const ownerTag = document.createElement('span');
-          ownerTag.className = 'ownership-pill ' + (equipped ? 'equipped' : (unlocked ? 'owned' : 'locked'));
-          ownerTag.textContent = equipped ? '⚡ EQUIPPED' : (unlocked ? '✅ OWNED' : '🔒 LOCKED');
+          titleRow.append(nameEl, rarityEl);
 
-          headerRow.append(nameEl, rarityEl);
+          // 2. Meta Badges Row (Ownership status & Mode/Quest badge)
+          const metaRow = document.createElement('div');
+          metaRow.className = 'skin-meta-badges';
+
+          const ownerTag = document.createElement('span');
+          if (isAdminLocked) {
+            ownerTag.className = 'ownership-pill locked-admin';
+            ownerTag.textContent = '🔒 ADMIN LOCKED';
+          } else if (equipped) {
+            ownerTag.className = 'ownership-pill equipped';
+            ownerTag.textContent = '⚡ EQUIPPED';
+          } else if (isGranted) {
+            ownerTag.className = 'ownership-pill granted';
+            ownerTag.textContent = '🎁 GRANTED';
+          } else if (unlocked) {
+            ownerTag.className = 'ownership-pill owned';
+            ownerTag.textContent = '✅ OWNED';
+          } else {
+            ownerTag.className = 'ownership-pill locked';
+            ownerTag.textContent = '🔒 LOCKED';
+          }
+          metaRow.appendChild(ownerTag);
 
           if (item.reqMode === 'easy' || item.reqMode === 'medium' || item.reqMode === 'hard' || item.reqMode === 'pokemon' || item.reqMode === 'meme') {
             const modeTag = document.createElement('span');
             modeTag.className = `mode-tag mode-${item.reqMode}`;
             modeTag.textContent = item.reqMode === 'easy'
-              ? '🟢 EASY ONLY'
+              ? '🟢 EASY'
               : (item.reqMode === 'medium'
-                ? '🟡 MEDIUM ONLY'
+                ? '🟡 MEDIUM'
                 : (item.reqMode === 'hard'
-                  ? '🔴 HARD ONLY'
-                  : (item.reqMode === 'pokemon' ? '🔴 POKÉMON QUEST' : '😂 MEME QUEST')));
-            headerRow.appendChild(modeTag);
+                  ? '🔴 HARD'
+                  : (item.reqMode === 'pokemon' ? '🔴 POKÉMON' : '😂 MEME')));
+            metaRow.appendChild(modeTag);
           }
 
-          if (unlocked) {
-            const reqInline = document.createElement('span');
-            reqInline.className = 'req-badge-inline';
-            reqInline.textContent = item.reqScore <= 0 && item.reqMode !== 'meme' && item.reqMode !== 'pokemon' ? 'Starter' : item.reqText;
-            headerRow.appendChild(reqInline);
-          }
-
-          headerRow.appendChild(ownerTag);
-
+          // 3. Compact Description
           const descEl = document.createElement('div');
           descEl.className = 'skin-desc';
           descEl.textContent = item.desc;
 
-          info.append(headerRow, descEl);
+          info.append(titleRow, metaRow, descEl);
 
+          // 4. Progress row (only if not unlocked)
           if (!unlocked) {
             const progRow = document.createElement('div');
             progRow.className = 'skin-progress-row';
@@ -1762,12 +1826,14 @@ class FlappyBirdUIAndProgression {
             track.className = 'skin-progress-track';
             const fill = document.createElement('div');
             fill.className = 'skin-progress-fill';
-            fill.style.width = `${prog.percent}%`;
+            fill.style.width = isAdminLocked ? '0%' : `${prog.percent}%`;
             track.appendChild(fill);
 
             const reqEl = document.createElement('span');
             reqEl.className = 'skin-req';
-            reqEl.textContent = `${item.reqText} • ${prog.current}/${prog.target} (${prog.percent}%)`;
+            reqEl.textContent = isAdminLocked
+              ? '🔒 Locked by Admin MeDonut (Stays locked)'
+              : `${item.reqText} • ${prog.current}/${prog.target} (${prog.percent}%)`;
 
             progRow.append(track, reqEl);
             info.appendChild(progRow);
@@ -1872,6 +1938,10 @@ class FlappyBirdUIAndProgression {
         renderBirdSkinsGrid() {
           const gridEl = document.getElementById('bird-skins-grid');
           if (!gridEl) return;
+          // Cache current scroll positions so equipping never resets to the top
+          const prevScrollTop = gridEl.scrollTop;
+          const viewSkinsEl = document.getElementById('view-skins');
+          const prevViewScroll = viewSkinsEl ? viewSkinsEl.scrollTop : 0;
           gridEl.innerHTML = '';
 
           const activeBirdId = this.previewSkinId || this.selectedSkinId;
@@ -1989,6 +2059,12 @@ class FlappyBirdUIAndProgression {
                 gridEl.appendChild(this.buildCosmeticCard(skin, false));
               });
             }
+            gridEl.scrollTop = prevScrollTop;
+            if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+            requestAnimationFrame(() => {
+              gridEl.scrollTop = prevScrollTop;
+              if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+            });
             return;
           }
 
@@ -2002,11 +2078,22 @@ class FlappyBirdUIAndProgression {
           sortedSkins.forEach(skin => {
             gridEl.appendChild(this.buildCosmeticCard(skin, false));
           });
+
+          gridEl.scrollTop = prevScrollTop;
+          if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+          requestAnimationFrame(() => {
+            gridEl.scrollTop = prevScrollTop;
+            if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+          });
         }
 
         renderPipeSkinsGrid() {
           const gridEl = document.getElementById('pipe-skins-grid');
           if (!gridEl) return;
+          // Cache current scroll positions so equipping never resets to the top
+          const prevScrollTop = gridEl.scrollTop;
+          const viewSkinsEl = document.getElementById('view-skins');
+          const prevViewScroll = viewSkinsEl ? viewSkinsEl.scrollTop : 0;
           gridEl.innerHTML = '';
 
           const activePipeId = this.previewPipeSkinId || this.selectedPipeSkinId;
@@ -2124,6 +2211,12 @@ class FlappyBirdUIAndProgression {
                 gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
               });
             }
+            gridEl.scrollTop = prevScrollTop;
+            if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+            requestAnimationFrame(() => {
+              gridEl.scrollTop = prevScrollTop;
+              if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+            });
             return;
           }
 
@@ -2136,6 +2229,13 @@ class FlappyBirdUIAndProgression {
           gridEl.appendChild(divFilterHeader);
           sortedPipes.forEach(pipeSkin => {
             gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
+          });
+
+          gridEl.scrollTop = prevScrollTop;
+          if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+          requestAnimationFrame(() => {
+            gridEl.scrollTop = prevScrollTop;
+            if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
           });
         }
 
@@ -2501,10 +2601,55 @@ class FlappyBirdUIAndProgression {
         switchView(viewName) {
           this.currentAppView = viewName;
 
+          // 1. If currently on Game Over screen, dismiss it immediately so requested view can pop up
+          const gameoverScreen = document.getElementById('gameover-screen');
+          if (gameoverScreen && gameoverScreen.classList.contains('active')) {
+            gameoverScreen.classList.remove('active');
+          }
+
+          // 2. Ensure start-screen hub container is active and visible
+          const startScreen = document.getElementById('start-screen');
+          if (startScreen && !startScreen.classList.contains('active')) {
+            startScreen.classList.add('active');
+          }
+
+          // 3. Ensure in-game classes are stripped and top navigation bar is fully visible
+          document.body.classList.remove('in-game');
+          const topBarEl = document.getElementById('top-app-bar');
+          if (topBarEl) {
+            topBarEl.classList.remove('in-game');
+            if (topBarEl.style) {
+              if (typeof topBarEl.style.removeProperty === 'function') topBarEl.style.removeProperty('display');
+              else topBarEl.style.display = '';
+            }
+          }
+
+          // 4. If coming from GAMEOVER state, reset 3D world to clean start state
+          if (this.state === GAME_STATE.GAMEOVER) {
+            this.state = GAME_STATE.START;
+            if (typeof this.spawnLobbyPreviewPipes === 'function') {
+              this.spawnLobbyPreviewPipes();
+            }
+            if (this.birdGroup) {
+              this.simBirdY = CONFIG.birdStartY;
+              this.prevBirdY = CONFIG.birdStartY;
+              this.birdGroup.position.set(CONFIG.birdX, CONFIG.birdStartY, 0);
+              this.birdGroup.rotation.set(0, 0, 0);
+              if (this.birdMeshGroup) {
+                this.birdMeshGroup.rotation.set(0, 0, 0);
+              }
+            }
+            if (typeof this.renderAllCosmeticGrids === 'function') {
+              this.renderAllCosmeticGrids();
+            }
+          }
+
+          // 5. Update top navigation dock tabs
           document.querySelectorAll('#main-nav-dock .dock-tab').forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-view') === viewName);
           });
 
+          // 6. Switch active view panel
           const views = {
             lobby: document.getElementById('view-lobby'),
             skins: document.getElementById('view-skins'),
@@ -2527,7 +2672,7 @@ class FlappyBirdUIAndProgression {
               this.renderBirdSkinsGrid();
             }
           } else if (viewName === 'leaderboard') {
-            this.fetchLeaderboards();
+            this.fetchLeaderboards(this.lbShowAllPlayers);
           } else if (viewName === 'stats') {
             this.renderStatsMenu();
           } else if (viewName === 'account') {

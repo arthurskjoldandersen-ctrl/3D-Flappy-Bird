@@ -1,10 +1,10 @@
 {
   "databaseStatus": {
-    "lastUpdatedISO": "2026-11-02T11:29:48.083Z",
-    "lastUpdatedReadable": "2026-11-02 12:29:48",
-    "latestEventBanner": "[2026-11-02 11:55:07] 🚀 3D Flappy Bird Live Database initialized with all player accounts & Top 100 leaderboard records.",
-    "lastEventType": "DATABASE_READY",
-    "lastEventPlayer": "System",
+    "lastUpdatedISO": "2026-11-02T19:53:37.542Z",
+    "lastUpdatedReadable": "2026-11-02 20:53:37",
+    "latestEventBanner": "[2026-11-02 20:53:37] 👑 MeDonut updated skins for SkyAce: Removed admin-lock on skin \"charizard\"",
+    "lastEventType": "ADMIN_SKIN_CHANGE",
+    "lastEventPlayer": "SkyAce",
     "currentChampions": {
       "easy": "MeDonut (109 pts)",
       "medium": "joslor11 (42 pts)",
@@ -12,10 +12,10 @@
     },
     "totalRegisteredPlayers": 24,
     "totalLeaderboardRuns": {
-      "easy": 100,
-      "medium": 100,
-      "hard": 100,
-      "total": 300
+      "easy": 107,
+      "medium": 109,
+      "hard": 107,
+      "total": 323
     },
     "howToViewOrEdit": "Open /database in your browser OR edit records directly in playerRecordsOverview / users below and save this file!"
   },
@@ -35,10 +35,15 @@
         "total": 29,
         "easy": 23,
         "medium": 2,
-        "hard": 4
+        "hard": 4,
+        "totalRecordedRuns": 29,
+        "hiddenRuns": 0
       },
       "selectedSkin": "sakura",
       "selectedPipeSkin": "glacier_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 3,
       "lastLoginAtReadable": "2026-10-30 13:21:07",
       "lastNewBestAtReadable": "2026-10-29 09:04:55",
@@ -59,10 +64,15 @@
         "total": 71,
         "easy": 35,
         "medium": 4,
-        "hard": 32
+        "hard": 32,
+        "totalRecordedRuns": 71,
+        "hiddenRuns": 0
       },
       "selectedSkin": "poke_pikachu",
       "selectedPipeSkin": "hellfire_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 2,
       "lastLoginAtReadable": "2026-10-30 12:09:24",
       "lastNewBestAtReadable": "2026-10-23 13:10:55",
@@ -83,10 +93,15 @@
         "total": 35,
         "easy": 9,
         "medium": 9,
-        "hard": 17
+        "hard": 17,
+        "totalRecordedRuns": 35,
+        "hiddenRuns": 0
       },
       "selectedSkin": "nine_plus_ten_21",
       "selectedPipeSkin": "pipe_windows_bsod",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-28 13:19:28",
       "lastNewBestAtReadable": "2026-11-02 11:00:59",
@@ -107,10 +122,15 @@
         "total": 60,
         "easy": 26,
         "medium": 9,
-        "hard": 25
+        "hard": 25,
+        "totalRecordedRuns": 60,
+        "hiddenRuns": 0
       },
       "selectedSkin": "inferno_hard",
       "selectedPipeSkin": "steel_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-21 08:30:08",
       "lastNewBestAtReadable": "2026-11-02 10:47:56",
@@ -131,10 +151,15 @@
         "total": 24,
         "easy": 0,
         "medium": 23,
-        "hard": 1
+        "hard": 1,
+        "totalRecordedRuns": 24,
+        "hiddenRuns": 0
       },
       "selectedSkin": "frost_medium",
       "selectedPipeSkin": "steel_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-29 10:54:54",
       "lastNewBestAtReadable": "2026-10-30 13:09:37",
@@ -152,13 +177,18 @@
       },
       "allTimeBest": 35,
       "leaderboardPlacements": {
-        "total": 19,
-        "easy": 0,
+        "total": 21,
+        "easy": 1,
         "medium": 19,
-        "hard": 0
+        "hard": 1,
+        "totalRecordedRuns": 21,
+        "hiddenRuns": 0
       },
       "selectedSkin": "cardinal",
       "selectedPipeSkin": "candy_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-29 10:55:11",
       "lastNewBestAtReadable": "2026-10-30 13:09:53",
@@ -176,13 +206,18 @@
       },
       "allTimeBest": 34,
       "leaderboardPlacements": {
-        "total": 10,
+        "total": 11,
         "easy": 2,
-        "medium": 0,
-        "hard": 8
+        "medium": 1,
+        "hard": 8,
+        "totalRecordedRuns": 11,
+        "hiddenRuns": 0
       },
       "selectedSkin": "sakura",
       "selectedPipeSkin": "pipe_bidoof_dam",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-26 08:48:42",
       "lastNewBestAtReadable": "2026-10-30 13:07:19",
@@ -203,10 +238,15 @@
         "total": 21,
         "easy": 0,
         "medium": 20,
-        "hard": 1
+        "hard": 1,
+        "totalRecordedRuns": 21,
+        "hiddenRuns": 0
       },
       "selectedSkin": "emerald",
       "selectedPipeSkin": "temple_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-29 10:55:06",
       "lastNewBestAtReadable": "2026-10-30 13:20:54",
@@ -224,13 +264,18 @@
       },
       "allTimeBest": 32,
       "leaderboardPlacements": {
-        "total": 5,
+        "total": 6,
         "easy": 0,
         "medium": 5,
-        "hard": 0
+        "hard": 1,
+        "totalRecordedRuns": 6,
+        "hiddenRuns": 0
       },
       "selectedSkin": "poke_magikarp",
       "selectedPipeSkin": "pipe_bidoof_dam",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-30 10:51:04",
       "lastNewBestAtReadable": "2026-10-30 12:12:06",
@@ -248,13 +293,18 @@
       },
       "allTimeBest": 31,
       "leaderboardPlacements": {
-        "total": 5,
-        "easy": 0,
+        "total": 6,
+        "easy": 1,
         "medium": 2,
-        "hard": 3
+        "hard": 3,
+        "totalRecordedRuns": 6,
+        "hiddenRuns": 0
       },
       "selectedSkin": "poke_meowth",
       "selectedPipeSkin": "pipe_bidoof_dam",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 4,
       "lastLoginAtReadable": "2026-10-30 13:19:30",
       "lastNewBestAtReadable": "2026-10-29 08:44:52",
@@ -272,13 +322,18 @@
       },
       "allTimeBest": 30,
       "leaderboardPlacements": {
-        "total": 1,
+        "total": 3,
         "easy": 1,
-        "medium": 0,
-        "hard": 0
+        "medium": 1,
+        "hard": 1,
+        "totalRecordedRuns": 3,
+        "hiddenRuns": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "temple_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-26 08:49:23",
       "lastNewBestAtReadable": "2026-10-28 09:49:40",
@@ -299,10 +354,15 @@
         "total": 8,
         "easy": 4,
         "medium": 2,
-        "hard": 2
+        "hard": 2,
+        "totalRecordedRuns": 8,
+        "hiddenRuns": 0
       },
       "selectedSkin": "ninja",
       "selectedPipeSkin": "pipe_pikachu_volt",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-29 10:54:35",
       "lastNewBestAtReadable": "2026-10-30 11:09:37",
@@ -320,13 +380,18 @@
       },
       "allTimeBest": 29,
       "leaderboardPlacements": {
-        "total": 3,
+        "total": 4,
         "easy": 0,
         "medium": 3,
-        "hard": 0
+        "hard": 1,
+        "totalRecordedRuns": 4,
+        "hiddenRuns": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-30 12:14:12",
       "lastNewBestAtReadable": "2026-10-30 13:13:50",
@@ -344,13 +409,18 @@
       },
       "allTimeBest": 27,
       "leaderboardPlacements": {
-        "total": 4,
-        "easy": 0,
+        "total": 5,
+        "easy": 1,
         "medium": 1,
-        "hard": 3
+        "hard": 3,
+        "totalRecordedRuns": 5,
+        "hiddenRuns": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "shogun_pipe_med",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 2,
       "lastLoginAtReadable": "2026-10-29 10:46:25",
       "lastNewBestAtReadable": "2026-11-02 11:05:37",
@@ -368,13 +438,18 @@
       },
       "allTimeBest": 26,
       "leaderboardPlacements": {
-        "total": 2,
-        "easy": 0,
+        "total": 3,
+        "easy": 1,
         "medium": 1,
-        "hard": 1
+        "hard": 1,
+        "totalRecordedRuns": 3,
+        "hiddenRuns": 0
       },
       "selectedSkin": "poke_pikachu",
       "selectedPipeSkin": "classic_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 2,
       "lastLoginAtReadable": "2026-10-30 13:20:58",
       "lastNewBestAtReadable": "2026-10-30 13:11:42",
@@ -392,13 +467,18 @@
       },
       "allTimeBest": 23,
       "leaderboardPlacements": {
-        "total": 3,
-        "easy": 0,
-        "medium": 0,
-        "hard": 3
+        "total": 5,
+        "easy": 1,
+        "medium": 1,
+        "hard": 3,
+        "totalRecordedRuns": 5,
+        "hiddenRuns": 0
       },
       "selectedSkin": "poke_bidoof",
       "selectedPipeSkin": "classic_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-29 11:06:38",
       "lastNewBestAtReadable": "2026-10-30 13:48:20",
@@ -416,13 +496,18 @@
       },
       "allTimeBest": 21,
       "leaderboardPlacements": {
-        "total": 0,
-        "easy": 0,
-        "medium": 0,
-        "hard": 0
+        "total": 3,
+        "easy": 1,
+        "medium": 1,
+        "hard": 1,
+        "totalRecordedRuns": 3,
+        "hiddenRuns": 0
       },
       "selectedSkin": "frost_medium",
       "selectedPipeSkin": "shogun_pipe_med",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-29 09:09:58",
       "lastNewBestAtReadable": "2026-10-29 10:59:41",
@@ -440,13 +525,18 @@
       },
       "allTimeBest": 17,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 1,
         "easy": 0,
-        "medium": 0,
-        "hard": 0
+        "medium": 1,
+        "hard": 0,
+        "totalRecordedRuns": 1,
+        "hiddenRuns": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-30 13:33:18",
       "lastNewBestAtReadable": "2026-10-30 13:37:06",
@@ -464,13 +554,18 @@
       },
       "allTimeBest": 16,
       "leaderboardPlacements": {
-        "total": 0,
-        "easy": 0,
-        "medium": 0,
-        "hard": 0
+        "total": 3,
+        "easy": 1,
+        "medium": 1,
+        "hard": 1,
+        "totalRecordedRuns": 3,
+        "hiddenRuns": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-30 10:47:48",
       "lastNewBestAtReadable": "2026-10-30 12:16:14",
@@ -488,13 +583,18 @@
       },
       "allTimeBest": 16,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 1,
         "easy": 0,
-        "medium": 0,
-        "hard": 0
+        "medium": 1,
+        "hard": 0,
+        "totalRecordedRuns": 1,
+        "hiddenRuns": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-30 13:30:16",
       "lastNewBestAtReadable": "2026-10-30 13:36:19",
@@ -512,13 +612,18 @@
       },
       "allTimeBest": 15,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 1,
         "easy": 0,
-        "medium": 0,
-        "hard": 0
+        "medium": 1,
+        "hard": 0,
+        "totalRecordedRuns": 1,
+        "hiddenRuns": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-30 13:31:25",
       "lastNewBestAtReadable": "2026-10-30 13:36:43",
@@ -536,13 +641,18 @@
       },
       "allTimeBest": 12,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 1,
         "easy": 0,
         "medium": 0,
-        "hard": 0
+        "hard": 1,
+        "totalRecordedRuns": 1,
+        "hiddenRuns": 0
       },
       "selectedSkin": "poke_meowth",
       "selectedPipeSkin": "pipe_banana_slip",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-29 11:07:27",
       "lastNewBestAtReadable": "2026-10-30 13:24:49",
@@ -560,13 +670,18 @@
       },
       "allTimeBest": 10,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 1,
         "easy": 0,
-        "medium": 0,
-        "hard": 0
+        "medium": 1,
+        "hard": 0,
+        "totalRecordedRuns": 1,
+        "hiddenRuns": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-30 13:35:25",
       "lastNewBestAtReadable": "2026-10-30 13:36:11",
@@ -587,10 +702,17 @@
         "total": 0,
         "easy": 0,
         "medium": 0,
-        "hard": 0
+        "hard": 0,
+        "totalRecordedRuns": 0,
+        "hiddenRuns": 0
       },
-      "selectedSkin": "classic",
-      "selectedPipeSkin": "classic_pipe",
+      "selectedSkin": "shadow_gengar",
+      "selectedPipeSkin": "rainbow_pipe",
+      "grantedSkins": [
+        "shadow_gengar"
+      ],
+      "adminLockedSkins": [],
+      "loginHistory": [],
       "loginCount": 1,
       "lastLoginAtReadable": "2026-10-19 13:40:30",
       "lastNewBestAtReadable": "Never",
@@ -598,6 +720,120 @@
     }
   },
   "activityFeed": [
+    {
+      "id": "3293ab553265",
+      "timestampMs": 1793649217541,
+      "time": "2026-11-02 20:53:37",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Removed admin-lock on skin \"charizard\"",
+      "options": {
+        "unlockSkinId": "charizard"
+      }
+    },
+    {
+      "id": "74096559a8cb",
+      "timestampMs": 1793649217531,
+      "time": "2026-11-02 20:53:37",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Granted skin \"shadow_gengar\", Admin-locked skin \"charizard\" (player cannot unlock), Set bird skin to \"shadow_gengar\", Set pipe skin to \"rainbow_pipe\"",
+      "options": {
+        "lockSkinId": "charizard",
+        "grantSkinId": "shadow_gengar",
+        "selectedSkin": "shadow_gengar",
+        "selectedPipeSkin": "rainbow_pipe"
+      }
+    },
+    {
+      "id": "b677d0d281e3",
+      "timestampMs": 1793649171209,
+      "time": "2026-11-02 20:52:51",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Removed admin-lock on skin \"charizard\"",
+      "options": {
+        "unlockSkinId": "charizard"
+      }
+    },
+    {
+      "id": "6ee6885038ef",
+      "timestampMs": 1793649171201,
+      "time": "2026-11-02 20:52:51",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Granted skin \"shadow_gengar\", Admin-locked skin \"charizard\" (player cannot unlock), Set bird skin to \"shadow_gengar\", Set pipe skin to \"rainbow_pipe\"",
+      "options": {
+        "lockSkinId": "charizard",
+        "grantSkinId": "shadow_gengar",
+        "selectedSkin": "shadow_gengar",
+        "selectedPipeSkin": "rainbow_pipe"
+      }
+    },
+    {
+      "id": "989848262811",
+      "timestampMs": 1793648007486,
+      "time": "2026-11-02 20:33:27",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Removed admin-lock on skin \"charizard\"",
+      "options": {
+        "unlockSkinId": "charizard"
+      }
+    },
+    {
+      "id": "365a043598f2",
+      "timestampMs": 1793648007476,
+      "time": "2026-11-02 20:33:27",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Granted skin \"shadow_gengar\", Admin-locked skin \"charizard\" (player cannot unlock), Set bird skin to \"shadow_gengar\", Set pipe skin to \"rainbow_pipe\"",
+      "options": {
+        "lockSkinId": "charizard",
+        "grantSkinId": "shadow_gengar",
+        "selectedSkin": "shadow_gengar",
+        "selectedPipeSkin": "rainbow_pipe"
+      }
+    },
+    {
+      "id": "d78874f18c14",
+      "timestampMs": 1793647995583,
+      "time": "2026-11-02 20:33:15",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Removed admin-lock on skin \"charizard\"",
+      "options": {
+        "unlockSkinId": "charizard"
+      }
+    },
+    {
+      "id": "92751691dc00",
+      "timestampMs": 1793647995575,
+      "time": "2026-11-02 20:33:15",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Granted skin \"shadow_gengar\", Admin-locked skin \"charizard\" (player cannot unlock), Set bird skin to \"shadow_gengar\", Set pipe skin to \"rainbow_pipe\"",
+      "options": {
+        "lockSkinId": "charizard",
+        "grantSkinId": "shadow_gengar",
+        "selectedSkin": "shadow_gengar",
+        "selectedPipeSkin": "rainbow_pipe"
+      }
+    },
+    {
+      "id": "9755f6beeb74",
+      "timestampMs": 1793647976789,
+      "time": "2026-11-02 20:32:56",
+      "type": "ADMIN_SKIN_CHANGE",
+      "username": "SkyAce",
+      "message": "👑 MeDonut updated skins for SkyAce: Granted skin \"shadow_gengar\", Admin-locked skin \"charizard\" (player cannot unlock), Set bird skin to \"shadow_gengar\", Set pipe skin to \"rainbow_pipe\"",
+      "options": {
+        "lockSkinId": "charizard",
+        "grantSkinId": "shadow_gengar",
+        "selectedSkin": "shadow_gengar",
+        "selectedPipeSkin": "rainbow_pipe"
+      }
+    },
     {
       "id": "c1635c39ad73",
       "timestampMs": 1793616907014,
@@ -623,8 +859,8 @@
         "medium": 0,
         "hard": 0
       },
-      "selectedSkin": "classic",
-      "selectedPipeSkin": "classic_pipe",
+      "selectedSkin": "shadow_gengar",
+      "selectedPipeSkin": "rainbow_pipe",
       "loginCount": 1,
       "lastLoginAt": 1792410030191,
       "lastLoginReadable": "2026-10-19 13:40:30",
@@ -632,7 +868,12 @@
         "easy": 0,
         "medium": 0,
         "hard": 0
-      }
+      },
+      "grantedSkins": [
+        "shadow_gengar"
+      ],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "medonut": {
       "username": "MeDonut",
@@ -658,7 +899,10 @@
         "easy": 109,
         "medium": 40,
         "hard": 27
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "ejstrup": {
       "username": "ejstrup",
@@ -684,7 +928,10 @@
         "easy": 45,
         "medium": 38,
         "hard": 27
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "thomsen": {
       "username": "Thomsen",
@@ -710,7 +957,10 @@
         "easy": 1,
         "medium": 26,
         "hard": 20
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "joslor11": {
       "username": "joslor11",
@@ -736,7 +986,10 @@
         "easy": 60,
         "medium": 42,
         "hard": 25
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "zander": {
       "username": "Zander",
@@ -762,7 +1015,10 @@
         "easy": 34,
         "medium": 4,
         "hard": 27
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "allan": {
       "username": "Allan",
@@ -788,7 +1044,10 @@
         "easy": 15,
         "medium": 31,
         "hard": 24
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "vik": {
       "username": "vik",
@@ -814,7 +1073,10 @@
         "easy": 30,
         "medium": 19,
         "hard": 12
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "hadi": {
       "username": "Hadi",
@@ -840,7 +1102,10 @@
         "easy": 5,
         "medium": 27,
         "hard": 20
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "blueviceee": {
       "username": "BlueViceee",
@@ -866,7 +1131,10 @@
         "easy": 58,
         "medium": 36,
         "hard": 21
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "ostehaps": {
       "username": "ostehaps",
@@ -892,7 +1160,10 @@
         "easy": 17,
         "medium": 21,
         "hard": 5
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "dumlegomand": {
       "username": "Dumlegomand",
@@ -918,7 +1189,10 @@
         "easy": 30,
         "medium": 27,
         "hard": 18
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "supermand": {
       "username": "supermand",
@@ -944,7 +1218,10 @@
         "easy": 0,
         "medium": 35,
         "hard": 16
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "p0lsehorn": {
       "username": "P0lsehorn",
@@ -970,7 +1247,10 @@
         "easy": 0,
         "medium": 34,
         "hard": 17
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "superwoman": {
       "username": "superwoman",
@@ -996,7 +1276,10 @@
         "easy": 18,
         "medium": 35,
         "hard": 11
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "mort": {
       "username": "Mort",
@@ -1022,7 +1305,10 @@
         "easy": 1,
         "medium": 16,
         "hard": 23
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "bassemand": {
       "username": "Bassemand",
@@ -1048,7 +1334,10 @@
         "easy": 0,
         "medium": 0,
         "hard": 12
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "bennersgoat": {
       "username": "bennersgoat",
@@ -1074,7 +1363,10 @@
         "easy": 0,
         "medium": 32,
         "hard": 8
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "kani": {
       "username": "kani",
@@ -1100,7 +1392,10 @@
         "easy": 16,
         "medium": 16,
         "hard": 8
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "vik11": {
       "username": "vik11",
@@ -1126,7 +1421,10 @@
         "easy": 0,
         "medium": 29,
         "hard": 14
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "puhbigmack": {
       "username": "puhbigmack",
@@ -1152,7 +1450,10 @@
         "easy": 0,
         "medium": 16,
         "hard": 0
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "sejesara": {
       "username": "Sejesara",
@@ -1178,7 +1479,10 @@
         "easy": 0,
         "medium": 15,
         "hard": 0
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "ella332340": {
       "username": "Ella332340",
@@ -1204,7 +1508,10 @@
         "easy": 0,
         "medium": 17,
         "hard": 0
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     },
     "hej123": {
       "username": "Hej123",
@@ -1230,7 +1537,10 @@
         "easy": 0,
         "medium": 10,
         "hard": 0
-      }
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
     }
   },
   "runs": {
@@ -1239,601 +1549,750 @@
         "id": "2f74f19cd2c48044",
         "username": "MeDonut",
         "score": 109,
-        "createdAt": 1793261095014
+        "createdAt": 1793261095014,
+        "hidden": false
       },
       {
         "id": "709f87c535f2282b",
         "username": "MeDonut",
         "score": 75,
-        "createdAt": 1792749327936
+        "createdAt": 1792749327936,
+        "hidden": false
       },
       {
         "id": "a1d4b53811f7aa37",
         "username": "MeDonut",
         "score": 72,
-        "createdAt": 1793192118182
+        "createdAt": 1793192118182,
+        "hidden": false
       },
       {
         "id": "8f298203b51dfbcc",
         "username": "MeDonut",
         "score": 66,
-        "createdAt": 1793192050165
+        "createdAt": 1793192050165,
+        "hidden": false
       },
       {
         "id": "94e17a39e02b4882",
         "username": "joslor11",
         "score": 60,
-        "createdAt": 1792753291370
+        "createdAt": 1792753291370,
+        "hidden": false
       },
       {
         "id": "cedb538d239755f0",
         "username": "joslor11",
         "score": 59,
-        "createdAt": 1793261219653
+        "createdAt": 1793261219653,
+        "hidden": false
       },
       {
         "id": "610c3c3a6d781de1",
         "username": "joslor11",
         "score": 58,
-        "createdAt": 1793266407407
+        "createdAt": 1793266407407,
+        "hidden": false
       },
       {
         "id": "60a1bc5940caf046",
         "username": "BlueViceee",
         "score": 58,
-        "createdAt": 1793613490155
+        "createdAt": 1793613490155,
+        "hidden": false
       },
       {
         "id": "0239e3d85edbca66",
         "username": "BlueViceee",
         "score": 53,
-        "createdAt": 1793614048253
+        "createdAt": 1793614048253,
+        "hidden": false
       },
       {
         "id": "fdc5c99733bc1c9f",
         "username": "joslor11",
         "score": 52,
-        "createdAt": 1792754623543
+        "createdAt": 1792754623543,
+        "hidden": false
       },
       {
         "id": "1720795259b580e9",
         "username": "MeDonut",
         "score": 51,
-        "createdAt": 1793002257323
+        "createdAt": 1793002257323,
+        "hidden": false
       },
       {
         "id": "6bfcf1dd71ef2c23",
         "username": "MeDonut",
         "score": 51,
-        "createdAt": 1793192239350
+        "createdAt": 1793192239350,
+        "hidden": false
       },
       {
         "id": "7f73668abcc66b23",
         "username": "joslor11",
         "score": 47,
-        "createdAt": 1792754518104
+        "createdAt": 1792754518104,
+        "hidden": false
       },
       {
         "id": "2936b31e8a1ead38",
         "username": "joslor11",
         "score": 47,
-        "createdAt": 1792754697232
+        "createdAt": 1792754697232,
+        "hidden": false
       },
       {
         "id": "d245007ad89b594c",
         "username": "ejstrup",
         "score": 45,
-        "createdAt": 1793268102689
+        "createdAt": 1793268102689,
+        "hidden": false
       },
       {
         "id": "75dedea6013f934e",
         "username": "MeDonut",
         "score": 44,
-        "createdAt": 1793261215829
+        "createdAt": 1793261215829,
+        "hidden": false
       },
       {
         "id": "6647510226efd5b1",
         "username": "MeDonut",
         "score": 42,
-        "createdAt": 1792754744771
+        "createdAt": 1792754744771,
+        "hidden": false
       },
       {
         "id": "003da769683484f7",
         "username": "joslor11",
         "score": 42,
-        "createdAt": 1793259451531
+        "createdAt": 1793259451531,
+        "hidden": false
       },
       {
         "id": "933ede94d6dbe897",
         "username": "joslor11",
         "score": 42,
-        "createdAt": 1793261046392
+        "createdAt": 1793261046392,
+        "hidden": false
       },
       {
         "id": "2cefadfc99f7c7e6",
         "username": "ejstrup",
         "score": 41,
-        "createdAt": 1793192336770
+        "createdAt": 1793192336770,
+        "hidden": false
       },
       {
         "id": "b2c429c8d6b698b5",
         "username": "joslor11",
         "score": 41,
-        "createdAt": 1793259128841
+        "createdAt": 1793259128841,
+        "hidden": false
       },
       {
         "id": "71489998c61b47c1",
         "username": "joslor11",
         "score": 41,
-        "createdAt": 1793353590257
+        "createdAt": 1793353590257,
+        "hidden": false
       },
       {
         "id": "8f2409826c68e239",
         "username": "MeDonut",
         "score": 40,
-        "createdAt": 1792754541986
+        "createdAt": 1792754541986,
+        "hidden": false
       },
       {
         "id": "16f8202e44b99ba5",
         "username": "joslor11",
         "score": 40,
-        "createdAt": 1793192240960
+        "createdAt": 1793192240960,
+        "hidden": false
       },
       {
         "id": "cd04bc56b9fa0899",
         "username": "ejstrup",
         "score": 39,
-        "createdAt": 1792752324157
+        "createdAt": 1792752324157,
+        "hidden": false
       },
       {
         "id": "f4b9324e56feef77",
         "username": "joslor11",
         "score": 39,
-        "createdAt": 1792754742797
+        "createdAt": 1792754742797,
+        "hidden": false
       },
       {
         "id": "5aa2cf9597082593",
         "username": "MeDonut",
         "score": 38,
-        "createdAt": 1792753339297
+        "createdAt": 1792753339297,
+        "hidden": false
       },
       {
         "id": "6aaff42ee8b646e7",
         "username": "joslor11",
         "score": 38,
-        "createdAt": 1792754418827
+        "createdAt": 1792754418827,
+        "hidden": false
       },
       {
         "id": "c4a6ac801d71c990",
         "username": "MeDonut",
         "score": 38,
-        "createdAt": 1793261354078
+        "createdAt": 1793261354078,
+        "hidden": false
       },
       {
         "id": "d918077826b6f01c",
         "username": "ejstrup",
         "score": 37,
-        "createdAt": 1792752284648
+        "createdAt": 1792752284648,
+        "hidden": false
       },
       {
         "id": "f4133be054e78e71",
         "username": "BlueViceee",
         "score": 37,
-        "createdAt": 1793363600368
+        "createdAt": 1793363600368,
+        "hidden": false
       },
       {
         "id": "91b2679f201a73c1",
         "username": "ejstrup",
         "score": 36,
-        "createdAt": 1793002378489
+        "createdAt": 1793002378489,
+        "hidden": false
       },
       {
         "id": "6e9d13c532c2412c",
         "username": "ejstrup",
         "score": 35,
-        "createdAt": 1792583217484
+        "createdAt": 1792583217484,
+        "hidden": false
       },
       {
         "id": "7e2ead3192793dfd",
         "username": "joslor11",
         "score": 35,
-        "createdAt": 1792754904599
+        "createdAt": 1792754904599,
+        "hidden": false
       },
       {
         "id": "3cded1ea4a96474b",
         "username": "ejstrup",
         "score": 35,
-        "createdAt": 1793002087471
+        "createdAt": 1793002087471,
+        "hidden": false
       },
       {
         "id": "24cea52db30ffaf4",
         "username": "ejstrup",
         "score": 35,
-        "createdAt": 1793002231328
+        "createdAt": 1793002231328,
+        "hidden": false
       },
       {
         "id": "bc3b1f3ae30858b6",
         "username": "BlueViceee",
         "score": 35,
-        "createdAt": 1793614085754
+        "createdAt": 1793614085754,
+        "hidden": false
       },
       {
         "id": "61d8fbb01829ce05",
         "username": "ejstrup",
         "score": 34,
-        "createdAt": 1792752213163
+        "createdAt": 1792752213163,
+        "hidden": false
       },
       {
         "id": "74f5674e4ffa4db4",
         "username": "joslor11",
         "score": 34,
-        "createdAt": 1792753229197
+        "createdAt": 1792753229197,
+        "hidden": false
       },
       {
         "id": "6c0293c78466e959",
         "username": "joslor11",
         "score": 34,
-        "createdAt": 1792754575341
+        "createdAt": 1792754575341,
+        "hidden": false
       },
       {
         "id": "6564a6ada44fa5e4",
         "username": "ejstrup",
         "score": 34,
-        "createdAt": 1793002151465
+        "createdAt": 1793002151465,
+        "hidden": false
       },
       {
         "id": "8ec5163b45bdf6b0",
         "username": "BlueViceee",
         "score": 34,
-        "createdAt": 1793190238872
+        "createdAt": 1793190238872,
+        "hidden": false
       },
       {
         "id": "92a76f20fdda9842",
         "username": "joslor11",
         "score": 34,
-        "createdAt": 1793259671307
+        "createdAt": 1793259671307,
+        "hidden": false
       },
       {
         "id": "b6060125d821e8a8",
         "username": "joslor11",
         "score": 34,
-        "createdAt": 1793261288063
+        "createdAt": 1793261288063,
+        "hidden": false
       },
       {
         "id": "4325174ca7f4cb03",
         "username": "Zander",
         "score": 34,
-        "createdAt": 1793263887669
+        "createdAt": 1793263887669,
+        "hidden": false
       },
       {
         "id": "9447895a0bd21577",
         "username": "joslor11",
         "score": 33,
-        "createdAt": 1792583048867
+        "createdAt": 1792583048867,
+        "hidden": false
       },
       {
         "id": "433e5c9625937926",
         "username": "ejstrup",
         "score": 33,
-        "createdAt": 1793002441480
+        "createdAt": 1793002441480,
+        "hidden": false
       },
       {
         "id": "30676c056baf1c0d",
         "username": "joslor11",
         "score": 33,
-        "createdAt": 1793192104294
+        "createdAt": 1793192104294,
+        "hidden": false
       },
       {
         "id": "664b7a3a77916f65",
         "username": "MeDonut",
         "score": 33,
-        "createdAt": 1793192294848
+        "createdAt": 1793192294848,
+        "hidden": false
       },
       {
         "id": "89117eaa94d62444",
         "username": "joslor11",
         "score": 32,
-        "createdAt": 1792752158556
+        "createdAt": 1792752158556,
+        "hidden": false
       },
       {
         "id": "2f45191c04e3f37b",
         "username": "ejstrup",
         "score": 32,
-        "createdAt": 1792754653795
+        "createdAt": 1792754653795,
+        "hidden": false
       },
       {
         "id": "3745bbb94fc4e4e1",
         "username": "MeDonut",
         "score": 32,
-        "createdAt": 1793191839096
+        "createdAt": 1793191839096,
+        "hidden": false
       },
       {
         "id": "92e9393b90b3141a",
         "username": "ejstrup",
         "score": 32,
-        "createdAt": 1793192207162
+        "createdAt": 1793192207162,
+        "hidden": false
       },
       {
         "id": "2793388cc1f0c7eb",
         "username": "MeDonut",
         "score": 32,
-        "createdAt": 1793261286045
+        "createdAt": 1793261286045,
+        "hidden": false
       },
       {
         "id": "8988b1e986a3ba14",
         "username": "MeDonut",
         "score": 32,
-        "createdAt": 1793266032311
+        "createdAt": 1793266032311,
+        "hidden": false
       },
       {
         "id": "1616d5fe15b91153",
         "username": "MeDonut",
         "score": 31,
-        "createdAt": 1792754703736
+        "createdAt": 1792754703736,
+        "hidden": false
       },
       {
         "id": "d03a0e7b2d99da39",
         "username": "joslor11",
         "score": 31,
-        "createdAt": 1793001086726
+        "createdAt": 1793001086726,
+        "hidden": false
       },
       {
         "id": "367abae6c2d2d114",
         "username": "BlueViceee",
         "score": 31,
-        "createdAt": 1793614271242
+        "createdAt": 1793614271242,
+        "hidden": false
       },
       {
         "id": "7a7e8248a64b2718",
         "username": "ejstrup",
         "score": 30,
-        "createdAt": 1792754567993
+        "createdAt": 1792754567993,
+        "hidden": false
       },
       {
         "id": "a49b610a0759e1a3",
         "username": "ejstrup",
         "score": 30,
-        "createdAt": 1792754620525
+        "createdAt": 1792754620525,
+        "hidden": false
       },
       {
         "id": "c9b4dea8103ce50e",
         "username": "vik",
         "score": 30,
-        "createdAt": 1793177380391
+        "createdAt": 1793177380391,
+        "hidden": false
       },
       {
         "id": "512e6e0ee89c3242",
         "username": "ejstrup",
         "score": 30,
-        "createdAt": 1793177481800
+        "createdAt": 1793177481800,
+        "hidden": false
       },
       {
         "id": "e33fcb06332a373c",
         "username": "joslor11",
         "score": 30,
-        "createdAt": 1793192153208
+        "createdAt": 1793192153208,
+        "hidden": false
       },
       {
         "id": "d421486d2e61fed7",
         "username": "MeDonut",
         "score": 30,
-        "createdAt": 1793192156198
+        "createdAt": 1793192156198,
+        "hidden": false
       },
       {
         "id": "72837043cd8732c5",
         "username": "joslor11",
         "score": 30,
-        "createdAt": 1793261348553
+        "createdAt": 1793261348553,
+        "hidden": false
       },
       {
         "id": "a73b13723ab8c1ab",
         "username": "Zander",
         "score": 30,
-        "createdAt": 1793263925138
+        "createdAt": 1793263925138,
+        "hidden": false
       },
       {
         "id": "02c714cd72d036fc",
         "username": "joslor11",
         "score": 30,
-        "createdAt": 1793266456269
+        "createdAt": 1793266456269,
+        "hidden": false
       },
       {
         "id": "3c8190da910697ee",
         "username": "ejstrup",
         "score": 30,
-        "createdAt": 1793268235809
+        "createdAt": 1793268235809,
+        "hidden": false
       },
       {
         "id": "96f502b002884a65",
         "username": "Dumlegomand",
         "score": 30,
-        "createdAt": 1793354977629
+        "createdAt": 1793354977629,
+        "hidden": false
       },
       {
         "id": "c35bbeba3423fb17",
         "username": "MeDonut",
         "score": 29,
-        "createdAt": 1792582856815
+        "createdAt": 1792582856815,
+        "hidden": false
       },
       {
         "id": "d31884649f3ffa96",
         "username": "joslor11",
         "score": 29,
-        "createdAt": 1792752503790
+        "createdAt": 1792752503790,
+        "hidden": false
       },
       {
         "id": "9f6e44fe0dee979e",
         "username": "ejstrup",
         "score": 29,
-        "createdAt": 1792754432791
+        "createdAt": 1792754432791,
+        "hidden": false
       },
       {
         "id": "29836d4253d24306",
         "username": "ejstrup",
         "score": 29,
-        "createdAt": 1793192159033
+        "createdAt": 1793192159033,
+        "hidden": false
       },
       {
         "id": "2de880adfc652db5",
         "username": "ejstrup",
         "score": 29,
-        "createdAt": 1793259430226
+        "createdAt": 1793259430226,
+        "hidden": false
       },
       {
         "id": "247fdcf355b6a6e6",
         "username": "joslor11",
         "score": 29,
-        "createdAt": 1793261253144
+        "createdAt": 1793261253144,
+        "hidden": false
       },
       {
         "id": "529ec0163ab14ba0",
         "username": "joslor11",
         "score": 29,
-        "createdAt": 1793266295124
+        "createdAt": 1793266295124,
+        "hidden": false
       },
       {
         "id": "7db88b4c625650bd",
         "username": "joslor11",
         "score": 29,
-        "createdAt": 1793266486587
+        "createdAt": 1793266486587,
+        "hidden": false
       },
       {
         "id": "7d49e0cecf40ae6e",
         "username": "ejstrup",
         "score": 29,
-        "createdAt": 1793353452169
+        "createdAt": 1793353452169,
+        "hidden": false
       },
       {
         "id": "a894cb94378bbf21",
         "username": "Dumlegomand",
         "score": 29,
-        "createdAt": 1793355190088
+        "createdAt": 1793355190088,
+        "hidden": false
       },
       {
         "id": "cc65fc64d3f71c5a",
         "username": "BlueViceee",
         "score": 29,
-        "createdAt": 1793363562762
+        "createdAt": 1793363562762,
+        "hidden": false
       },
       {
         "id": "0550a5ff671454de",
         "username": "ejstrup",
         "score": 28,
-        "createdAt": 1792583044994
+        "createdAt": 1792583044994,
+        "hidden": false
       },
       {
         "id": "3603cace12543024",
         "username": "MeDonut",
         "score": 28,
-        "createdAt": 1792754579015
+        "createdAt": 1792754579015,
+        "hidden": false
       },
       {
         "id": "ca38760b4bc37da6",
         "username": "ejstrup",
         "score": 28,
-        "createdAt": 1793002649018
+        "createdAt": 1793002649018,
+        "hidden": false
       },
       {
         "id": "b58395440d8dab99",
         "username": "ejstrup",
         "score": 28,
-        "createdAt": 1793177380018
+        "createdAt": 1793177380018,
+        "hidden": false
       },
       {
         "id": "d416eb0c9866db7c",
         "username": "MeDonut",
         "score": 28,
-        "createdAt": 1793191797079
+        "createdAt": 1793191797079,
+        "hidden": false
       },
       {
         "id": "42cd4eb3c0253111",
         "username": "MeDonut",
         "score": 28,
-        "createdAt": 1793191890878
+        "createdAt": 1793191890878,
+        "hidden": false
       },
       {
         "id": "d6450acaa51bafed",
         "username": "ejstrup",
         "score": 28,
-        "createdAt": 1793192259584
+        "createdAt": 1793192259584,
+        "hidden": false
       },
       {
         "id": "3b3d6c84711963bb",
         "username": "joslor11",
         "score": 28,
-        "createdAt": 1793259636593
+        "createdAt": 1793259636593,
+        "hidden": false
       },
       {
         "id": "c9e9269b0aea6457",
         "username": "MeDonut",
         "score": 28,
-        "createdAt": 1793261250073
+        "createdAt": 1793261250073,
+        "hidden": false
       },
       {
         "id": "9d4ebb3d6d8a8577",
         "username": "MeDonut",
         "score": 28,
-        "createdAt": 1793261315658
+        "createdAt": 1793261315658,
+        "hidden": false
       },
       {
         "id": "7544bff1fdbd74ba",
         "username": "ejstrup",
         "score": 28,
-        "createdAt": 1793261552104
+        "createdAt": 1793261552104,
+        "hidden": false
       },
       {
         "id": "3f9293364d58e65e",
         "username": "BlueViceee",
         "score": 28,
-        "createdAt": 1793614128197
+        "createdAt": 1793614128197,
+        "hidden": false
       },
       {
         "id": "f27f5dfa7a342d9c",
         "username": "Dumlegomand",
         "score": 27,
-        "createdAt": 1793355017024
+        "createdAt": 1793355017024,
+        "hidden": false
       },
       {
         "id": "ac12cdaba371a209",
         "username": "joslor11",
         "score": 25,
-        "createdAt": 1793354605124
+        "createdAt": 1793354605124,
+        "hidden": false
       },
       {
         "id": "00a4472d2f3c52ff",
         "username": "joslor11",
         "score": 24,
-        "createdAt": 1793354711353
+        "createdAt": 1793354711353,
+        "hidden": false
       },
       {
         "id": "fbc64298fe9cb956",
         "username": "Dumlegomand",
         "score": 23,
-        "createdAt": 1793268790406
+        "createdAt": 1793268790406,
+        "hidden": false
       },
       {
         "id": "13e02f200e697d28",
         "username": "BlueViceee",
         "score": 22,
-        "createdAt": 1793614158672
+        "createdAt": 1793614158672,
+        "hidden": false
       },
       {
         "id": "a7b2e4b792406feb",
         "username": "joslor11",
         "score": 21,
-        "createdAt": 1793354074857
+        "createdAt": 1793354074857,
+        "hidden": false
       },
       {
         "id": "b38812fc6eec68c9",
         "username": "joslor11",
         "score": 21,
-        "createdAt": 1793354447249
+        "createdAt": 1793354447249,
+        "hidden": false
       },
       {
         "id": "499c3424f6c62ef3",
         "username": "joslor11",
         "score": 21,
-        "createdAt": 1793354474995
+        "createdAt": 1793354474995,
+        "hidden": false
+      },
+      {
+        "id": "e2d402bba96bcba8",
+        "username": "superwoman",
+        "score": 18,
+        "hidden": false,
+        "createdAt": 1793268016553
+      },
+      {
+        "id": "3c70b3f6c117cd5b",
+        "username": "ostehaps",
+        "score": 17,
+        "hidden": false,
+        "createdAt": 1793267981430
+      },
+      {
+        "id": "4363585ca8332a6f",
+        "username": "kani",
+        "score": 16,
+        "hidden": false,
+        "createdAt": 1793354392876
+      },
+      {
+        "id": "f49ba779bc2cb45f",
+        "username": "Allan",
+        "score": 15,
+        "hidden": false,
+        "createdAt": 1793000996656
+      },
+      {
+        "id": "0c176d6cc02b24c2",
+        "username": "Hadi",
+        "score": 5,
+        "hidden": false,
+        "createdAt": 1793364302298
+      },
+      {
+        "id": "3c5a95b4984fc123",
+        "username": "Thomsen",
+        "score": 1,
+        "hidden": false,
+        "createdAt": 1793362302581
+      },
+      {
+        "id": "528d39b33cee016a",
+        "username": "Mort",
+        "score": 1,
+        "hidden": false,
+        "createdAt": 1793364500246
       }
     ],
     "medium": [
@@ -1841,601 +2300,764 @@
         "id": "927170c61b6a9bea",
         "username": "joslor11",
         "score": 42,
-        "createdAt": 1792753855485
+        "createdAt": 1792753855485,
+        "hidden": false
       },
       {
         "id": "567986ab715db76e",
         "username": "MeDonut",
         "score": 40,
-        "createdAt": 1792999736014
+        "createdAt": 1792999736014,
+        "hidden": false
       },
       {
         "id": "3c5fb1fbf99898e8",
         "username": "ejstrup",
         "score": 38,
-        "createdAt": 1793612876445
+        "createdAt": 1793612876445,
+        "hidden": false
       },
       {
         "id": "cca29934df6e3cc9",
         "username": "BlueViceee",
         "score": 36,
-        "createdAt": 1793613659409
+        "createdAt": 1793613659409,
+        "hidden": false
       },
       {
         "id": "a94cceec5deddd60",
         "username": "supermand",
         "score": 35,
-        "createdAt": 1793362177683
+        "createdAt": 1793362177683,
+        "hidden": false
       },
       {
         "id": "5c2f22bd2ad0f7e8",
         "username": "superwoman",
         "score": 35,
-        "createdAt": 1793362193695
+        "createdAt": 1793362193695,
+        "hidden": false
       },
       {
         "id": "68044caca0cdbf9b",
         "username": "ejstrup",
         "score": 34,
-        "createdAt": 1793267583676
+        "createdAt": 1793267583676,
+        "hidden": false
       },
       {
         "id": "0b430544851409b0",
         "username": "joslor11",
         "score": 34,
-        "createdAt": 1793357665469
+        "createdAt": 1793357665469,
+        "hidden": false
       },
       {
         "id": "cd8a74e513f3538f",
         "username": "P0lsehorn",
         "score": 34,
-        "createdAt": 1793362854082
+        "createdAt": 1793362854082,
+        "hidden": false
       },
       {
         "id": "cbc4655821aa0861",
         "username": "BlueViceee",
         "score": 34,
-        "createdAt": 1793613907725
+        "createdAt": 1793613907725,
+        "hidden": false
       },
       {
         "id": "28b2d2b3d832542b",
         "username": "supermand",
         "score": 33,
-        "createdAt": 1793362008265
+        "createdAt": 1793362008265,
+        "hidden": false
       },
       {
         "id": "6bbddb9f582c75a1",
         "username": "supermand",
         "score": 33,
-        "createdAt": 1793362570925
+        "createdAt": 1793362570925,
+        "hidden": false
       },
       {
         "id": "8985a23696e58c62",
         "username": "supermand",
         "score": 33,
-        "createdAt": 1793362923851
+        "createdAt": 1793362923851,
+        "hidden": false
       },
       {
         "id": "69ebc45dc87a7e15",
         "username": "P0lsehorn",
         "score": 33,
-        "createdAt": 1793363093661
+        "createdAt": 1793363093661,
+        "hidden": false
       },
       {
         "id": "8b55bb28601f5c56",
         "username": "MeDonut",
         "score": 33,
-        "createdAt": 1793364023573
+        "createdAt": 1793364023573,
+        "hidden": false
       },
       {
         "id": "38d7f831f439f8e0",
         "username": "joslor11",
         "score": 32,
-        "createdAt": 1793353505611
+        "createdAt": 1793353505611,
+        "hidden": false
       },
       {
         "id": "45dc1a54b4be09cd",
         "username": "ejstrup",
         "score": 32,
-        "createdAt": 1793355033486
+        "createdAt": 1793355033486,
+        "hidden": false
       },
       {
         "id": "7c1afd73621d99a4",
         "username": "bennersgoat",
         "score": 32,
-        "createdAt": 1793358726537
+        "createdAt": 1793358726537,
+        "hidden": false
       },
       {
         "id": "a4cd9c3cb6fde0d3",
         "username": "P0lsehorn",
         "score": 32,
-        "createdAt": 1793362350041
+        "createdAt": 1793362350041,
+        "hidden": false
       },
       {
         "id": "06f1b2a9a9ee89e7",
         "username": "superwoman",
         "score": 32,
-        "createdAt": 1793363000854
+        "createdAt": 1793363000854,
+        "hidden": false
       },
       {
         "id": "6e37e442eac364c2",
         "username": "supermand",
         "score": 32,
-        "createdAt": 1793363012418
+        "createdAt": 1793363012418,
+        "hidden": false
       },
       {
         "id": "4ef4ea8ce3cd3d45",
         "username": "P0lsehorn",
         "score": 32,
-        "createdAt": 1793363327703
+        "createdAt": 1793363327703,
+        "hidden": false
       },
       {
         "id": "6d8054e95e55e10b",
         "username": "supermand",
         "score": 32,
-        "createdAt": 1793363511034
+        "createdAt": 1793363511034,
+        "hidden": false
       },
       {
         "id": "396a7a41d9137e7a",
         "username": "joslor11",
         "score": 32,
-        "createdAt": 1793363750998
+        "createdAt": 1793363750998,
+        "hidden": false
       },
       {
         "id": "6d534ee9995ebea6",
         "username": "P0lsehorn",
         "score": 32,
-        "createdAt": 1793364452577
+        "createdAt": 1793364452577,
+        "hidden": false
       },
       {
         "id": "7bed906f9ac09d71",
         "username": "BlueViceee",
         "score": 32,
-        "createdAt": 1793613598406
+        "createdAt": 1793613598406,
+        "hidden": false
       },
       {
         "id": "19fec309c3230d2c",
         "username": "BlueViceee",
         "score": 32,
-        "createdAt": 1793613729402
+        "createdAt": 1793613729402,
+        "hidden": false
       },
       {
         "id": "2220f905dfcbdd08",
         "username": "Allan",
         "score": 31,
-        "createdAt": 1793092272412
+        "createdAt": 1793092272412,
+        "hidden": false
       },
       {
         "id": "6c97ec479be422a7",
         "username": "bennersgoat",
         "score": 31,
-        "createdAt": 1793358352082
+        "createdAt": 1793358352082,
+        "hidden": false
       },
       {
         "id": "9010dfe232c5b6d5",
         "username": "supermand",
         "score": 31,
-        "createdAt": 1793363049556
+        "createdAt": 1793363049556,
+        "hidden": false
       },
       {
         "id": "afc324e2c722bf35",
         "username": "supermand",
         "score": 31,
-        "createdAt": 1793363360678
+        "createdAt": 1793363360678,
+        "hidden": false
       },
       {
         "id": "fa00b4aa355ed9a9",
         "username": "supermand",
         "score": 31,
-        "createdAt": 1793363660060
+        "createdAt": 1793363660060,
+        "hidden": false
       },
       {
         "id": "2610e68c1ce9d14a",
         "username": "P0lsehorn",
         "score": 31,
-        "createdAt": 1793363746290
+        "createdAt": 1793363746290,
+        "hidden": false
       },
       {
         "id": "25037d05d5e39655",
         "username": "superwoman",
         "score": 31,
-        "createdAt": 1793363880956
+        "createdAt": 1793363880956,
+        "hidden": false
       },
       {
         "id": "f864b156483ea1f1",
         "username": "BlueViceee",
         "score": 31,
-        "createdAt": 1793613870892
+        "createdAt": 1793613870892,
+        "hidden": false
       },
       {
         "id": "08e4478585473753",
         "username": "superwoman",
         "score": 30,
-        "createdAt": 1793267870198
+        "createdAt": 1793267870198,
+        "hidden": false
       },
       {
         "id": "545071177b3e0aad",
         "username": "ejstrup",
         "score": 30,
-        "createdAt": 1793354994678
+        "createdAt": 1793354994678,
+        "hidden": false
       },
       {
         "id": "475283b5df28a042",
         "username": "supermand",
         "score": 30,
-        "createdAt": 1793358624991
+        "createdAt": 1793358624991,
+        "hidden": false
       },
       {
         "id": "71724d9ca0370de7",
         "username": "supermand",
         "score": 30,
-        "createdAt": 1793359374204
+        "createdAt": 1793359374204,
+        "hidden": false
       },
       {
         "id": "cfca93ca80e4529f",
         "username": "superwoman",
         "score": 30,
-        "createdAt": 1793359420379
+        "createdAt": 1793359420379,
+        "hidden": false
       },
       {
         "id": "606fac3d4ba5723d",
         "username": "supermand",
         "score": 30,
-        "createdAt": 1793362430651
+        "createdAt": 1793362430651,
+        "hidden": false
       },
       {
         "id": "330be6968235c2d8",
         "username": "P0lsehorn",
         "score": 30,
-        "createdAt": 1793362455237
+        "createdAt": 1793362455237,
+        "hidden": false
       },
       {
         "id": "36d8f4e3d7aabfa4",
         "username": "BlueViceee",
         "score": 30,
-        "createdAt": 1793362930182
+        "createdAt": 1793362930182,
+        "hidden": false
       },
       {
         "id": "63518388e7de2ed3",
         "username": "superwoman",
         "score": 30,
-        "createdAt": 1793363800230
+        "createdAt": 1793363800230,
+        "hidden": false
       },
       {
         "id": "9c37960c55535edb",
         "username": "BlueViceee",
         "score": 30,
-        "createdAt": 1793613834768
+        "createdAt": 1793613834768,
+        "hidden": false
       },
       {
         "id": "a2397785375e16a3",
         "username": "BlueViceee",
         "score": 29,
-        "createdAt": 1793261624518
+        "createdAt": 1793261624518,
+        "hidden": false
       },
       {
         "id": "7f6773e94d5d3d74",
         "username": "superwoman",
         "score": 29,
-        "createdAt": 1793359476117
+        "createdAt": 1793359476117,
+        "hidden": false
       },
       {
         "id": "761edad0b2556210",
         "username": "vik11",
         "score": 29,
-        "createdAt": 1793359976003
+        "createdAt": 1793359976003,
+        "hidden": false
       },
       {
         "id": "7f61a7e13be5b82f",
         "username": "supermand",
         "score": 29,
-        "createdAt": 1793361935201
+        "createdAt": 1793361935201,
+        "hidden": false
       },
       {
         "id": "8e01a5ba690914b2",
         "username": "supermand",
         "score": 29,
-        "createdAt": 1793361971999
+        "createdAt": 1793361971999,
+        "hidden": false
       },
       {
         "id": "5fac7fd9a8acbe96",
         "username": "superwoman",
         "score": 29,
-        "createdAt": 1793362060701
+        "createdAt": 1793362060701,
+        "hidden": false
       },
       {
         "id": "f4615fde3ffa9251",
         "username": "superwoman",
         "score": 29,
-        "createdAt": 1793362355391
+        "createdAt": 1793362355391,
+        "hidden": false
       },
       {
         "id": "26b44c8b5538cdef",
         "username": "supermand",
         "score": 29,
-        "createdAt": 1793362530193
+        "createdAt": 1793362530193,
+        "hidden": false
       },
       {
         "id": "d35c6b2de75a014a",
         "username": "superwoman",
         "score": 29,
-        "createdAt": 1793363173226
+        "createdAt": 1793363173226,
+        "hidden": false
       },
       {
         "id": "8e4844c9c0d454df",
         "username": "superwoman",
         "score": 29,
-        "createdAt": 1793363487914
+        "createdAt": 1793363487914,
+        "hidden": false
       },
       {
         "id": "e84c9f27e4a53cf6",
         "username": "P0lsehorn",
         "score": 29,
-        "createdAt": 1793364745633
+        "createdAt": 1793364745633,
+        "hidden": false
       },
       {
         "id": "879ba1c624a38633",
         "username": "supermand",
         "score": 28,
-        "createdAt": 1793268530894
+        "createdAt": 1793268530894,
+        "hidden": false
       },
       {
         "id": "d525da7d12e9b5cc",
         "username": "ejstrup",
         "score": 28,
-        "createdAt": 1793355066376
+        "createdAt": 1793355066376,
+        "hidden": false
       },
       {
         "id": "34201d0c70e893ff",
         "username": "bennersgoat",
         "score": 28,
-        "createdAt": 1793359310857
+        "createdAt": 1793359310857,
+        "hidden": false
       },
       {
         "id": "ec06c6ac6f41d47e",
         "username": "P0lsehorn",
         "score": 28,
-        "createdAt": 1793359439871
+        "createdAt": 1793359439871,
+        "hidden": false
       },
       {
         "id": "67494249eba40a02",
         "username": "supermand",
         "score": 28,
-        "createdAt": 1793362115716
+        "createdAt": 1793362115716,
+        "hidden": false
       },
       {
         "id": "9ca8e0fdf3d4d5e6",
         "username": "superwoman",
         "score": 28,
-        "createdAt": 1793362115729
+        "createdAt": 1793362115729,
+        "hidden": false
       },
       {
         "id": "995a4dab17b1f008",
         "username": "superwoman",
         "score": 28,
-        "createdAt": 1793362659419
+        "createdAt": 1793362659419,
+        "hidden": false
       },
       {
         "id": "11e5bf78c0bc8e22",
         "username": "superwoman",
         "score": 28,
-        "createdAt": 1793363445839
+        "createdAt": 1793363445839,
+        "hidden": false
       },
       {
         "id": "6a7145eb72593b40",
         "username": "superwoman",
         "score": 28,
-        "createdAt": 1793363540363
+        "createdAt": 1793363540363,
+        "hidden": false
       },
       {
         "id": "ad8ed3096829294b",
         "username": "P0lsehorn",
         "score": 28,
-        "createdAt": 1793364690398
+        "createdAt": 1793364690398,
+        "hidden": false
       },
       {
         "id": "28128c688d1ea13e",
         "username": "ejstrup",
         "score": 28,
-        "createdAt": 1793611980178
+        "createdAt": 1793611980178,
+        "hidden": false
       },
       {
         "id": "b06895cf98782430",
         "username": "Dumlegomand",
         "score": 27,
-        "createdAt": 1793354373100
+        "createdAt": 1793354373100,
+        "hidden": false
       },
       {
         "id": "54cdb06e13ff1785",
         "username": "bennersgoat",
         "score": 27,
-        "createdAt": 1793358674371
+        "createdAt": 1793358674371,
+        "hidden": false
       },
       {
         "id": "b2ea0146842be0cd",
         "username": "P0lsehorn",
         "score": 27,
-        "createdAt": 1793362254757
+        "createdAt": 1793362254757,
+        "hidden": false
       },
       {
         "id": "9355d730380fe741",
         "username": "supermand",
         "score": 27,
-        "createdAt": 1793362333870
+        "createdAt": 1793362333870,
+        "hidden": false
       },
       {
         "id": "cf29acd7c682a10f",
         "username": "superwoman",
         "score": 27,
-        "createdAt": 1793362726986
+        "createdAt": 1793362726986,
+        "hidden": false
       },
       {
         "id": "5dc3039843de3055",
         "username": "Hadi",
         "score": 27,
-        "createdAt": 1793362931497
+        "createdAt": 1793362931497,
+        "hidden": false
       },
       {
         "id": "c99fe2d78384b4ea",
         "username": "supermand",
         "score": 27,
-        "createdAt": 1793363108818
+        "createdAt": 1793363108818,
+        "hidden": false
       },
       {
         "id": "b253bf5b58a07e2e",
         "username": "P0lsehorn",
         "score": 27,
-        "createdAt": 1793363638991
+        "createdAt": 1793363638991,
+        "hidden": false
       },
       {
         "id": "b32736b562984f01",
         "username": "superwoman",
         "score": 27,
-        "createdAt": 1793364061928
+        "createdAt": 1793364061928,
+        "hidden": false
       },
       {
         "id": "44d113d90c437e4c",
         "username": "P0lsehorn",
         "score": 27,
-        "createdAt": 1793364358778
+        "createdAt": 1793364358778,
+        "hidden": false
       },
       {
         "id": "c9661cffb2315086",
         "username": "BlueViceee",
         "score": 27,
-        "createdAt": 1793613982092
+        "createdAt": 1793613982092,
+        "hidden": false
       },
       {
         "id": "4163e36f4489ffbb",
         "username": "Thomsen",
         "score": 26,
-        "createdAt": 1792752622338
+        "createdAt": 1792752622338,
+        "hidden": false
       },
       {
         "id": "6770506d7a997f12",
         "username": "ejstrup",
         "score": 26,
-        "createdAt": 1793354185650
+        "createdAt": 1793354185650,
+        "hidden": false
       },
       {
         "id": "0488a4176778fb70",
         "username": "Dumlegomand",
         "score": 26,
-        "createdAt": 1793354463645
+        "createdAt": 1793354463645,
+        "hidden": false
       },
       {
         "id": "dd058c0196c4057d",
         "username": "Allan",
         "score": 26,
-        "createdAt": 1793358970655
+        "createdAt": 1793358970655,
+        "hidden": false
       },
       {
         "id": "47c3f3416bb96369",
         "username": "supermand",
         "score": 26,
-        "createdAt": 1793359244187
+        "createdAt": 1793359244187,
+        "hidden": false
       },
       {
         "id": "18cecbe8d16dadf0",
         "username": "vik11",
         "score": 26,
-        "createdAt": 1793360086985
+        "createdAt": 1793360086985,
+        "hidden": false
       },
       {
         "id": "e1118f39a1401725",
         "username": "P0lsehorn",
         "score": 26,
-        "createdAt": 1793362079770
+        "createdAt": 1793362079770,
+        "hidden": false
       },
       {
         "id": "a72a438ee1d18804",
         "username": "supermand",
         "score": 26,
-        "createdAt": 1793362301948
+        "createdAt": 1793362301948,
+        "hidden": false
       },
       {
         "id": "73b6e2f9d2367ac1",
         "username": "P0lsehorn",
         "score": 26,
-        "createdAt": 1793362508423
+        "createdAt": 1793362508423,
+        "hidden": false
       },
       {
         "id": "8e36beac19effec3",
         "username": "P0lsehorn",
         "score": 26,
-        "createdAt": 1793362542148
+        "createdAt": 1793362542148,
+        "hidden": false
       },
       {
         "id": "ba9ad16c5af90442",
         "username": "P0lsehorn",
         "score": 26,
-        "createdAt": 1793363601704
+        "createdAt": 1793363601704,
+        "hidden": false
       },
       {
         "id": "ffe5f41ea87ceb0d",
         "username": "P0lsehorn",
         "score": 26,
-        "createdAt": 1793364157899
+        "createdAt": 1793364157899,
+        "hidden": false
       },
       {
         "id": "2e0d7b06d7da6897",
         "username": "ejstrup",
         "score": 26,
-        "createdAt": 1793364191744
+        "createdAt": 1793364191744,
+        "hidden": false
       },
       {
         "id": "2dbf138e6c4d4a00",
         "username": "P0lsehorn",
         "score": 26,
-        "createdAt": 1793364601638
+        "createdAt": 1793364601638,
+        "hidden": false
       },
       {
         "id": "deb898973cd3dc98",
         "username": "ejstrup",
         "score": 25,
-        "createdAt": 1793355174820
+        "createdAt": 1793355174820,
+        "hidden": false
       },
       {
         "id": "e9c49777968eb609",
         "username": "bennersgoat",
         "score": 25,
-        "createdAt": 1793359022067
+        "createdAt": 1793359022067,
+        "hidden": false
       },
       {
         "id": "24433d5aa97e0003",
         "username": "P0lsehorn",
         "score": 25,
-        "createdAt": 1793359501943
+        "createdAt": 1793359501943,
+        "hidden": false
       },
       {
         "id": "e57548a060763987",
         "username": "vik11",
         "score": 25,
-        "createdAt": 1793362009477
+        "createdAt": 1793362009477,
+        "hidden": false
       },
       {
         "id": "092b6d865872b41b",
         "username": "superwoman",
         "score": 25,
-        "createdAt": 1793362248484
+        "createdAt": 1793362248484,
+        "hidden": false
       },
       {
         "id": "1e5a85843457706f",
         "username": "supermand",
         "score": 25,
-        "createdAt": 1793362251716
+        "createdAt": 1793362251716,
+        "hidden": false
       },
       {
         "id": "41de0c9800b63186",
         "username": "superwoman",
         "score": 25,
-        "createdAt": 1793362462556
+        "createdAt": 1793362462556,
+        "hidden": false
       },
       {
         "id": "e6aed2d3e66a1ccb",
         "username": "supermand",
         "score": 25,
-        "createdAt": 1793363206603
+        "createdAt": 1793363206603,
+        "hidden": false
+      },
+      {
+        "id": "066805978ad97a39",
+        "username": "ostehaps",
+        "score": 21,
+        "hidden": false,
+        "createdAt": 1793267697204
+      },
+      {
+        "id": "ea6899631ca572d5",
+        "username": "vik",
+        "score": 19,
+        "hidden": false,
+        "createdAt": 1793175030075
+      },
+      {
+        "id": "2e6358e6a9bb9534",
+        "username": "Ella332340",
+        "score": 17,
+        "hidden": false,
+        "createdAt": 1793363826380
+      },
+      {
+        "id": "8f18bffb7c47dd85",
+        "username": "kani",
+        "score": 16,
+        "hidden": false,
+        "createdAt": 1793354994703
+      },
+      {
+        "id": "3579640f2a9fa8e7",
+        "username": "Mort",
+        "score": 16,
+        "hidden": false,
+        "createdAt": 1793362928505
+      },
+      {
+        "id": "0a24f146151662a9",
+        "username": "puhbigmack",
+        "score": 16,
+        "hidden": false,
+        "createdAt": 1793363779329
+      },
+      {
+        "id": "086e3ad5d15cf5f1",
+        "username": "Sejesara",
+        "score": 15,
+        "hidden": false,
+        "createdAt": 1793363803453
+      },
+      {
+        "id": "3cdc6ba7b35db9b6",
+        "username": "Hej123",
+        "score": 10,
+        "hidden": false,
+        "createdAt": 1793363771004
+      },
+      {
+        "id": "1211f95187a0df89",
+        "username": "Zander",
+        "score": 4,
+        "hidden": false,
+        "createdAt": 1793091473451
       }
     ],
     "hard": [
@@ -2443,601 +3065,750 @@
         "id": "399949d8825419fa",
         "username": "MeDonut",
         "score": 27,
-        "createdAt": 1793191124714
+        "createdAt": 1793191124714,
+        "hidden": false
       },
       {
         "id": "f95624767adda3d7",
         "username": "ejstrup",
         "score": 27,
-        "createdAt": 1793359019927
+        "createdAt": 1793359019927,
+        "hidden": false
       },
       {
         "id": "d893d46cfad06611",
         "username": "Zander",
         "score": 27,
-        "createdAt": 1793362039653
+        "createdAt": 1793362039653,
+        "hidden": false
       },
       {
         "id": "99f8dceb12101019",
         "username": "joslor11",
         "score": 25,
-        "createdAt": 1792753126477
+        "createdAt": 1792753126477,
+        "hidden": false
       },
       {
         "id": "c53d11e83afc2261",
         "username": "Allan",
         "score": 24,
-        "createdAt": 1793259892775
+        "createdAt": 1793259892775,
+        "hidden": false
       },
       {
         "id": "183ee6a61c3ef00b",
         "username": "ejstrup",
         "score": 24,
-        "createdAt": 1793358071155
+        "createdAt": 1793358071155,
+        "hidden": false
       },
       {
         "id": "1f023741fcdd673f",
         "username": "ejstrup",
         "score": 24,
-        "createdAt": 1793358215943
+        "createdAt": 1793358215943,
+        "hidden": false
       },
       {
         "id": "b026cf69e6a4e29c",
         "username": "ejstrup",
         "score": 24,
-        "createdAt": 1793358613966
+        "createdAt": 1793358613966,
+        "hidden": false
       },
       {
         "id": "bb260d58756b311a",
         "username": "joslor11",
         "score": 24,
-        "createdAt": 1793358728558
+        "createdAt": 1793358728558,
+        "hidden": false
       },
       {
         "id": "6ab85bcb23367f16",
         "username": "Zander",
         "score": 24,
-        "createdAt": 1793359129996
+        "createdAt": 1793359129996,
+        "hidden": false
       },
       {
         "id": "f31c18bd4daf3b37",
         "username": "ejstrup",
         "score": 24,
-        "createdAt": 1793362397707
+        "createdAt": 1793362397707,
+        "hidden": false
       },
       {
         "id": "420914b1044efff5",
         "username": "joslor11",
         "score": 24,
-        "createdAt": 1793362400059
+        "createdAt": 1793362400059,
+        "hidden": false
       },
       {
         "id": "003e289eec23e5ec",
         "username": "ejstrup",
         "score": 23,
-        "createdAt": 1793357976938
+        "createdAt": 1793357976938,
+        "hidden": false
       },
       {
         "id": "226c84490c64fdcc",
         "username": "joslor11",
         "score": 23,
-        "createdAt": 1793358598755
+        "createdAt": 1793358598755,
+        "hidden": false
       },
       {
         "id": "d8540f34e6f22b42",
         "username": "joslor11",
         "score": 23,
-        "createdAt": 1793359156107
+        "createdAt": 1793359156107,
+        "hidden": false
       },
       {
         "id": "be0d2dbc533e375f",
         "username": "Mort",
         "score": 23,
-        "createdAt": 1793363143838
+        "createdAt": 1793363143838,
+        "hidden": false
       },
       {
         "id": "34e59b475a6b6bac",
         "username": "joslor11",
         "score": 22,
-        "createdAt": 1793362494094
+        "createdAt": 1793362494094,
+        "hidden": false
       },
       {
         "id": "1c33e457b21f0af4",
         "username": "ejstrup",
         "score": 21,
-        "createdAt": 1792752680749
+        "createdAt": 1792752680749,
+        "hidden": false
       },
       {
         "id": "24e5fc2748a1f9dc",
         "username": "Zander",
         "score": 21,
-        "createdAt": 1793001067249
+        "createdAt": 1793001067249,
+        "hidden": false
       },
       {
         "id": "2dce66c8420bea23",
         "username": "Zander",
         "score": 21,
-        "createdAt": 1793357722977
+        "createdAt": 1793357722977,
+        "hidden": false
       },
       {
         "id": "6c7179d3a3a7665e",
         "username": "ejstrup",
         "score": 21,
-        "createdAt": 1793357838769
+        "createdAt": 1793357838769,
+        "hidden": false
       },
       {
         "id": "258c74bb1d410cc0",
         "username": "BlueViceee",
         "score": 21,
-        "createdAt": 1793363104741
+        "createdAt": 1793363104741,
+        "hidden": false
       },
       {
         "id": "bbd9713fe463bfc3",
         "username": "Thomsen",
         "score": 20,
-        "createdAt": 1792754512354
+        "createdAt": 1792754512354,
+        "hidden": false
       },
       {
         "id": "1da8b8a242788ef1",
         "username": "BlueViceee",
         "score": 20,
-        "createdAt": 1793261552300
+        "createdAt": 1793261552300,
+        "hidden": false
       },
       {
         "id": "5b14c83e8efdd9a7",
         "username": "joslor11",
         "score": 20,
-        "createdAt": 1793358661498
+        "createdAt": 1793358661498,
+        "hidden": false
       },
       {
         "id": "b702088a354bb4f6",
         "username": "BlueViceee",
         "score": 20,
-        "createdAt": 1793363260246
+        "createdAt": 1793363260246,
+        "hidden": false
       },
       {
         "id": "2e909d06e8bf7187",
         "username": "Hadi",
         "score": 20,
-        "createdAt": 1793613937078
+        "createdAt": 1793613937078,
+        "hidden": false
       },
       {
         "id": "7b4c1bfa66d675c2",
         "username": "joslor11",
         "score": 19,
-        "createdAt": 1793353539684
+        "createdAt": 1793353539684,
+        "hidden": false
       },
       {
         "id": "81546c681f99a870",
         "username": "Zander",
         "score": 19,
-        "createdAt": 1793357795297
+        "createdAt": 1793357795297,
+        "hidden": false
       },
       {
         "id": "f724f32197007107",
         "username": "ejstrup",
         "score": 19,
-        "createdAt": 1793358385334
+        "createdAt": 1793358385334,
+        "hidden": false
       },
       {
         "id": "b27f42b602ce093e",
         "username": "ejstrup",
         "score": 19,
-        "createdAt": 1793358448614
+        "createdAt": 1793358448614,
+        "hidden": false
       },
       {
         "id": "2c91780dba2689e7",
         "username": "Allan",
         "score": 19,
-        "createdAt": 1793358929602
+        "createdAt": 1793358929602,
+        "hidden": false
       },
       {
         "id": "542af0eb569d75be",
         "username": "BlueViceee",
         "score": 19,
-        "createdAt": 1793363420127
+        "createdAt": 1793363420127,
+        "hidden": false
       },
       {
         "id": "e0af799ccf76d9b2",
         "username": "BlueViceee",
         "score": 19,
-        "createdAt": 1793363880952
+        "createdAt": 1793363880952,
+        "hidden": false
       },
       {
         "id": "77617eda2d20003a",
         "username": "joslor11",
         "score": 19,
-        "createdAt": 1793613143957
+        "createdAt": 1793613143957,
+        "hidden": false
       },
       {
         "id": "7022d5a7a1b915f2",
         "username": "ejstrup",
         "score": 18,
-        "createdAt": 1793353607203
+        "createdAt": 1793353607203,
+        "hidden": false
       },
       {
         "id": "de61a469924d4c02",
         "username": "Dumlegomand",
         "score": 18,
-        "createdAt": 1793353939054
+        "createdAt": 1793353939054,
+        "hidden": false
       },
       {
         "id": "2ea6e516714566b7",
         "username": "ejstrup",
         "score": 18,
-        "createdAt": 1793354709847
+        "createdAt": 1793354709847,
+        "hidden": false
       },
       {
         "id": "ededcb37b4f4f46a",
         "username": "ejstrup",
         "score": 18,
-        "createdAt": 1793354916075
+        "createdAt": 1793354916075,
+        "hidden": false
       },
       {
         "id": "65d4bd3f1a4d2f02",
         "username": "joslor11",
         "score": 18,
-        "createdAt": 1793358109038
+        "createdAt": 1793358109038,
+        "hidden": false
       },
       {
         "id": "a6c2360941fd1802",
         "username": "joslor11",
         "score": 18,
-        "createdAt": 1793361868953
+        "createdAt": 1793361868953,
+        "hidden": false
       },
       {
         "id": "2bc7cc82574dca86",
         "username": "Zander",
         "score": 18,
-        "createdAt": 1793362357944
+        "createdAt": 1793362357944,
+        "hidden": false
       },
       {
         "id": "00f031b6bdb075b0",
         "username": "joslor11",
         "score": 18,
-        "createdAt": 1793362467039
+        "createdAt": 1793362467039,
+        "hidden": false
       },
       {
         "id": "d172478752b7d7d3",
         "username": "BlueViceee",
         "score": 18,
-        "createdAt": 1793363147409
+        "createdAt": 1793363147409,
+        "hidden": false
       },
       {
         "id": "d4cd26d041239372",
         "username": "BlueViceee",
         "score": 18,
-        "createdAt": 1793364674875
+        "createdAt": 1793364674875,
+        "hidden": false
       },
       {
         "id": "b27949dc93f6d703",
         "username": "BlueViceee",
         "score": 18,
-        "createdAt": 1793611967150
+        "createdAt": 1793611967150,
+        "hidden": false
       },
       {
         "id": "5a56daafc234f46c",
         "username": "joslor11",
         "score": 18,
-        "createdAt": 1793612990547
+        "createdAt": 1793612990547,
+        "hidden": false
       },
       {
         "id": "c830cee298753548",
         "username": "P0lsehorn",
         "score": 17,
-        "createdAt": 1793268037088
+        "createdAt": 1793268037088,
+        "hidden": false
       },
       {
         "id": "ffd885baeacf1e60",
         "username": "ejstrup",
         "score": 17,
-        "createdAt": 1793354418531
+        "createdAt": 1793354418531,
+        "hidden": false
       },
       {
         "id": "2c25faf39359f2cc",
         "username": "Dumlegomand",
         "score": 17,
-        "createdAt": 1793354574846
+        "createdAt": 1793354574846,
+        "hidden": false
       },
       {
         "id": "3050a2af02a5a209",
         "username": "BlueViceee",
         "score": 17,
-        "createdAt": 1793358578041
+        "createdAt": 1793358578041,
+        "hidden": false
       },
       {
         "id": "93ed846c96d2ce48",
         "username": "joslor11",
         "score": 17,
-        "createdAt": 1793358758008
+        "createdAt": 1793358758008,
+        "hidden": false
       },
       {
         "id": "02f7295df22c52b2",
         "username": "joslor11",
         "score": 17,
-        "createdAt": 1793358799480
+        "createdAt": 1793358799480,
+        "hidden": false
       },
       {
         "id": "7894ed24b3b9bc4e",
         "username": "ejstrup",
         "score": 17,
-        "createdAt": 1793358837649
+        "createdAt": 1793358837649,
+        "hidden": false
       },
       {
         "id": "c3834be90dd01478",
         "username": "joslor11",
         "score": 17,
-        "createdAt": 1793359068425
+        "createdAt": 1793359068425,
+        "hidden": false
       },
       {
         "id": "d8b704d9a5d76411",
         "username": "joslor11",
         "score": 17,
-        "createdAt": 1793362371525
+        "createdAt": 1793362371525,
+        "hidden": false
       },
       {
         "id": "d4c944f498e184b1",
         "username": "joslor11",
         "score": 17,
-        "createdAt": 1793362581467
+        "createdAt": 1793362581467,
+        "hidden": false
       },
       {
         "id": "0d0fa3785b908079",
         "username": "joslor11",
         "score": 17,
-        "createdAt": 1793362695000
+        "createdAt": 1793362695000,
+        "hidden": false
       },
       {
         "id": "0f45fd5f85ccb43f",
         "username": "BlueViceee",
         "score": 17,
-        "createdAt": 1793362712872
+        "createdAt": 1793362712872,
+        "hidden": false
       },
       {
         "id": "94e1116922042e95",
         "username": "Mort",
         "score": 17,
-        "createdAt": 1793363263613
+        "createdAt": 1793363263613,
+        "hidden": false
       },
       {
         "id": "332160b582c85508",
         "username": "joslor11",
         "score": 17,
-        "createdAt": 1793363666004
+        "createdAt": 1793363666004,
+        "hidden": false
       },
       {
         "id": "04ac7c01d47d1946",
         "username": "BlueViceee",
         "score": 17,
-        "createdAt": 1793364218333
+        "createdAt": 1793364218333,
+        "hidden": false
       },
       {
         "id": "0a26841808898063",
         "username": "BlueViceee",
         "score": 17,
-        "createdAt": 1793611795384
+        "createdAt": 1793611795384,
+        "hidden": false
       },
       {
         "id": "e3b4da039d8d020a",
         "username": "BlueViceee",
         "score": 17,
-        "createdAt": 1793611943362
+        "createdAt": 1793611943362,
+        "hidden": false
       },
       {
         "id": "c2aa863dbdce1373",
         "username": "supermand",
         "score": 16,
-        "createdAt": 1793268043859
+        "createdAt": 1793268043859,
+        "hidden": false
       },
       {
         "id": "12d390c187647a7a",
         "username": "Mort",
         "score": 16,
-        "createdAt": 1793268620767
+        "createdAt": 1793268620767,
+        "hidden": false
       },
       {
         "id": "fc01c63af72b3d9c",
         "username": "ejstrup",
         "score": 16,
-        "createdAt": 1793354478404
+        "createdAt": 1793354478404,
+        "hidden": false
       },
       {
         "id": "b32e5463737e454d",
         "username": "MeDonut",
         "score": 16,
-        "createdAt": 1793357589986
+        "createdAt": 1793357589986,
+        "hidden": false
       },
       {
         "id": "84d5e4bfd82a4990",
         "username": "ejstrup",
         "score": 16,
-        "createdAt": 1793357702945
+        "createdAt": 1793357702945,
+        "hidden": false
       },
       {
         "id": "47e58dc4ffa0ac0d",
         "username": "joslor11",
         "score": 16,
-        "createdAt": 1793357884661
+        "createdAt": 1793357884661,
+        "hidden": false
       },
       {
         "id": "bf556fc0a1824b9b",
         "username": "ejstrup",
         "score": 16,
-        "createdAt": 1793358161812
+        "createdAt": 1793358161812,
+        "hidden": false
       },
       {
         "id": "fafeb017df6fe50d",
         "username": "Zander",
         "score": 16,
-        "createdAt": 1793358726744
+        "createdAt": 1793358726744,
+        "hidden": false
       },
       {
         "id": "74fe6649253318d2",
         "username": "joslor11",
         "score": 16,
-        "createdAt": 1793359186559
+        "createdAt": 1793359186559,
+        "hidden": false
       },
       {
         "id": "7cc9c033f982e14b",
         "username": "ejstrup",
         "score": 16,
-        "createdAt": 1793362014769
+        "createdAt": 1793362014769,
+        "hidden": false
       },
       {
         "id": "2bdfbb50ab51b3d1",
         "username": "BlueViceee",
         "score": 16,
-        "createdAt": 1793362105364
+        "createdAt": 1793362105364,
+        "hidden": false
       },
       {
         "id": "dababa8f0ef79b51",
         "username": "joslor11",
         "score": 16,
-        "createdAt": 1793362146719
+        "createdAt": 1793362146719,
+        "hidden": false
       },
       {
         "id": "52e580632920b83a",
         "username": "joslor11",
         "score": 16,
-        "createdAt": 1793362301712
+        "createdAt": 1793362301712,
+        "hidden": false
       },
       {
         "id": "a2664d23cfa23d1f",
         "username": "ejstrup",
         "score": 16,
-        "createdAt": 1793362334744
+        "createdAt": 1793362334744,
+        "hidden": false
       },
       {
         "id": "d1abf03444ed6893",
         "username": "ejstrup",
         "score": 16,
-        "createdAt": 1793362472095
+        "createdAt": 1793362472095,
+        "hidden": false
       },
       {
         "id": "fb18dd0d624aca0e",
         "username": "BlueViceee",
         "score": 16,
-        "createdAt": 1793362532806
+        "createdAt": 1793362532806,
+        "hidden": false
       },
       {
         "id": "1462def0fc170b69",
         "username": "joslor11",
         "score": 16,
-        "createdAt": 1793362534534
+        "createdAt": 1793362534534,
+        "hidden": false
       },
       {
         "id": "dce5fb82e427d065",
         "username": "ejstrup",
         "score": 16,
-        "createdAt": 1793362753800
+        "createdAt": 1793362753800,
+        "hidden": false
       },
       {
         "id": "1ad772e371adb566",
         "username": "joslor11",
         "score": 16,
-        "createdAt": 1793362796091
+        "createdAt": 1793362796091,
+        "hidden": false
       },
       {
         "id": "d6df679f42d9137e",
         "username": "Hadi",
         "score": 16,
-        "createdAt": 1793363403153
+        "createdAt": 1793363403153,
+        "hidden": false
       },
       {
         "id": "b5be5ebc87af8ac8",
         "username": "BlueViceee",
         "score": 16,
-        "createdAt": 1793364766855
+        "createdAt": 1793364766855,
+        "hidden": false
       },
       {
         "id": "c6a42bd12329eecd",
         "username": "joslor11",
         "score": 16,
-        "createdAt": 1793613025587
+        "createdAt": 1793613025587,
+        "hidden": false
       },
       {
         "id": "7183edf58b514f02",
         "username": "joslor11",
         "score": 16,
-        "createdAt": 1793613325441
+        "createdAt": 1793613325441,
+        "hidden": false
       },
       {
         "id": "27df057b62cdbda9",
         "username": "joslor11",
         "score": 15,
-        "createdAt": 1793353827604
+        "createdAt": 1793353827604,
+        "hidden": false
       },
       {
         "id": "9d122b90ebff731c",
         "username": "ejstrup",
         "score": 15,
-        "createdAt": 1793354669981
+        "createdAt": 1793354669981,
+        "hidden": false
       },
       {
         "id": "1b0c61e412981d0f",
         "username": "MeDonut",
         "score": 15,
-        "createdAt": 1793357705544
+        "createdAt": 1793357705544,
+        "hidden": false
       },
       {
         "id": "f34c855d8cba98f1",
         "username": "BlueViceee",
         "score": 15,
-        "createdAt": 1793358500308
+        "createdAt": 1793358500308,
+        "hidden": false
       },
       {
         "id": "1892df937c31f66f",
         "username": "ejstrup",
         "score": 15,
-        "createdAt": 1793358549219
+        "createdAt": 1793358549219,
+        "hidden": false
       },
       {
         "id": "ba7637d5a17fcd66",
         "username": "joslor11",
         "score": 15,
-        "createdAt": 1793358694994
+        "createdAt": 1793358694994,
+        "hidden": false
       },
       {
         "id": "2444c783910c794e",
         "username": "joslor11",
         "score": 15,
-        "createdAt": 1793358830371
+        "createdAt": 1793358830371,
+        "hidden": false
       },
       {
         "id": "358e979ac2d2b82c",
         "username": "ejstrup",
         "score": 15,
-        "createdAt": 1793358919363
+        "createdAt": 1793358919363,
+        "hidden": false
       },
       {
         "id": "7e61946487b71ac3",
         "username": "Allan",
         "score": 15,
-        "createdAt": 1793359075402
+        "createdAt": 1793359075402,
+        "hidden": false
       },
       {
         "id": "e3c7e21d82a8b099",
         "username": "Zander",
         "score": 15,
-        "createdAt": 1793361999803
+        "createdAt": 1793361999803,
+        "hidden": false
       },
       {
         "id": "00174fae40995a2d",
         "username": "Hadi",
         "score": 15,
-        "createdAt": 1793362265031
+        "createdAt": 1793362265031,
+        "hidden": false
       },
       {
         "id": "f857e003130a4191",
         "username": "MeDonut",
         "score": 15,
-        "createdAt": 1793362320462
+        "createdAt": 1793362320462,
+        "hidden": false
       },
       {
         "id": "8db0e19adf5937e6",
         "username": "joslor11",
         "score": 15,
-        "createdAt": 1793362442496
+        "createdAt": 1793362442496,
+        "hidden": false
+      },
+      {
+        "id": "e6104d01ea5ed52f",
+        "username": "vik11",
+        "score": 14,
+        "hidden": false,
+        "createdAt": 1793362430492
+      },
+      {
+        "id": "2061781b21a1e9cf",
+        "username": "vik",
+        "score": 12,
+        "hidden": false,
+        "createdAt": 1793002277936
+      },
+      {
+        "id": "f86bfc640b5738cb",
+        "username": "Bassemand",
+        "score": 12,
+        "hidden": false,
+        "createdAt": 1793363089130
+      },
+      {
+        "id": "b3f7cbcd89794e56",
+        "username": "superwoman",
+        "score": 11,
+        "hidden": false,
+        "createdAt": 1793267921148
+      },
+      {
+        "id": "5684c5e5427ef68c",
+        "username": "bennersgoat",
+        "score": 8,
+        "hidden": false,
+        "createdAt": 1793357701474
+      },
+      {
+        "id": "c3771ecfed3a0415",
+        "username": "kani",
+        "score": 8,
+        "hidden": false,
+        "createdAt": 1793358974601
+      },
+      {
+        "id": "c8a4fa093640a816",
+        "username": "ostehaps",
+        "score": 5,
+        "hidden": false,
+        "createdAt": 1793267907595
       }
     ]
   },

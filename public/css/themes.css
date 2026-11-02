@@ -4340,19 +4340,98 @@ body.theme-light *::-webkit-scrollbar-thumb:hover {
 .skin-title-row {
   display: flex !important;
   align-items: center !important;
-  flex-wrap: wrap !important;
-  gap: 5px !important;
+  flex-wrap: nowrap !important;
+  gap: 6px !important;
   min-width: 0 !important;
   max-width: 100% !important;
 }
 
 .skin-name {
-  font-size: 0.88rem !important;
+  font-size: 0.84rem;
   font-weight: 800 !important;
-  line-height: 1.2 !important;
+  line-height: 1.18 !important;
   white-space: normal !important;
   word-break: break-word !important;
   overflow-wrap: anywhere !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  max-width: 100% !important;
+}
+
+.skin-meta-badges {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 5px !important;
+  margin: 1px 0 !important;
+}
+
+.ownership-pill.locked-admin {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #fca5a5 !important;
+  border: 1px solid rgba(239, 68, 68, 0.55) !important;
+}
+
+.ownership-pill.granted {
+  background: rgba(168, 85, 247, 0.22) !important;
+  color: #d8b4fe !important;
+  border: 1px solid rgba(168, 85, 247, 0.55) !important;
+}
+
+.lb-toggle-top100-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 14px !important;
+  border-radius: 999px !important;
+  font-family: 'Fredoka', sans-serif !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  background: rgba(30, 41, 59, 0.7) !important;
+  border: 1.5px solid rgba(56, 189, 248, 0.35) !important;
+  color: #7dd3fc !important;
+  transition: all 0.2s ease !important;
+}
+
+.lb-toggle-top100-btn:hover {
+  background: rgba(56, 189, 248, 0.15) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+
+.lb-toggle-top100-btn.active {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.45) !important;
+}
+
+.btn-see-all-players {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(2, 132, 199, 0.28)) !important;
+  border: 1.5px solid rgba(56, 189, 248, 0.45) !important;
+  color: #38bdf8 !important;
+  border-radius: 999px !important;
+  padding: 6px 14px !important;
+  font-weight: 700 !important;
+  font-size: 0.82rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-see-all-players:hover {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  color: #ffffff !important;
+  border-color: #38bdf8 !important;
+  transform: translateY(-1px) !important;
+}
+
+.highlight-all-players {
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  color: #7dd3fc !important;
 }
 
 .skin-desc {
