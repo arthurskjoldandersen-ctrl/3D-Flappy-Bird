@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🗄️ 3D Flappy Bird — Live Database & Records Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: #111827;
+      --bg-row: #1e293b;
+      --border: rgba(255, 255, 255, 0.12);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --cyan: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --purple: #a855f7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #0f172a 0%, #090d16 100%);
+      color: var(--text-main);
+      font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      padding: 24px 20px 60px;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .top-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1.5px solid var(--border);
+      padding: 16px 22px;
+      border-radius: 20px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+    }
+
+    .brand-col h1 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 1.55rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-col p {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      margin-top: 3px;
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 9px 16px;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 0.84rem;
+      border: 1.5px solid var(--border);
+      background: #1e293b;
+      color: #f8fafc;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.16s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--cyan);
+      background: #334155;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      border-color: #38bdf8;
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #16a34a, #059669);
+      border-color: #4ade80;
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.16);
+      border-color: rgba(244, 63, 94, 0.45);
+      color: #fda4af;
+      padding: 5px 10px;
+      font-size: 0.76rem;
+    }
+
+    .btn-danger:hover {
+      background: #e11d48;
+      color: #fff;
+    }
+
+    .live-banner {
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.22) 0%, rgba(16, 185, 129, 0.16) 100%);
+      border: 1.5px solid rgba(56, 189, 248, 0.45);
+      border-radius: 16px;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .live-banner-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 12px #22c55e;
+      animation: pulse 1.6s infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.25); opacity: 0.65; }
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .kpi-card {
+      background: rgba(17, 24, 39, 0.92);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 18px;
+    }
+
+    .kpi-label {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-sub);
+      font-weight: 800;
+    }
+
+    .kpi-val {
+      font-size: 1.45rem;
+      font-weight: 900;
+      margin-top: 4px;
+      color: #fff;
+    }
+
+    .kpi-sub {
+      font-size: 0.78rem;
+      color: var(--cyan);
+      margin-top: 2px;
+      font-weight: 700;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.65fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: rgba(17, 24, 39, 0.94);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .panel-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    .panel-title {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .search-input {
+      background: #090d16;
+      border: 1.5px solid var(--border);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      min-width: 240px;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--cyan);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      max-height: 620px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 10px;
+      color: var(--text-sub);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1.5px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: #111827;
+      z-index: 2;
+    }
+
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      vertical-align: middle;
+    }
+
+    tr:hover td {
+      background: rgba(30, 41, 59, 0.55);
+    }
+
+    .player-name {
+      font-weight: 900;
+      font-size: 0.96rem;
+      color: #fff;
+    }
+
+    .player-meta {
+      font-size: 0.74rem;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-size: 0.73rem;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    .badge-login {
+      background: rgba(56, 189, 248, 0.14);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .badge-best {
+      background: rgba(34, 197, 94, 0.14);
+      color: #86efac;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .score-input {
+      width: 68px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1.5px solid rgba(255, 255, 255, 0.18);
+      background: #090d16;
+      color: #fff;
+      font-weight: 900;
+      font-size: 0.88rem;
+      text-align: center;
+    }
+
+    .score-input:focus {
+      outline: none;
+      border-color: var(--cyan);
+    }
+
+    .score-input.easy-in { border-color: rgba(34, 197, 94, 0.45); color: #86efac; }
+    .score-input.med-in { border-color: rgba(245, 158, 11, 0.45); color: #fde047; }
+    .score-input.hard-in { border-color: rgba(244, 63, 94, 0.45); color: #fda4af; }
+
+    .feed-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 580px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .feed-item {
+      background: #1e293b;
+      border: 1.5px solid rgba(255, 255, 255, 0.08);
+      border-left: 4px solid var(--cyan);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .feed-item.type-NEW_BEST {
+      border-left-color: #22c55e;
+      background: linear-gradient(135deg, rgba(22, 163, 74, 0.18) 0%, rgba(30, 41, 59, 0.95) 100%);
+    }
+
+    .feed-item.type-LOGIN {
+      border-left-color: #38bdf8;
+    }
+
+    .feed-item.type-REGISTER {
+      border-left-color: #a855f7;
+    }
+
+    .feed-item.type-ADMIN_RECORD_UPDATE,
+    .feed-item.type-RECORD_EDITED {
+      border-left-color: #f59e0b;
+    }
+
+    .feed-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      color: var(--text-sub);
+      font-weight: 800;
+    }
+
+    .feed-msg {
+      font-size: 0.84rem;
+      font-weight: 800;
+      color: #f8fafc;
+      line-height: 1.35;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #16a34a;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-weight: 900;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      display: none;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top-header">
+      <div class="brand-col">
+        <h1>🗄️ 3D Flappy Bird — Live Database & Records Manager</h1>
+        <p id="db-file-path">Auto-updating database • Tracks logins, new personal bests & Top 100 leaderboards in real time</p>
+      </div>
+      <div class="header-actions">
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:800; color:var(--text-sub); cursor:pointer;">
+          <input type="checkbox" id="auto-refresh-cb" checked style="width:16px; height:16px;" />
+          Auto-Refresh (4s)
+        </label>
+        <button type="button" class="btn" id="btn-refresh">↻ Refresh Now</button>
+        <a href="/api/database/export" class="btn btn-primary">⬇️ Download db.json</a>
+        <a href="/" class="btn btn-success">🎮 Back to 3D Game</a>
+      </div>
+    </div>
+
+    <div class="live-banner">
+      <div class="live-banner-left">
+        <div class="pulse-dot"></div>
+        <div>
+          <div style="font-size:0.72rem; font-weight:900; text-transform:uppercase; color:#7dd3fc; letter-spacing:0.05em;">Latest Live Database Event</div>
+          <div id="latest-event-banner" style="font-size:0.95rem; font-weight:900; color:#fff; margin-top:2px;">Loading database status...</div>
+        </div>
+      </div>
+      <div id="last-updated-text" style="font-size:0.78rem; color:#cbd5e1; font-weight:800;"></div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">👥 Total Registered Players</div>
+        <div class="kpi-val" id="kpi-players">0</div>
+        <div class="kpi-sub">All accounts synced in db.json</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">🟢 Easy Mode #1 Record</div>
+        <div class="kpi-val" id="kpi-easy-champ">-</div>
+        <div class="kpi-sub" id="kpi-easy-count">0 verified runs</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">🟡 Medium Mode #1 Record</div>
+        <div class="kpi-val" id="kpi-med-champ">-</div>
+        <div class="kpi-sub" id="kpi-med-count">0 verified runs</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">🔴 Hard Mode #1 Record</div>
+        <div class="kpi-val" id="kpi-hard-champ">-</div>
+        <div class="kpi-sub" id="kpi-hard-count">0 verified runs</div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <!-- Left: Editable Player Records Table -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🏆 Player Accounts, Login Status & Editable Records</div>
+          <input type="text" id="player-search" class="search-input" placeholder="🔍 Search player by username..." />
+        </div>
+        <div style="font-size:0.78rem; color:var(--text-sub);">
+          💡 <strong>Tip:</strong> Change any player's <strong>Easy</strong>, <strong>Medium</strong>, or <strong>Hard</strong> best score below and click <strong>💾 Save</strong> to immediately update their profile & the Top 100 Leaderboard!
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Player & Skins</th>
+                <th>Login & New Best Status</th>
+                <th>🟢 Easy</th>
+                <th>🟡 Medium</th>
+                <th>🔴 Hard</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="players-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right: Live Activity Log (Logins, New Bests, Runs) + Leaderboard Inspector -->
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">⚡ Live Database Activity Log</div>
+            <span style="font-size:0.74rem; color:var(--cyan); font-weight:800;">Logins & New Bests</span>
+          </div>
+          <div class="feed-list" id="activity-feed-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🏅 Top 100 Leaderboard Runs</div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="btn lb-mode-btn" data-mode="easy" style="padding:5px 10px; font-size:0.76rem;">🟢 Easy</button>
+              <button type="button" class="btn btn-primary lb-mode-btn" data-mode="medium" style="padding:5px 10px; font-size:0.76rem;">🟡 Medium</button>
+              <button type="button" class="btn lb-mode-btn" data-mode="hard" style="padding:5px 10px; font-size:0.76rem;">🔴 Hard</button>
+            </div>
+          </div>
+          <div class="table-wrap" style="max-height: 260px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Score</th>
+                  <th>Remove</th>
+                </tr>
+              </thead>
+              <tbody id="lb-runs-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast-msg">✅ Saved to database!</div>
+
+  <script>
+    let currentDbData = null;
+    let activeLbMode = 'medium';
+    let isEditingInput = false;
+
+    function showToast(text) {
+      const t = document.getElementById('toast-msg');
+      t.textContent = text;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 2800);
+    }
+
+    async function fetchDatabase() {
+      if (isEditingInput) return;
+      try {
+        const res = await fetch('/api/database');
+        const data = await res.json();
+        currentDbData = data;
+        renderDashboard(data);
+      } catch (err) {
+        console.error('Failed to load database:', err);
+      }
+    }
+
+    function renderDashboard(data) {
+      const st = data.databaseStatus || {};
+      document.getElementById('latest-event-banner').textContent = st.latestEventBanner || 'Database Ready';
+      document.getElementById('last-updated-text').textContent = 'Last Updated: ' + (st.lastUpdatedReadable || '-');
+      document.getElementById('kpi-players').textContent = String(st.totalRegisteredPlayers || 0);
+
+      if (st.currentChampions) {
+        document.getElementById('kpi-easy-champ').textContent = st.currentChampions.easy || '-';
+        document.getElementById('kpi-med-champ').textContent = st.currentChampions.medium || '-';
+        document.getElementById('kpi-hard-champ').textContent = st.currentChampions.hard || '-';
+      }
+      if (st.totalLeaderboardRuns) {
+        document.getElementById('kpi-easy-count').textContent = `${st.totalLeaderboardRuns.easy || 0} verified placements`;
+        document.getElementById('kpi-med-count').textContent = `${st.totalLeaderboardRuns.medium || 0} verified placements`;
+        document.getElementById('kpi-hard-count').textContent = `${st.totalLeaderboardRuns.hard || 0} verified placements`;
+      }
+
+      renderPlayersTable();
+      renderActivityFeed(data.activityFeed || []);
+      renderLeaderboardRuns();
+    }
+
+    function renderPlayersTable() {
+      if (!currentDbData || !currentDbData.playerRecordsOverview) return;
+      const tbody = document.getElementById('players-tbody');
+      const query = (document.getElementById('player-search').value || '').trim().toLowerCase();
+      tbody.innerHTML = '';
+
+      const players = Object.values(currentDbData.playerRecordsOverview).filter(p =>
+        !query || p.username.toLowerCase().includes(query)
+      );
+
+      players.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="player-name">👤 ${p.username}</div>
+            <div class="player-meta">🐦 ${p.selectedSkin} • 🏗️ ${p.selectedPipeSkin}</div>
+          </td>
+          <td>
+            <div><span class="status-badge badge-login">${p.loginStatus}</span></div>
+            <div><span class="status-badge badge-best">${p.newBestStatus}</span></div>
+          </td>
+          <td>
+            <input type="number" min="0" class="score-input easy-in" data-user="${p.username}" data-diff="easy" value="${p.records.easy}" />
+          </td>
+          <td>
+            <input type="number" min="0" class="score-input med-in" data-user="${p.username}" data-diff="medium" value="${p.records.medium}" />
+          </td>
+          <td>
+            <input type="number" min="0" class="score-input hard-in" data-user="${p.username}" data-diff="hard" value="${p.records.hard}" />
+          </td>
+          <td>
+            <button type="button" class="btn btn-success save-record-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem;">
+              💾 Save
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('.score-input').forEach(inp => {
+        inp.addEventListener('focus', () => { isEditingInput = true; });
+        inp.addEventListener('blur', () => { setTimeout(() => { isEditingInput = false; }, 300); });
+      });
+
+      tbody.querySelectorAll('.save-record-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const username = btn.getAttribute('data-user');
+          const row = btn.closest('tr');
+          const easy = Number(row.querySelector('[data-diff="easy"]').value) || 0;
+          const medium = Number(row.querySelector('[data-diff="medium"]').value) || 0;
+          const hard = Number(row.querySelector('[data-diff="hard"]').value) || 0;
+
+          btn.textContent = '⏳...';
+          try {
+            const res = await fetch('/api/database/update-record', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username, records: { easy, medium, hard } })
+            });
+            const updated = await res.json();
+            if (res.ok) {
+              isEditingInput = false;
+              currentDbData = updated;
+              renderDashboard(updated);
+              showToast(`✅ Updated ${username}'s records (Easy: ${easy}, Med: ${medium}, Hard: ${hard})!`);
+            } else {
+              alert(updated.error || 'Failed to update record');
+            }
+          } catch (err) {
+            alert('Error updating record: ' + err.message);
+          } finally {
+            btn.textContent = '💾 Save';
+          }
+        });
+      });
+    }
+
+    function renderActivityFeed(feed) {
+      const list = document.getElementById('activity-feed-list');
+      list.innerHTML = '';
+      if (!feed.length) {
+        list.innerHTML = '<div style="color:var(--text-sub); font-size:0.84rem;">No events logged yet.</div>';
+        return;
+      }
+      feed.forEach(item => {
+        const div = document.createElement('div');
+        div.className = `feed-item type-${item.type}`;
+        div.innerHTML = `
+          <div class="feed-top">
+            <span>${item.type} • ${item.username || 'System'}</span>
+            <span>🕒 ${item.time || ''}</span>
+          </div>
+          <div class="feed-msg">${item.message}</div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function renderLeaderboardRuns() {
+      if (!currentDbData || !currentDbData.leaderboards) return;
+      const tbody = document.getElementById('lb-runs-tbody');
+      tbody.innerHTML = '';
+      const runs = currentDbData.leaderboards[activeLbMode] || [];
+      runs.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight:900;">#${idx + 1}</td>
+          <td style="font-weight:800;">${r.username}</td>
+          <td style="font-weight:900; color:var(--cyan);">${r.score} pts</td>
+          <td>
+            <button type="button" class="btn btn-danger del-run-btn" data-id="${r.id}">🗑️ Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('.del-run-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const entryId = btn.getAttribute('data-id');
+          try {
+            const res = await fetch('/api/database/delete-run', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ difficulty: activeLbMode, entryId })
+            });
+            const updated = await res.json();
+            if (res.ok) {
+              currentDbData = updated;
+              renderDashboard(updated);
+              showToast('🗑️ Leaderboard entry removed!');
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        });
+      });
+    }
+
+    document.getElementById('player-search').addEventListener('input', renderPlayersTable);
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      isEditingInput = false;
+      fetchDatabase();
+    });
+
+    document.querySelectorAll('.lb-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeLbMode = btn.getAttribute('data-mode');
+        document.querySelectorAll('.lb-mode-btn').forEach(b => b.classList.remove('btn-primary'));
+        btn.classList.add('btn-primary');
+        renderLeaderboardRuns();
+      });
+    });
+
+    fetchDatabase();
+    setInterval(() => {
+      const auto = document.getElementById('auto-refresh-cb').checked;
+      if (auto && !isEditingInput) {
+        fetchDatabase();
+      }
+    }, 4000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,2194 @@
+/**
+ * ============================================================================
+ * UI VIEWS, LOCKER GRIDS, STATS, LEADERBOARD, AUTH & THEMES (ui-views.js)
+ * ============================================================================
+ */
+'use strict';
+
+class FlappyBirdUIAndProgression {
+        loadLocalRecords() {
+          try {
+            const raw = localStorage.getItem('flappy3d_records_v2');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              const r = {
+                easy: Number(parsed.easy) || 0,
+                medium: Number(parsed.medium) || 0,
+                hard: Number(parsed.hard) || 0
+              };
+              if (r.easy > 0 || r.medium > 0 || r.hard > 0) return r;
+            }
+          } catch (_) {}
+          // Take authentic records from the old leaderboard (MeDonut: 109 Easy, 40 Medium, 27 Hard)
+          const baseline = { easy: 109, medium: 40, hard: 27 };
+          try {
+            localStorage.setItem('flappy3d_records_v2', JSON.stringify(baseline));
+          } catch (_) {}
+          return baseline;
+        }
+
+        saveLocalRecords() {
+          try {
+            localStorage.setItem('flappy3d_records_v2', JSON.stringify(this.localRecords));
+          } catch (_) {}
+        }
+
+        loadCareerStats() {
+          const defaultModeStat = () => ({ runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 });
+          try {
+            const raw = localStorage.getItem('flappy3d_career_v1');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              const pm = (parsed.modes && typeof parsed.modes === 'object') ? parsed.modes : {};
+              const normMode = (m) => ({
+                runs: Number(m && m.runs) || 0,
+                totalScore: Number(m && m.totalScore) || 0,
+                totalFlaps: Number(m && m.totalFlaps) || 0,
+                lastScore: Number(m && m.lastScore) || 0
+              });
+              return {
+                totalRuns: Number(parsed.totalRuns) || 0,
+                totalScore: Number(parsed.totalScore) || 0,
+                totalFlaps: Number(parsed.totalFlaps) || 0,
+                lastScore: Number(parsed.lastScore) || 0,
+                lastMode: parsed.lastMode || 'medium',
+                modes: {
+                  easy: normMode(pm.easy),
+                  medium: normMode(pm.medium),
+                  hard: normMode(pm.hard)
+                }
+              };
+            }
+          } catch (_) {}
+          return {
+            totalRuns: 0,
+            totalScore: 0,
+            totalFlaps: 0,
+            lastScore: 0,
+            lastMode: 'medium',
+            modes: {
+              easy: defaultModeStat(),
+              medium: defaultModeStat(),
+              hard: defaultModeStat()
+            }
+          };
+        }
+
+        saveCareerStats() {
+          try {
+            localStorage.setItem('flappy3d_career_v1', JSON.stringify(this.careerStats));
+          } catch (_) {}
+        }
+
+        loadTrollQuests() {
+          try {
+            const raw = localStorage.getItem('flappy3d_troll_quests_v1');
+            if (raw) {
+              const p = JSON.parse(raw);
+              return {
+                unlockedIds: (p.unlockedIds && typeof p.unlockedIds === 'object') ? p.unlockedIds : {},
+                scoreDeaths: (p.scoreDeaths && typeof p.scoreDeaths === 'object') ? p.scoreDeaths : {},
+                recentScores: Array.isArray(p.recentScores) ? p.recentScores.slice(-10) : [],
+                recentModes: Array.isArray(p.recentModes) ? p.recentModes.slice(-10) : [],
+                zeroFlapDeaths: Number(p.zeroFlapDeaths) || 0,
+                chokeMilestones: Number(p.chokeMilestones) || 0,
+                bestFlapsUnder5: Number(p.bestFlapsUnder5) || 0,
+                bestFlapsUnder8: Number(p.bestFlapsUnder8) || 0,
+                bestFlapsSingleRun: Number(p.bestFlapsSingleRun) || 0,
+                totalBonks: Number(p.totalBonks) || 0
+              };
+            }
+          } catch (_) {}
+          return {
+            unlockedIds: {},
+            scoreDeaths: {},
+            recentScores: [],
+            recentModes: [],
+            zeroFlapDeaths: 0,
+            chokeMilestones: 0,
+            bestFlapsUnder5: 0,
+            bestFlapsUnder8: 0,
+            bestFlapsSingleRun: 0,
+            totalBonks: 0
+          };
+        }
+
+        saveTrollQuests() {
+          try {
+            localStorage.setItem('flappy3d_troll_quests_v1', JSON.stringify(this.trollQuests));
+          } catch (_) {}
+        }
+
+        getSequenceMatchProgress(historyArr, targetSeq) {
+          for (let len = targetSeq.length; len >= 1; len--) {
+            if (historyArr.length < len) continue;
+            let match = true;
+            for (let i = 0; i < len; i++) {
+              if (historyArr[historyArr.length - len + i] !== targetSeq[i]) {
+                match = false;
+                break;
+              }
+            }
+            if (match) return len;
+          }
+          return 0;
+        }
+
+        getTrollQuestProgress(questId, target = 1) {
+          const tq = this.trollQuests || this.loadTrollQuests();
+          if (tq.unlockedIds && tq.unlockedIds[questId]) {
+            return { current: target, target, percent: 100, unlocked: true };
+          }
+
+          let current = 0;
+          const sd = tq.scoreDeaths || {};
+          const rs = tq.recentScores || [];
+          const rm = tq.recentModes || [];
+
+          switch (questId) {
+            case 'die_67_x5':
+            case 'die_67_pipe_x3':
+              current = Number(sd[67]) || 0;
+              break;
+            case 'seq_10_9_21': {
+              const p1 = this.getSequenceMatchProgress(rs, [10, 9, 21]);
+              const p2 = this.getSequenceMatchProgress(rs, [9, 10, 21]);
+              current = Math.max(p1, p2);
+              break;
+            }
+            case 'die_0_x10':
+              current = Number(sd[0]) || 0;
+              break;
+            case 'seq_7_7_7':
+              current = this.getSequenceMatchProgress(rs, [7, 7, 7]);
+              break;
+            case 'die_69_x3':
+              current = Number(sd[69]) || 0;
+              break;
+            case 'zero_flap_x5':
+              current = Number(tq.zeroFlapDeaths) || 0;
+              break;
+            case 'flap_50_under_5':
+              current = Math.min(target, Number(tq.bestFlapsUnder5) || 0);
+              break;
+            case 'seq_1_2_3_5':
+              current = this.getSequenceMatchProgress(rs, [1, 2, 3, 5]);
+              break;
+            case 'choke_milestone_x3':
+              current = Number(tq.chokeMilestones) || 0;
+              break;
+            case 'seq_easy_med_hard':
+              current = this.getSequenceMatchProgress(rm, ['easy', 'medium', 'hard']);
+              break;
+            case 'die_21_x3':
+              current = Number(sd[21]) || 0;
+              break;
+            case 'seq_0_x5':
+              current = this.getSequenceMatchProgress(rs, [0, 0, 0, 0, 0]);
+              break;
+            case 'seq_4_0_4':
+              current = this.getSequenceMatchProgress(rs, [4, 0, 4]);
+              break;
+            case 'seq_1_1_1':
+              current = this.getSequenceMatchProgress(rs, [1, 1, 1]);
+              break;
+            case 'total_bonks_25':
+              current = Math.min(target, Math.max(Number(tq.totalBonks) || 0, (this.careerStats && this.careerStats.totalRuns) || 0));
+              break;
+            case 'seq_12_12':
+              current = this.getSequenceMatchProgress(rs, [12, 12]);
+              break;
+            case 'die_2_x5':
+              current = Number(sd[2]) || 0;
+              break;
+            case 'stonks_25_to_0':
+              if (rs.length >= 2 && rs[rs.length - 2] >= 25 && rs[rs.length - 1] === 0) {
+                current = 1;
+              } else {
+                current = 0;
+              }
+              break;
+            case 'single_run_80_flaps':
+              current = Math.min(target, Number(tq.bestFlapsSingleRun) || 0);
+              break;
+            default:
+              current = 0;
+          }
+
+          const clamped = Math.min(target, Math.max(0, current));
+          const percent = Math.max(0, Math.min(100, Math.round((clamped / target) * 100)));
+          return { current: clamped, target, percent, unlocked: clamped >= target };
+        }
+
+        getPokemonQuestProgress(questId) {
+          const tq = this.trollQuests || this.loadTrollQuests();
+          const sd = tq.scoreDeaths || {};
+          const eBest = this.getBestForDifficulty('easy');
+          const mBest = this.getBestForDifficulty('medium');
+          const hBest = this.getBestForDifficulty('hard');
+          const careerPipes = (this.careerStats && this.careerStats.totalScore) || 0;
+
+          const multiModeEval = (medReq, easyReq, hardReq) => {
+            if (tq.unlockedIds && tq.unlockedIds[questId]) {
+              return { current: medReq, target: medReq, percent: 100, unlocked: true };
+            }
+            const pMed = mBest / medReq;
+            const pEasy = eBest / easyReq;
+            const pHard = hBest / hardReq;
+            if (pMed >= 1 || pEasy >= 1 || pHard >= 1) {
+              return { current: medReq, target: medReq, percent: 100, unlocked: true };
+            }
+            if (pEasy > pMed && pEasy >= pHard) {
+              return { current: eBest, target: easyReq, percent: Math.min(100, Math.round(pEasy * 100)), unlocked: false };
+            }
+            if (pHard > pMed && pHard > pEasy) {
+              return { current: hBest, target: hardReq, percent: Math.min(100, Math.round(pHard * 100)), unlocked: false };
+            }
+            return { current: mBest, target: medReq, percent: Math.min(100, Math.round(pMed * 100)), unlocked: false };
+          };
+
+          switch (questId) {
+            case 'poke_pikachu':
+            case 'poke_charmander':
+            case 'poke_eevee':
+              return multiModeEval(30, 60, 20);
+            case 'poke_squirtle':
+              return multiModeEval(28, 55, 18);
+            case 'poke_bulbasaur':
+              return multiModeEval(25, 50, 16);
+            case 'poke_pipe_pokeball':
+              return multiModeEval(25, 50, 15);
+            case 'poke_mew':
+              return multiModeEval(40, 75, 25);
+            case 'poke_masterball':
+              return multiModeEval(42, 80, 26);
+            case 'poke_bidoof': {
+              if (tq.unlockedIds && tq.unlockedIds[questId]) {
+                return { current: 2, target: 2, percent: 100, unlocked: true };
+              }
+              const d15 = Number(sd[15]) || 0;
+              const fallback = multiModeEval(25, 50, 16);
+              if (d15 >= 2 || fallback.unlocked) {
+                return { current: 2, target: 2, percent: 100, unlocked: true };
+              }
+              const dPct = Math.round((d15 / 2) * 100);
+              if (dPct >= fallback.percent) {
+                return { current: d15, target: 2, percent: dPct, unlocked: false };
+              }
+              return fallback;
+            }
+            case 'poke_jigglypuff': {
+              if (tq.unlockedIds && tq.unlockedIds[questId]) {
+                return { current: 1, target: 1, percent: 100, unlocked: true };
+              }
+              const d39 = Number(sd[39]) || 0;
+              const fallback = multiModeEval(26, 52, 17);
+              if (d39 >= 1 || fallback.unlocked) {
+                return { current: 1, target: 1, percent: 100, unlocked: true };
+              }
+              return fallback;
+            }
+            case 'poke_magikarp': {
+              if (tq.unlockedIds && tq.unlockedIds[questId]) {
+                return { current: 35, target: 35, percent: 100, unlocked: true };
+              }
+              const splashFlaps = Math.min(35, Number(tq.bestFlapsUnder8) || 0);
+              const fallback = multiModeEval(28, 55, 18);
+              if (splashFlaps >= 35 || fallback.unlocked) {
+                return { current: 35, target: 35, percent: 100, unlocked: true };
+              }
+              const fPct = Math.round((splashFlaps / 35) * 100);
+              if (fPct >= fallback.percent) {
+                return { current: splashFlaps, target: 35, percent: fPct, unlocked: false };
+              }
+              return fallback;
+            }
+            case 'poke_meowth': {
+              if (tq.unlockedIds && tq.unlockedIds[questId]) {
+                return { current: 100, target: 100, percent: 100, unlocked: true };
+              }
+              const fallback = multiModeEval(30, 60, 20);
+              if (careerPipes >= 100 || fallback.unlocked) {
+                return { current: 100, target: 100, percent: 100, unlocked: true };
+              }
+              const cPct = Math.round((careerPipes / 100) * 100);
+              if (cPct >= fallback.percent) {
+                return { current: careerPipes, target: 100, percent: cPct, unlocked: false };
+              }
+              return fallback;
+            }
+            default:
+              return multiModeEval(30, 60, 20);
+          }
+        }
+
+        recordTrollQuestRun(achievedScore, diffKey, extraFlapCount) {
+          const tq = this.trollQuests;
+          const s = Number(achievedScore) || 0;
+          const totalFlapsInRun = (Number(extraFlapCount) || 0) + 1;
+
+          tq.totalBonks = (Number(tq.totalBonks) || 0) + 1;
+          tq.scoreDeaths[s] = (Number(tq.scoreDeaths[s]) || 0) + 1;
+
+          tq.recentScores.push(s);
+          if (tq.recentScores.length > 10) tq.recentScores.shift();
+
+          tq.recentModes.push(diffKey);
+          if (tq.recentModes.length > 10) tq.recentModes.shift();
+
+          if (extraFlapCount === 0) {
+            tq.zeroFlapDeaths = (Number(tq.zeroFlapDeaths) || 0) + 1;
+          }
+
+          if (s === 9 || s === 24 || s === 49 || s === 99) {
+            tq.chokeMilestones = (Number(tq.chokeMilestones) || 0) + 1;
+          }
+
+          if (s < 5 && totalFlapsInRun > (tq.bestFlapsUnder5 || 0)) {
+            tq.bestFlapsUnder5 = totalFlapsInRun;
+          }
+
+          if (s < 8 && totalFlapsInRun > (tq.bestFlapsUnder8 || 0)) {
+            tq.bestFlapsUnder8 = totalFlapsInRun;
+          }
+
+          if (totalFlapsInRun > (tq.bestFlapsSingleRun || 0)) {
+            tq.bestFlapsSingleRun = totalFlapsInRun;
+          }
+
+          // Permanently lock in any completed Meme or Pokémon Quests so sequence/special quests stay unlocked forever!
+          const allMemeItems = [...BIRD_SKINS, ...PIPE_SKINS].filter(i => i.reqMode === 'meme' && i.trollQuestId);
+          allMemeItems.forEach(item => {
+            const prog = this.getTrollQuestProgress(item.trollQuestId, item.reqScore);
+            if (prog.unlocked) {
+              tq.unlockedIds[item.trollQuestId] = true;
+            }
+          });
+
+          const allPokeItems = [...BIRD_SKINS, ...PIPE_SKINS].filter(i => i.reqMode === 'pokemon' && i.pokeQuestId);
+          allPokeItems.forEach(item => {
+            const prog = this.getPokemonQuestProgress(item.pokeQuestId);
+            if (prog.unlocked) {
+              tq.unlockedIds[item.pokeQuestId] = true;
+            }
+          });
+
+          this.saveTrollQuests();
+        }
+
+        getBestForDifficulty(diffKey) {
+          const onlineBest = (this.currentUser && this.currentUser.records && this.currentUser.records[diffKey]) || 0;
+          const localBest = this.localRecords[diffKey] || 0;
+          return Math.max(onlineBest, localBest);
+        }
+
+        getHighestScoreAnyMode() {
+          return Math.max(
+            this.getBestForDifficulty('easy'),
+            this.getBestForDifficulty('medium'),
+            this.getBestForDifficulty('hard')
+          );
+        }
+
+        isCosmeticUnlocked(item) {
+          if (item.reqMode === 'meme' && item.trollQuestId) {
+            return this.getTrollQuestProgress(item.trollQuestId, item.reqScore).unlocked;
+          }
+          if (item.reqMode === 'pokemon' && item.pokeQuestId) {
+            return this.getPokemonQuestProgress(item.pokeQuestId).unlocked;
+          }
+          if (item.reqScore <= 0) return true;
+          const anyBest = this.getHighestScoreAnyMode();
+          if (item.altScore && anyBest >= item.altScore) return true;
+          if (item.reqMode === 'any') {
+            return anyBest >= item.reqScore;
+          }
+          return this.getBestForDifficulty(item.reqMode) >= item.reqScore;
+        }
+
+        getUnlockedBirdSkinCount() {
+          return BIRD_SKINS.filter(s => this.isCosmeticUnlocked(s)).length;
+        }
+
+        getUnlockedPipeSkinCount() {
+          return PIPE_SKINS.filter(s => this.isCosmeticUnlocked(s)).length;
+        }
+
+        // ------------------------------------------------------------------------
+        // ONLINE API & AUTHENTICATION
+        // ------------------------------------------------------------------------
+        async apiRequest(path, method = 'GET', body = null) {
+          const headers = { 'Content-Type': 'application/json' };
+          if (this.authToken) {
+            headers['Authorization'] = `Bearer ${this.authToken}`;
+          }
+          const res = await fetch(path, {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : null
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || `Request failed (${res.status})`);
+          }
+          return data;
+        }
+
+        async initOnlineSession() {
+          try {
+            const info = await this.apiRequest('/api/server-info');
+            document.getElementById('server-dot').classList.remove('offline');
+            if (info.lanAddresses && info.lanAddresses.length > 0) {
+              document.getElementById('lan-url-text').textContent = `http://${info.lanAddresses[0]}:${info.port}`;
+            } else {
+              document.getElementById('lan-url-text').textContent = window.location.origin;
+            }
+          } catch (_) {
+            document.getElementById('server-dot').classList.add('offline');
+          }
+
+          if (this.authToken) {
+            try {
+              const data = await this.apiRequest('/api/me');
+              this.setLoggedInUser(data.user, this.authToken);
+              if (data.leaderboards) {
+                this.leaderboards = data.leaderboards;
+                this.renderLeaderboard();
+              }
+              return;
+            } catch (_) {
+              this.clearLoggedInUser();
+            }
+          }
+
+          await this.fetchLeaderboards();
+        }
+
+        async fetchLeaderboards() {
+          try {
+            const data = await this.apiRequest('/api/leaderboard');
+            if (data.leaderboards) {
+              this.leaderboards = data.leaderboards;
+              this.renderLeaderboard();
+            }
+          } catch (_) {
+            const listEl = document.getElementById('lb-list');
+            listEl.innerHTML = `<div class="lb-empty">Start the Node server (<code>node server.js</code>) to view live online leaderboards!</div>`;
+          }
+        }
+
+        setLoggedInUser(user, token) {
+          this.currentUser = user;
+          this.authToken = token;
+          localStorage.setItem('flappy3d_token', token);
+
+          const authBox = document.getElementById('auth-form-box');
+          if (authBox) authBox.style.display = 'none';
+
+          document.getElementById('profile-summary-box').style.display = 'block';
+          document.getElementById('profile-name-text').textContent = user.username;
+          const statusPill = document.querySelector('#profile-summary-box .profile-status-pill');
+          if (statusPill) {
+            statusPill.textContent = '🟢 Online & Authenticated';
+            statusPill.style.color = '#10b981';
+          }
+          document.querySelectorAll('.btn-logout, #hud-logout-btn').forEach(b => { b.style.display = 'inline-block'; });
+          const capsuleNameEl = document.getElementById('capsule-username');
+          if (capsuleNameEl) capsuleNameEl.textContent = user.username;
+          document.getElementById('hud-username').textContent = `👤 ${user.username}`;
+
+          const dockAccLabel = document.getElementById('dock-account-label');
+          if (dockAccLabel) dockAccLabel.textContent = user.username;
+          const lobbyAuthText = document.getElementById('lobby-auth-text');
+          if (lobbyAuthText) lobbyAuthText.innerHTML = `👋 Logged in as <strong>${user.username}</strong> • 🟢 Synced`;
+          const lobbyAuthBtn = document.getElementById('btn-lobby-auth-action');
+          if (lobbyAuthBtn) lobbyAuthBtn.textContent = '👤 My Account';
+
+          const skinObj = BIRD_SKINS.find(s => s.id === (user.selectedSkin || this.selectedSkinId));
+          if (skinObj && this.isCosmeticUnlocked(skinObj)) {
+            this.applySkin(skinObj.id, false);
+          } else {
+            this.applySkin('classic', false);
+          }
+
+          const pipeObj = PIPE_SKINS.find(p => p.id === (user.selectedPipeSkin || this.selectedPipeSkinId));
+          if (pipeObj && this.isCosmeticUnlocked(pipeObj)) {
+            this.applyPipeSkin(pipeObj.id, false);
+          } else {
+            this.applyPipeSkin('classic_pipe', false);
+          }
+
+          if (user.records) {
+            this.localRecords.easy = Math.max(this.localRecords.easy || 0, Number(user.records.easy) || 0);
+            this.localRecords.medium = Math.max(this.localRecords.medium || 0, Number(user.records.medium) || 0);
+            this.localRecords.hard = Math.max(this.localRecords.hard || 0, Number(user.records.hard) || 0);
+            this.saveLocalRecords();
+          }
+          this.updateProfileRecordPills();
+          this.renderAllCosmeticGrids();
+          this.renderLeaderboard();
+        }
+
+        clearLoggedInUser() {
+          this.currentUser = null;
+          this.authToken = null;
+          localStorage.removeItem('flappy3d_token');
+
+          const authBox = document.getElementById('auth-form-box');
+          if (authBox) authBox.style.display = 'block';
+
+          document.getElementById('profile-summary-box').style.display = 'block';
+          document.getElementById('profile-name-text').textContent = 'Guest Player';
+          const statusPill2 = document.querySelector('#profile-summary-box .profile-status-pill');
+          if (statusPill2) {
+            statusPill2.textContent = '⚪ Guest Session (Local Records)';
+            statusPill2.style.color = '#94a3b8';
+          }
+          document.querySelectorAll('.btn-logout, #hud-logout-btn').forEach(b => { b.style.display = 'none'; });
+          const capsuleNameEl2 = document.getElementById('capsule-username');
+          if (capsuleNameEl2) capsuleNameEl2.textContent = 'Guest Player';
+          document.getElementById('hud-username').textContent = 'Guest';
+
+          const dockAccLabel2 = document.getElementById('dock-account-label');
+          if (dockAccLabel2) dockAccLabel2.textContent = 'Login';
+          const lobbyAuthText2 = document.getElementById('lobby-auth-text');
+          if (lobbyAuthText2) lobbyAuthText2.innerHTML = '👤 Playing as <strong>Guest</strong>';
+          const lobbyAuthBtn2 = document.getElementById('btn-lobby-auth-action');
+          if (lobbyAuthBtn2) lobbyAuthBtn2.textContent = '🔑 Log In / Register';
+          this.updateProfileRecordPills();
+          this.renderAllCosmeticGrids();
+          this.renderLeaderboard();
+        }
+
+        updateProfileRecordPills() {
+          const easyBest = this.getBestForDifficulty('easy');
+          const medBest = this.getBestForDifficulty('medium');
+          const hardBest = this.getBestForDifficulty('hard');
+          const anyBest = this.getHighestScoreAnyMode();
+
+          document.getElementById('rec-easy').textContent = String(easyBest);
+          document.getElementById('rec-medium').textContent = String(medBest);
+          document.getElementById('rec-hard').textContent = String(hardBest);
+          const recAnyEl = document.getElementById('rec-any');
+          if (recAnyEl) recAnyEl.textContent = String(anyBest);
+
+          const unlockedBirds = this.getUnlockedBirdSkinCount();
+          const unlockedPipes = this.getUnlockedPipeSkinCount();
+          const totalUnlocked = unlockedBirds + unlockedPipes;
+          const totalCosmetics = BIRD_SKINS.length + PIPE_SKINS.length;
+
+          const badgeEl = document.getElementById('unlocked-count-badge');
+          if (badgeEl) badgeEl.textContent = `🎨 ${totalUnlocked}/${totalCosmetics} Owned`;
+
+          const easyBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'easy').length;
+          const medBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'medium').length;
+          const hardBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'hard').length;
+          const pokeBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'pokemon').length;
+          const memeBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'meme').length;
+
+          const easyPipesCount = PIPE_SKINS.filter(p => p.reqMode === 'easy').length;
+          const medPipesCount = PIPE_SKINS.filter(p => p.reqMode === 'medium').length;
+          const hardPipesCount = PIPE_SKINS.filter(p => p.reqMode === 'hard').length;
+          const pokePipesCount = PIPE_SKINS.filter(p => p.reqMode === 'pokemon').length;
+          const memePipesCount = PIPE_SKINS.filter(p => p.reqMode === 'meme').length;
+
+          // Update difficulty button meta pills (Personal Best + Average Score)
+          const modesStats = (this.careerStats && this.careerStats.modes) || {};
+          const getAvgStr = (mKey) => {
+            const m = modesStats[mKey];
+            return (m && m.runs > 0) ? (m.totalScore / m.runs).toFixed(1) : '0.0';
+          };
+
+          const metaEasy = document.getElementById('diff-meta-easy');
+          const metaMed = document.getElementById('diff-meta-medium');
+          const metaHard = document.getElementById('diff-meta-hard');
+          const easyRec = (this.leaderboards && this.leaderboards.easy && this.leaderboards.easy[0] && this.leaderboards.easy[0].score) || 109;
+          const easyRecUser = (this.leaderboards && this.leaderboards.easy && this.leaderboards.easy[0] && this.leaderboards.easy[0].username) || 'MeDonut';
+          const medRec = (this.leaderboards && this.leaderboards.medium && this.leaderboards.medium[0] && this.leaderboards.medium[0].score) || 42;
+          const medRecUser = (this.leaderboards && this.leaderboards.medium && this.leaderboards.medium[0] && this.leaderboards.medium[0].username) || 'joslor11';
+          const hardRec = (this.leaderboards && this.leaderboards.hard && this.leaderboards.hard[0] && this.leaderboards.hard[0].score) || 27;
+          const hardRecUser = (this.leaderboards && this.leaderboards.hard && this.leaderboards.hard[0] && this.leaderboards.hard[0].username) || 'MeDonut';
+
+          if (metaEasy) metaEasy.innerHTML = `🏆 Record: ${easyRec} (${easyRecUser}) • 👤 Best: ${easyBest} • ${easyBirdsCount + easyPipesCount} Skins`;
+          if (metaMed) metaMed.innerHTML = `🏆 Record: ${medRec} (${medRecUser}) • 👤 Best: ${medBest} • ${medBirdsCount + medPipesCount} Skins`;
+          if (metaHard) metaHard.innerHTML = `🏆 Record: ${hardRec} (${hardRecUser}) • 👤 Best: ${hardBest} • ${hardBirdsCount + hardPipesCount} Skins`;
+
+          // Update filter button counts for Bird Skins (Spacious 4x2 grid)
+          const bAll = document.getElementById('bird-filter-all');
+          const bOwned = document.getElementById('bird-filter-owned');
+          const bLocked = document.getElementById('bird-filter-locked');
+          const bPokemon = document.getElementById('bird-filter-pokemon');
+          const bEasy = document.getElementById('bird-filter-easy');
+          const bMed = document.getElementById('bird-filter-medium');
+          const bHard = document.getElementById('bird-filter-hard');
+          const bMeme = document.getElementById('bird-filter-meme');
+          if (bAll) bAll.textContent = `✨ All (${BIRD_SKINS.length})`;
+          if (bOwned) bOwned.textContent = `✅ Owned (${unlockedBirds})`;
+          if (bLocked) bLocked.textContent = `🔒 Locked (${BIRD_SKINS.length - unlockedBirds})`;
+          if (bPokemon) bPokemon.textContent = `🔴 Pokémon (${pokeBirdsCount})`;
+          if (bEasy) bEasy.textContent = `🟢 Easy (${easyBirdsCount})`;
+          if (bMed) bMed.textContent = `🟡 Medium (${medBirdsCount})`;
+          if (bHard) bHard.textContent = `🔴 Hard (${hardBirdsCount})`;
+          if (bMeme) bMeme.textContent = `😂 Meme (${memeBirdsCount})`;
+
+          // Update filter button counts for Pipe Skins (Spacious 4x2 grid)
+          const pAll = document.getElementById('pipe-filter-all');
+          const pOwned = document.getElementById('pipe-filter-owned');
+          const pLocked = document.getElementById('pipe-filter-locked');
+          const pPokemon = document.getElementById('pipe-filter-pokemon');
+          const pEasy = document.getElementById('pipe-filter-easy');
+          const pMed = document.getElementById('pipe-filter-medium');
+          const pHard = document.getElementById('pipe-filter-hard');
+          const pMeme = document.getElementById('pipe-filter-meme');
+          if (pAll) pAll.textContent = `✨ All (${PIPE_SKINS.length})`;
+          if (pOwned) pOwned.textContent = `✅ Owned (${unlockedPipes})`;
+          if (pLocked) pLocked.textContent = `🔒 Locked (${PIPE_SKINS.length - unlockedPipes})`;
+          if (pPokemon) pPokemon.textContent = `🔴 Pokémon (${pokePipesCount})`;
+          if (pEasy) pEasy.textContent = `🟢 Easy (${easyPipesCount})`;
+          if (pMed) pMed.textContent = `🟡 Medium (${medPipesCount})`;
+          if (pHard) pHard.textContent = `🔴 Hard (${hardPipesCount})`;
+          if (pMeme) pMeme.textContent = `😂 Meme (${memePipesCount})`;
+
+          this.updateNextUnlockTracker();
+        }
+
+        updateNextUnlockTracker() {
+          const mode = this.selectedDifficulty || 'medium';
+          const modeLabel = CONFIG.difficulties[mode] ? CONFIG.difficulties[mode].label : 'Medium';
+          const titleEl = document.getElementById('next-unlock-title');
+          if (titleEl) {
+            titleEl.textContent = `🎯 Next Unlock Goals (${modeLabel} Mode)`;
+          }
+
+          // Find closest locked Bird Skin achievable in current difficulty (or any/pokemon mode)
+          const lockedBirdsForMode = BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s) && (s.reqMode === mode || s.reqMode === 'any' || s.reqMode === 'pokemon'));
+          const fallbackLockedBirds = BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s));
+          const birdCandidates = lockedBirdsForMode.length > 0 ? lockedBirdsForMode : fallbackLockedBirds;
+          birdCandidates.sort((a, b) => {
+            const pA = this.getCosmeticProgress(a);
+            const pB = this.getCosmeticProgress(b);
+            return (pA.target - pA.current) - (pB.target - pB.current);
+          });
+          const nextBird = birdCandidates[0] || null;
+          this.nextGoalBirdSkin = nextBird;
+
+          const bNameEl = document.getElementById('next-bird-name');
+          const bReqEl = document.getElementById('next-bird-req');
+          const bFillEl = document.getElementById('next-bird-fill');
+          if (nextBird && bNameEl && bReqEl && bFillEl) {
+            const prog = this.getCosmeticProgress(nextBird);
+            bNameEl.textContent = `${nextBird.emoji} ${nextBird.name}`;
+            bReqEl.innerHTML = `<span>${nextBird.reqText}</span><span>${prog.current}/${prog.target}</span>`;
+            bFillEl.style.width = `${prog.percent}%`;
+          } else if (bNameEl && bReqEl && bFillEl) {
+            bNameEl.textContent = `🎉 All ${BIRD_SKINS.length} Birds Unlocked!`;
+            bReqEl.innerHTML = `<span>100% Complete</span><span>${BIRD_SKINS.length}/${BIRD_SKINS.length}</span>`;
+            bFillEl.style.width = `100%`;
+          }
+
+          // Find closest locked Pipe Skin achievable in current difficulty (or any/pokemon mode)
+          const lockedPipesForMode = PIPE_SKINS.filter(p => !this.isCosmeticUnlocked(p) && (p.reqMode === mode || p.reqMode === 'any' || p.reqMode === 'pokemon'));
+          const fallbackLockedPipes = PIPE_SKINS.filter(p => !this.isCosmeticUnlocked(p));
+          const pipeCandidates = lockedPipesForMode.length > 0 ? lockedPipesForMode : fallbackLockedPipes;
+          pipeCandidates.sort((a, b) => {
+            const pA = this.getCosmeticProgress(a);
+            const pB = this.getCosmeticProgress(b);
+            return (pA.target - pA.current) - (pB.target - pB.current);
+          });
+          const nextPipe = pipeCandidates[0] || null;
+          this.nextGoalPipeSkin = nextPipe;
+
+          const pNameEl = document.getElementById('next-pipe-name');
+          const pReqEl = document.getElementById('next-pipe-req');
+          const pFillEl = document.getElementById('next-pipe-fill');
+          if (nextPipe && pNameEl && pReqEl && pFillEl) {
+            const prog = this.getCosmeticProgress(nextPipe);
+            pNameEl.textContent = `${nextPipe.emoji} ${nextPipe.name}`;
+            pReqEl.innerHTML = `<span>${nextPipe.reqText}</span><span>${prog.current}/${prog.target}</span>`;
+            pFillEl.style.width = `${prog.percent}%`;
+          } else if (pNameEl && pReqEl && pFillEl) {
+            pNameEl.textContent = `🎉 All ${PIPE_SKINS.length} Pipes Unlocked!`;
+            pReqEl.innerHTML = `<span>100% Complete</span><span>${PIPE_SKINS.length}/${PIPE_SKINS.length}</span>`;
+            pFillEl.style.width = `100%`;
+          }
+        }
+
+        getCosmeticProgress(item) {
+          if (item.reqMode === 'meme' && item.trollQuestId) {
+            const tProg = this.getTrollQuestProgress(item.trollQuestId, item.reqScore);
+            return { current: tProg.current, target: tProg.target, percent: tProg.percent };
+          }
+          if (item.reqMode === 'pokemon' && item.pokeQuestId) {
+            const pProg = this.getPokemonQuestProgress(item.pokeQuestId);
+            return { current: pProg.current, target: pProg.target, percent: pProg.percent };
+          }
+          if (item.reqScore <= 0) {
+            return { current: 1, target: 1, percent: 100 };
+          }
+          const anyBest = this.getHighestScoreAnyMode();
+          const modeBest = item.reqMode === 'any' ? anyBest : this.getBestForDifficulty(item.reqMode);
+          const current = modeBest;
+          const target = item.reqScore;
+          const percent = Math.max(0, Math.min(100, Math.round((current / target) * 100)));
+          return { current, target, percent };
+        }
+
+        async handleAuth(mode) {
+          const usernameInput = document.getElementById('auth-username');
+          const passwordInput = document.getElementById('auth-password');
+          const msgEl = document.getElementById('auth-message');
+
+          const username = usernameInput.value.trim();
+          const password = passwordInput.value;
+
+          msgEl.className = 'auth-msg';
+          msgEl.textContent = mode === 'register' ? 'Creating account...' : 'Logging in...';
+
+          try {
+            const endpoint = mode === 'register' ? '/api/register' : '/api/login';
+            const data = await this.apiRequest(endpoint, 'POST', { username, password });
+            passwordInput.value = '';
+            msgEl.className = 'auth-msg success';
+            msgEl.textContent = `Welcome, ${data.user.username}!`;
+            this.setLoggedInUser(data.user, data.token);
+            if (data.leaderboards) {
+              this.leaderboards = data.leaderboards;
+              this.renderLeaderboard();
+            }
+          } catch (err) {
+            msgEl.className = 'auth-msg error';
+            msgEl.textContent = err.message;
+          }
+        }
+
+        async handleLogout() {
+          try {
+            await this.apiRequest('/api/logout', 'POST');
+          } catch (_) {}
+          this.clearLoggedInUser();
+        }
+
+        renderLeaderboard(highlightEntryId = null) {
+          this.renderLeaderboardInto(
+            document.getElementById('lb-list'),
+            this.activeLbTab,
+            highlightEntryId
+          );
+
+          const goTitle = document.getElementById('gameover-lb-title');
+          if (goTitle) {
+            const label = CONFIG.difficulties[this.selectedDifficulty].label;
+            goTitle.textContent = `🏆 Live Leaderboard (${label})`;
+          }
+          this.renderLeaderboardInto(
+            document.getElementById('gameover-lb-list'),
+            this.selectedDifficulty,
+            highlightEntryId
+          );
+        }
+
+        renderLeaderboardInto(listEl, diffKey, highlightEntryId = null) {
+          if (!listEl) return;
+          const entries = this.leaderboards[diffKey] || [];
+          const label = CONFIG.difficulties[diffKey].label;
+
+          listEl.innerHTML = '';
+
+          // 1. Dedicated "Your Standing" Header Card
+          const standingCard = document.createElement('div');
+          standingCard.className = 'lb-my-standing-card';
+          
+          let myIndex = -1;
+          if (this.currentUser) {
+            myIndex = entries.findIndex(e => e.username.toLowerCase() === this.currentUser.username.toLowerCase());
+          }
+
+          if (this.currentUser && myIndex !== -1) {
+            const myEntry = entries[myIndex];
+            standingCard.classList.add('is-ranked');
+            standingCard.innerHTML = `
+              <div class="standing-pill-left">
+                <span class="standing-crown">⭐</span>
+                <div>
+                  <div class="standing-title">Your Verified ${label} Standing</div>
+                  <strong class="standing-rank">Rank #${myIndex + 1} of ${entries.length}</strong>
+                </div>
+              </div>
+              <div class="standing-pill-right">
+                <span class="standing-tag">YOUR BEST</span>
+                <span class="standing-score">${myEntry.score} pts</span>
+              </div>
+            `;
+          } else if (this.currentUser) {
+            const userBest = this.getBestForDifficulty(diffKey);
+            standingCard.classList.add('not-ranked');
+            standingCard.innerHTML = `
+              <div class="standing-pill-left">
+                <span class="standing-crown">🎯</span>
+                <div>
+                  <div class="standing-title">Your ${label} Best: <strong>${userBest} pts</strong></div>
+                  <div class="standing-sub">${entries.length > 0 ? `Score ${entries[entries.length - 1].score + 1}+ pts to enter the Top 100!` : 'Submit a run to claim #1!'}</div>
+                </div>
+              </div>
+              <div class="standing-pill-right">
+                <span class="standing-tag unranked">Unranked in Top 100</span>
+              </div>
+            `;
+          } else {
+            standingCard.classList.add('guest');
+            standingCard.innerHTML = `
+              <div class="standing-pill-left">
+                <span class="standing-crown">👤</span>
+                <div>
+                  <div class="standing-title">Playing as Guest</div>
+                  <div class="standing-sub">Log in with your account to lock in your global rank!</div>
+                </div>
+              </div>
+              <button type="button" class="standing-login-btn" id="lb-standing-login-btn">Log In</button>
+            `;
+          }
+          listEl.appendChild(standingCard);
+
+          const standingLoginBtn = standingCard.querySelector('#lb-standing-login-btn');
+          if (standingLoginBtn) {
+            standingLoginBtn.addEventListener('click', () => this.switchView('account'));
+          }
+
+          if (entries.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'lb-empty';
+            emptyEl.innerHTML = `No scores recorded on <strong>${label}</strong> yet.<br/>Be the first to set a record!`;
+            listEl.appendChild(emptyEl);
+            return;
+          }
+
+          let meRowElement = null;
+
+          entries.forEach((item, idx) => {
+            const row = document.createElement('div');
+            const isMe = this.currentUser && this.currentUser.username.toLowerCase() === item.username.toLowerCase();
+            const isLatestRun = highlightEntryId && item.id === highlightEntryId;
+            row.className = 'lb-row' + (isMe ? ' me my-entry' : '') + (isLatestRun ? ' latest-run' : '');
+
+            const rankEl = document.createElement('span');
+            rankEl.className = 'lb-rank' + (idx < 3 ? ` rank-top rank-${idx + 1}` : '');
+            rankEl.textContent = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+
+            const nameEl = document.createElement('span');
+            nameEl.className = 'lb-player';
+            
+            const nameText = document.createElement('span');
+            nameText.className = 'lb-player-name';
+            nameText.textContent = item.username;
+            nameEl.appendChild(nameText);
+
+            if (isMe) {
+              const youBadge = document.createElement('span');
+              youBadge.className = 'lb-you-badge';
+              youBadge.textContent = '⭐ YOU';
+              nameEl.appendChild(youBadge);
+            }
+
+            if (isLatestRun) {
+              const justNowBadge = document.createElement('span');
+              justNowBadge.className = 'lb-just-now-badge';
+              justNowBadge.textContent = '⚡ Just Now!';
+              nameEl.appendChild(justNowBadge);
+            }
+
+            const scoreEl = document.createElement('span');
+            scoreEl.className = 'lb-score' + (isMe ? ' my-score' : '');
+            scoreEl.textContent = String(item.score);
+
+            row.append(rankEl, nameEl, scoreEl);
+            listEl.appendChild(row);
+
+            if (isMe && !meRowElement) {
+              meRowElement = row;
+            }
+          });
+
+          // If current user is in the list, gently scroll them into view
+          if (meRowElement && listEl.id === 'lb-list') {
+            setTimeout(() => {
+              meRowElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+          }
+        }
+
+        // ------------------------------------------------------------------------
+        // BIRD SKINS, PIPE SKINS & DEDICATED PLAYER STATS MENU
+        // ------------------------------------------------------------------------
+        renderAllCosmeticGrids() {
+          if (!this.birdLockerFilter) this.birdLockerFilter = 'all';
+          if (!this.pipeLockerFilter) this.pipeLockerFilter = 'all';
+          this.updateProfileRecordPills();
+          this.renderStatsMenu();
+          this.renderBirdSkinsGrid();
+          this.renderPipeSkinsGrid();
+        }
+
+        renderStatsMenu() {
+          const container = document.getElementById('stats-scroll-area');
+          if (!container) return;
+          container.innerHTML = '';
+
+          const easyBest = this.getBestForDifficulty('easy');
+          const medBest = this.getBestForDifficulty('medium');
+          const hardBest = this.getBestForDifficulty('hard');
+          const anyBest = this.getHighestScoreAnyMode();
+
+          const unlockedBirds = this.getUnlockedBirdSkinCount();
+          const unlockedPipes = this.getUnlockedPipeSkinCount();
+          const totalUnlocked = unlockedBirds + unlockedPipes;
+          const totalCosmetics = BIRD_SKINS.length + PIPE_SKINS.length;
+          const totalPct = Math.round((totalUnlocked / totalCosmetics) * 100);
+
+          // Determine Pilot Rank Title
+          let rankTitle = '🌱 Rookie Flyer';
+          let rankSub = 'Reach Score 10+ to advance';
+          if (hardBest >= 55 || anyBest >= 95 || totalUnlocked >= 55) {
+            rankTitle = '👑 Godlike Grandmaster';
+            rankSub = 'Pinnacle 3D Flappy Bird Legend';
+          } else if (hardBest >= 35 || anyBest >= 65 || totalUnlocked >= 38) {
+            rankTitle = '💎 Mythic Sky Ace';
+            rankSub = 'Master of High-Speed Flight';
+          } else if (anyBest >= 30 || totalUnlocked >= 22) {
+            rankTitle = '🥇 Gold Aviator';
+            rankSub = 'Pokémon Trainer & Obstacle Navigator';
+          } else if (anyBest >= 15 || totalUnlocked >= 10) {
+            rankTitle = '🥈 Silver Glider';
+            rankSub = 'Building Your 3D Locker';
+          } else if (anyBest >= 5 || totalUnlocked >= 4) {
+            rankTitle = '🥉 Bronze Wing';
+            rankSub = 'First Skins Unlocked';
+          }
+
+          const sfilter = this.statsSubfilter || 'all';
+          const isModeFilter = (sfilter === 'easy' || sfilter === 'medium' || sfilter === 'hard');
+
+          // Always show Pilot Rank & Overall Mastery Hero Card
+          const hero = document.createElement('div');
+          hero.className = 'stats-rank-hero';
+          hero.innerHTML = `
+            <div class="stats-rank-top">
+              <div class="stats-rank-title">${rankTitle}</div>
+              <span class="stats-rank-badge">${this.currentUser ? '👤 ' + this.currentUser.username : '👤 Guest Profile'}</span>
+            </div>
+            <div class="stats-rank-sub" style="font-size: 0.7rem; font-weight: 800;">${rankSub}</div>
+            <div class="stats-master-bar-wrap">
+              <div class="stats-master-bar-labels">
+                <span>🎨 Total Cosmetic Mastery</span>
+                <span class="stats-header-link">${totalUnlocked} / ${totalCosmetics} Unlocked (${totalPct}%)</span>
+              </div>
+              <div class="stats-master-bar-track">
+                <div class="stats-master-bar-fill" style="width: ${totalPct}%;"></div>
+              </div>
+            </div>
+          `;
+          container.appendChild(hero);
+
+          // SECTION 1: PERSONAL BEST RECORDS, PER-GAMEMODE TELEMETRY & CAREER STATS
+          if (sfilter === 'all' || sfilter === 'records' || isModeFilter) {
+            const recHeader = document.createElement('div');
+            recHeader.className = 'stats-block-header';
+            recHeader.innerHTML = `<span>🏆 Personal Best Records ${isModeFilter ? '(' + sfilter.toUpperCase() + ')' : 'by Mode'}</span><span class="stats-header-link">Click Mode to View Ranks →</span>`;
+            container.appendChild(recHeader);
+
+            const mStats = (this.careerStats && this.careerStats.modes) || {};
+            const getModeStat = (k) => mStats[k] || { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 };
+            const calcAvg = (m) => m.runs > 0 ? (m.totalScore / m.runs).toFixed(1) : '0.0';
+            const calcFlapsPerPipe = (m) => m.totalScore > 0 ? (m.totalFlaps / m.totalScore).toFixed(1) : '—';
+
+            const easyM = getModeStat('easy');
+            const medM  = getModeStat('medium');
+            const hardM = getModeStat('hard');
+            const overallAvg = this.careerStats.totalRuns > 0
+              ? (this.careerStats.totalScore / this.careerStats.totalRuns).toFixed(1)
+              : '0.0';
+
+            const recGrid = document.createElement('div');
+            recGrid.className = 'stats-records-grid';
+
+            const allModesData = [
+              { key: 'easy', cls: 'easy-card', label: '🟢 Easy Mode', score: easyBest, subLeft: `Avg: ${calcAvg(easyM)} pts`, subRight: `${easyM.runs} Flights` },
+              { key: 'medium', cls: 'med-card', label: '🟡 Medium Mode', score: medBest, subLeft: `Avg: ${calcAvg(medM)} pts`, subRight: `${medM.runs} Flights` },
+              { key: 'hard', cls: 'hard-card', label: '🔴 Hard Mode', score: hardBest, subLeft: `Avg: ${calcAvg(hardM)} pts`, subRight: `${hardM.runs} Flights` },
+              { key: 'any', cls: 'peak-card', label: '👑 Overall Peak', score: anyBest, subLeft: `Avg: ${overallAvg} pts`, subRight: `${this.careerStats.totalRuns} Total Runs` }
+            ];
+            const modesData = isModeFilter
+              ? allModesData.filter(m => m.key === sfilter || m.key === 'any')
+              : allModesData;
+
+            modesData.forEach(m => {
+              const card = document.createElement('div');
+              card.className = `stat-mode-card ${m.cls}`;
+              card.innerHTML = `
+                <div class="stat-mode-top">
+                  <span>${m.label}</span>
+                  <span>Best Score</span>
+                </div>
+                <div class="stat-mode-val">${m.score} <small class="stat-pts-unit" style="font-size:0.68rem;">PTS</small></div>
+                <div class="stat-mode-sub">
+                  <span>${m.subLeft}</span>
+                  <strong>${m.subRight}</strong>
+                </div>
+              `;
+              card.addEventListener('click', () => {
+                const targetDiff = m.key === 'any' ? this.selectedDifficulty : m.key;
+                this.setLeaderboardTab(targetDiff);
+                if (this.switchRightPanelFn) this.switchRightPanelFn('lb');
+              });
+              recGrid.appendChild(card);
+            });
+            container.appendChild(recGrid);
+
+            // PER-GAMEMODE DETAILED TELEMETRY BREAKDOWN (Average Score, Runs, Pipes, Flaps, Flaps/Pipe, Last Score)
+            const modeTeleHeader = document.createElement('div');
+            modeTeleHeader.className = 'stats-block-header';
+            modeTeleHeader.innerHTML = `<span>📊 Per-Gamemode Stats & Average Score Breakdown</span><span>${isModeFilter ? sfilter.toUpperCase() : 'Easy • Medium • Hard'}</span>`;
+            container.appendChild(modeTeleHeader);
+
+            const modeTeleList = document.createElement('div');
+            modeTeleList.className = 'mode-telemetry-list';
+
+            const allDetailedModes = [
+              { key: 'easy', cls: 'easy-tele', title: '🟢 Easy Mode Stats', best: easyBest, data: easyM },
+              { key: 'medium', cls: 'med-tele', title: '🟡 Medium Mode Stats', best: medBest, data: medM },
+              { key: 'hard', cls: 'hard-tele', title: '🔴 Hard Mode Stats', best: hardBest, data: hardM }
+            ];
+            const detailedModes = isModeFilter
+              ? allDetailedModes.filter(dm => dm.key === sfilter)
+              : allDetailedModes;
+
+            detailedModes.forEach(dm => {
+              const tCard = document.createElement('div');
+              tCard.className = `mode-telemetry-card ${dm.cls}`;
+              tCard.innerHTML = `
+                <div class="mode-tele-header">
+                  <span class="mode-tele-title">${dm.title}</span>
+                  <span class="mode-tele-badge">Last Run: ${dm.data.lastScore} PTS • Wing Flaps: ${dm.data.totalFlaps}</span>
+                </div>
+                <div class="mode-tele-metrics">
+                  <div class="mode-tele-pill">
+                    <small>🏆 Best</small>
+                    <strong>${dm.best}</strong>
+                  </div>
+                  <div class="mode-tele-pill">
+                    <small>📈 Avg Score</small>
+                    <strong>${calcAvg(dm.data)}</strong>
+                  </div>
+                  <div class="mode-tele-pill">
+                    <small>🎮 Runs</small>
+                    <strong>${dm.data.runs}</strong>
+                  </div>
+                  <div class="mode-tele-pill">
+                    <small>🧱 Pipes</small>
+                    <strong>${dm.data.totalScore}</strong>
+                  </div>
+                  <div class="mode-tele-pill">
+                    <small>⚡ Flaps/Pipe</small>
+                    <strong>${calcFlapsPerPipe(dm.data)}</strong>
+                  </div>
+                </div>
+              `;
+              modeTeleList.appendChild(tCard);
+            });
+            container.appendChild(modeTeleList);
+
+            // Lifetime Career Flight Telemetry
+            const careerHeader = document.createElement('div');
+            careerHeader.className = 'stats-block-header';
+            careerHeader.innerHTML = `<span>✈️ All-Mode Lifetime Career Totals</span><span>Last Run: ${this.careerStats.lastScore} pts (${this.careerStats.lastMode.toUpperCase()})</span>`;
+            container.appendChild(careerHeader);
+
+            const careerGrid = document.createElement('div');
+            careerGrid.className = 'stats-career-grid';
+            careerGrid.innerHTML = `
+              <div class="career-mini-card">
+                <small>🎮 Total Runs</small>
+                <strong>${this.careerStats.totalRuns}</strong>
+              </div>
+              <div class="career-mini-card">
+                <small>🧱 Total Pipes</small>
+                <strong>${this.careerStats.totalScore}</strong>
+              </div>
+              <div class="career-mini-card">
+                <small>🪶 Total Flaps</small>
+                <strong>${this.careerStats.totalFlaps}</strong>
+              </div>
+              <div class="career-mini-card">
+                <small>📈 Overall Avg</small>
+                <strong>${overallAvg}</strong>
+              </div>
+            `;
+            container.appendChild(careerGrid);
+          }
+
+          // SECTION 2: INTERACTIVE COLLECTION & MODE MASTERY BREAKDOWN
+          if (sfilter === 'all' || sfilter === 'collection' || isModeFilter) {
+            const colHeader = document.createElement('div');
+            colHeader.className = 'stats-block-header';
+            colHeader.innerHTML = `<span>🎨 Collection Breakdown</span><span class="stats-header-link">Click Category to Open Locker →</span>`;
+            container.appendChild(colHeader);
+
+            const countHelper = (arr, pred) => {
+              const filtered = arr.filter(pred);
+              const owned = filtered.filter(i => this.isCosmeticUnlocked(i)).length;
+              return { owned, total: filtered.length, pct: filtered.length ? Math.round((owned / filtered.length) * 100) : 100 };
+            };
+
+            const allItems = [...BIRD_SKINS, ...PIPE_SKINS];
+            const birdStat = countHelper(BIRD_SKINS, () => true);
+            const pipeStat = countHelper(PIPE_SKINS, () => true);
+            const pokeStat = countHelper(allItems, i => i.reqMode === 'pokemon');
+            const memeStat = countHelper(allItems, i => i.reqMode === 'meme');
+            const easyStat = countHelper(allItems, i => i.reqMode === 'easy');
+            const medStat  = countHelper(allItems, i => i.reqMode === 'medium');
+            const hardStat = countHelper(allItems, i => i.reqMode === 'hard');
+
+            const categories = [
+              { title: '🐦 3D Bird Skins', stat: birdStat, action: () => this.openLockerWithFilter('birds', 'all') },
+              { title: '🏗️ 3D Pipe Skins', stat: pipeStat, action: () => this.openLockerWithFilter('pipes', 'all') },
+              { title: '🔴 Pokémon Base Quests', stat: pokeStat, action: () => this.openLockerWithFilter('birds', 'pokemon') },
+              { title: '😂 Meme Quests', stat: memeStat, action: () => this.openLockerWithFilter('birds', 'meme') },
+              { title: '🟢 Easy Exclusives (Up to 150)', stat: easyStat, action: () => this.openLockerWithFilter('birds', 'easy') },
+              { title: '🟡 Medium Exclusives', stat: medStat, action: () => this.openLockerWithFilter('birds', 'medium') },
+              { title: '🔴 Hard Exclusives', stat: hardStat, action: () => this.openLockerWithFilter('birds', 'hard') }
+            ];
+
+            const colGrid = document.createElement('div');
+            colGrid.className = 'stats-collection-grid';
+
+            categories.forEach(cat => {
+              const cCard = document.createElement('div');
+              cCard.className = 'collection-cat-card';
+              cCard.innerHTML = `
+                <div class="collection-cat-top">
+                  <span>${cat.title}</span>
+                  <span class="collection-cat-count">${cat.stat.owned}/${cat.stat.total}</span>
+                </div>
+                <div class="skin-progress-track">
+                  <div class="skin-progress-fill" style="width: ${cat.stat.pct}%;"></div>
+                </div>
+                <div class="collection-cat-sub" style="font-size: 0.6rem; font-weight: 800; display: flex; justify-content: space-between;">
+                  <span>${cat.stat.pct}% Complete</span>
+                  <span class="stats-header-link">View →</span>
+                </div>
+              `;
+              cCard.addEventListener('click', cat.action);
+              colGrid.appendChild(cCard);
+            });
+            container.appendChild(colGrid);
+          }
+
+          // SECTION 3: NEXT CLOSEST UNLOCKS ROADMAP (WITH 1-CLICK 3D PREVIEW)
+          if (sfilter === 'all' || sfilter === 'roadmap' || isModeFilter) {
+            const roadHeader = document.createElement('div');
+            roadHeader.className = 'stats-block-header';
+            roadHeader.innerHTML = `<span>🎯 Closest Next Unlocks Roadmap</span><span class="stats-header-link">Click to 3D Preview →</span>`;
+            container.appendChild(roadHeader);
+
+            const lockedAll = [
+              ...BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s) && (!isModeFilter || s.reqMode === sfilter || s.reqMode === 'any' || s.reqMode === 'pokemon')).map(s => ({ item: s, isPipe: false })),
+              ...PIPE_SKINS.filter(p => !this.isCosmeticUnlocked(p) && (!isModeFilter || p.reqMode === sfilter || p.reqMode === 'any' || p.reqMode === 'pokemon')).map(p => ({ item: p, isPipe: true }))
+            ];
+
+            lockedAll.sort((a, b) => {
+              const pA = this.getCosmeticProgress(a.item);
+              const pB = this.getCosmeticProgress(b.item);
+              return (pA.target - pA.current) - (pB.target - pB.current);
+            });
+
+            const roadList = document.createElement('div');
+            roadList.className = 'stats-roadmap-list';
+
+            if (lockedAll.length === 0) {
+              roadList.innerHTML = `<div class="lb-empty">🎉 Incredible! You have unlocked all ${BIRD_SKINS.length + PIPE_SKINS.length} Bird & Pipe Cosmetics!</div>`;
+            } else {
+              lockedAll.slice(0, 6).forEach(({ item, isPipe }) => {
+                const prog = this.getCosmeticProgress(item);
+                const ptsLeft = Math.max(1, prog.target - prog.current);
+                const isQuest = item.reqMode === 'meme' || item.reqMode === 'pokemon';
+                const row = document.createElement('div');
+                row.className = 'roadmap-row';
+                row.innerHTML = `
+                  <div class="skin-swatch ${isPipe ? 'pipe-swatch' : ''}" style="width:36px; height:36px; font-size:1.05rem; background:${isPipe ? item.colors[0] : '#' + item.body.toString(16).padStart(6, '0')};">
+                    ${item.emoji}
+                  </div>
+                  <div class="skin-info">
+                    <div class="skin-header-row">
+                      <span class="skin-name" style="font-size:0.82rem;">${item.name}</span>
+                      <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span>
+                      <span class="req-badge-inline">${isPipe ? '🏗️ Pipe' : '🐦 Bird'}</span>
+                    </div>
+                    <div class="skin-progress-row">
+                      <div class="skin-progress-track">
+                        <div class="skin-progress-fill" style="width:${prog.percent}%;"></div>
+                      </div>
+                      <span class="skin-req">${item.reqText} • ${isQuest ? `Progress: ${prog.current}/${prog.target}` : `Need ${ptsLeft} more pts (${prog.current}/${prog.target})`}</span>
+                    </div>
+                  </div>
+                  <button type="button" class="skin-cta-btn preview-btn">👁️ 3D View</button>
+                `;
+                row.addEventListener('click', () => {
+                  if (isPipe) {
+                    this.previewPipeSkinId = item.id;
+                    this.applyPipeSkinVisualsOnly(item);
+                    this.updatePreviewBanner();
+                    if (this.switchRightPanelFn) this.switchRightPanelFn('pipes');
+                  } else {
+                    this.previewSkinId = item.id;
+                    this.applySkinVisualsOnly(item);
+                    this.updatePreviewBanner();
+                    if (this.switchRightPanelFn) this.switchRightPanelFn('birds');
+                  }
+                });
+                roadList.appendChild(row);
+              });
+            }
+            container.appendChild(roadList);
+          }
+        }
+
+        openLockerWithFilter(panelMode, filterKey) {
+          if (panelMode === 'birds') {
+            this.birdLockerFilter = filterKey;
+            document.querySelectorAll('#bird-filter-bar .locker-filter-btn').forEach(b => {
+              b.classList.toggle('active', b.getAttribute('data-filter') === filterKey);
+            });
+            if (this.switchRightPanelFn) this.switchRightPanelFn('birds');
+          } else {
+            this.pipeLockerFilter = filterKey;
+            document.querySelectorAll('#pipe-filter-bar .locker-filter-btn').forEach(b => {
+              b.classList.toggle('active', b.getAttribute('data-filter') === filterKey);
+            });
+            if (this.switchRightPanelFn) this.switchRightPanelFn('pipes');
+          }
+        }
+
+        updatePreviewBanner() {
+          const banner = document.getElementById('preview-banner');
+          const bannerText = document.getElementById('preview-banner-text');
+          if (!banner || !bannerText) return;
+
+          const previewBird = this.previewSkinId && BIRD_SKINS.find(s => s.id === this.previewSkinId);
+          const previewPipe = this.previewPipeSkinId && PIPE_SKINS.find(p => p.id === this.previewPipeSkinId);
+
+          if (previewBird) {
+            banner.classList.add('visible');
+            bannerText.textContent = `👁️ 3D Preview: ${previewBird.emoji} ${previewBird.name} (${previewBird.reqText})`;
+          } else if (previewPipe) {
+            banner.classList.add('visible');
+            bannerText.textContent = `👁️ 3D Preview: ${previewPipe.emoji} ${previewPipe.name} (${previewPipe.reqText})`;
+          } else {
+            banner.classList.remove('visible');
+          }
+        }
+
+        renderSpotlightBox(elId, item, isPipe = false) {
+          const spotEl = document.getElementById(elId);
+          if (!spotEl || !item) return;
+
+          const unlocked = this.isCosmeticUnlocked(item);
+          const equipped = isPipe ? (this.selectedPipeSkinId === item.id) : (this.selectedSkinId === item.id);
+          const prog = this.getCosmeticProgress(item);
+
+          spotEl.className = 'skin-spotlight ' + (unlocked ? 'owned-spot' : 'locked-spot');
+
+          const modeBadgeHtml = item.reqMode === 'easy'
+            ? `<span class="mode-tag mode-easy">🟢 EASY ONLY</span>`
+            : (item.reqMode === 'medium'
+              ? `<span class="mode-tag mode-medium">🟡 MEDIUM ONLY</span>`
+              : (item.reqMode === 'hard'
+                ? `<span class="mode-tag mode-hard">🔴 HARD ONLY</span>`
+                : (item.reqMode === 'pokemon'
+                  ? `<span class="mode-tag mode-pokemon">🔴 POKÉMON QUEST</span>`
+                  : (item.reqMode === 'meme'
+                    ? `<span class="mode-tag mode-meme">😂 MEME QUEST</span>`
+                    : ''))));
+
+          const unitLabel = (item.reqMode === 'meme' || item.reqMode === 'pokemon') ? 'PROGRESS' : 'PTS';
+          const statusHtml = equipped
+            ? `<span class="ownership-pill equipped">⚡ EQUIPPED & OWNED</span>`
+            : (unlocked
+              ? `<span class="ownership-pill owned">✅ OWNED IN LOCKER</span>`
+              : `<span class="ownership-pill locked">🔒 NOT OWNED (${prog.current}/${prog.target} ${unitLabel})</span>`);
+
+          const canvasId = isPipe ? 'pipe-spotlight-canvas' : 'bird-spotlight-canvas';
+
+          spotEl.innerHTML = `
+            <div class="spotlight-3d-wrap">
+              <canvas class="spotlight-3d-canvas" id="${canvasId}" width="160" height="160"></canvas>
+              <span class="spotlight-3d-tag">LIVE 3D</span>
+            </div>
+            <div class="spotlight-body">
+              <div class="spotlight-top">
+                <span class="spotlight-title">${item.emoji} ${item.name}</span>
+                <div class="spotlight-badges">
+                  <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span>
+                  ${modeBadgeHtml}
+                  ${statusHtml}
+                </div>
+              </div>
+              <div class="spotlight-desc">${item.desc} • <strong style="color:#fde047;">${unlocked ? 'Unlocked (' + item.reqText + ')' : 'Requirement: ' + item.reqText}</strong></div>
+            </div>
+          `;
+        }
+
+        buildCosmeticCard(item, isPipe = false) {
+          const unlocked = this.isCosmeticUnlocked(item);
+          const equipped = isPipe ? (this.selectedPipeSkinId === item.id) : (this.selectedSkinId === item.id);
+          const previewing = isPipe ? (this.previewPipeSkinId === item.id) : (this.previewSkinId === item.id);
+          const prog = this.getCosmeticProgress(item);
+
+          const tierClass = item.rarity === 'POKEMON'
+            ? ' tier-pokemon'
+            : (item.rarity === 'MEME'
+              ? ' tier-meme'
+              : (item.rarity === 'GODLIKE'
+                ? ' tier-godlike'
+                : (item.rarity === 'MYTHIC' ? ' tier-mythic' : (item.rarity === 'EPIC' ? ' tier-epic' : ''))));
+
+          const card = document.createElement('div');
+          card.className = 'skin-card' +
+            tierClass +
+            (unlocked ? ' owned-card' : ' locked') +
+            (equipped ? ' equipped' : '') +
+            (previewing ? ' previewing' : '');
+
+          const swatch = document.createElement('div');
+          swatch.className = 'skin-swatch' + (isPipe ? ' pipe-swatch' : '');
+          if (isPipe) {
+            swatch.style.background = `linear-gradient(90deg, ${item.colors[0]} 0%, ${item.colors[2]} 45%, ${item.colors[1]} 100%)`;
+          } else {
+            const hexBody = '#' + item.body.toString(16).padStart(6, '0');
+            const hexWing = '#' + item.wing.toString(16).padStart(6, '0');
+            swatch.style.background = `linear-gradient(135deg, ${hexBody} 55%, ${hexWing} 100%)`;
+          }
+          swatch.textContent = item.emoji;
+
+          const badge = document.createElement('span');
+          badge.className = 'swatch-badge' + (unlocked ? ' owned-check' : '');
+          badge.textContent = unlocked ? '✓' : '🔒';
+          swatch.appendChild(badge);
+
+          const info = document.createElement('div');
+          info.className = 'skin-info';
+
+          const headerRow = document.createElement('div');
+          headerRow.className = 'skin-header-row';
+
+          const nameEl = document.createElement('span');
+          nameEl.className = 'skin-name';
+          nameEl.textContent = item.name;
+
+          const rarityEl = document.createElement('span');
+          rarityEl.className = `rarity-tag rarity-${item.rarity}`;
+          rarityEl.textContent = item.rarity;
+
+          const ownerTag = document.createElement('span');
+          ownerTag.className = 'ownership-pill ' + (equipped ? 'equipped' : (unlocked ? 'owned' : 'locked'));
+          ownerTag.textContent = equipped ? '⚡ EQUIPPED' : (unlocked ? '✅ OWNED' : '🔒 LOCKED');
+
+          headerRow.append(nameEl, rarityEl);
+
+          if (item.reqMode === 'easy' || item.reqMode === 'medium' || item.reqMode === 'hard' || item.reqMode === 'pokemon' || item.reqMode === 'meme') {
+            const modeTag = document.createElement('span');
+            modeTag.className = `mode-tag mode-${item.reqMode}`;
+            modeTag.textContent = item.reqMode === 'easy'
+              ? '🟢 EASY ONLY'
+              : (item.reqMode === 'medium'
+                ? '🟡 MEDIUM ONLY'
+                : (item.reqMode === 'hard'
+                  ? '🔴 HARD ONLY'
+                  : (item.reqMode === 'pokemon' ? '🔴 POKÉMON QUEST' : '😂 MEME QUEST')));
+            headerRow.appendChild(modeTag);
+          }
+
+          if (unlocked) {
+            const reqInline = document.createElement('span');
+            reqInline.className = 'req-badge-inline';
+            reqInline.textContent = item.reqScore <= 0 && item.reqMode !== 'meme' && item.reqMode !== 'pokemon' ? 'Starter' : item.reqText;
+            headerRow.appendChild(reqInline);
+          }
+
+          headerRow.appendChild(ownerTag);
+
+          const descEl = document.createElement('div');
+          descEl.className = 'skin-desc';
+          descEl.textContent = item.desc;
+
+          info.append(headerRow, descEl);
+
+          if (!unlocked) {
+            const progRow = document.createElement('div');
+            progRow.className = 'skin-progress-row';
+
+            const track = document.createElement('div');
+            track.className = 'skin-progress-track';
+            const fill = document.createElement('div');
+            fill.className = 'skin-progress-fill';
+            fill.style.width = `${prog.percent}%`;
+            track.appendChild(fill);
+
+            const reqEl = document.createElement('span');
+            reqEl.className = 'skin-req';
+            reqEl.textContent = `${item.reqText} • ${prog.current}/${prog.target} (${prog.percent}%)`;
+
+            progRow.append(track, reqEl);
+            info.appendChild(progRow);
+          }
+
+          const actionCol = document.createElement('div');
+          actionCol.className = 'skin-action-col';
+
+          const ctaBtn = document.createElement('button');
+          ctaBtn.type = 'button';
+          if (equipped) {
+            ctaBtn.className = 'skin-cta-btn equipped-btn';
+            ctaBtn.textContent = 'Equipped ✓';
+          } else if (unlocked) {
+            ctaBtn.className = 'skin-cta-btn equip-btn';
+            ctaBtn.textContent = 'Equip';
+          } else if (previewing) {
+            ctaBtn.className = 'skin-cta-btn previewing-btn';
+            ctaBtn.textContent = '👁️ Viewing';
+          } else {
+            ctaBtn.className = 'skin-cta-btn preview-btn';
+            ctaBtn.textContent = '👁️ Preview';
+          }
+          actionCol.appendChild(ctaBtn);
+
+          card.append(swatch, info, actionCol);
+
+          card.addEventListener('click', () => {
+            if (isPipe) {
+              if (unlocked) {
+                this.previewPipeSkinId = null;
+                this.applyPipeSkin(item.id, true);
+              } else {
+                this.previewPipeSkinId = item.id;
+                this.applyPipeSkinVisualsOnly(item);
+              }
+              this.updatePreviewBanner();
+              this.renderPipeSkinsGrid();
+            } else {
+              if (unlocked) {
+                this.previewSkinId = null;
+                this.applySkin(item.id, true);
+              } else {
+                this.previewSkinId = item.id;
+                this.applySkinVisualsOnly(item);
+              }
+              this.updatePreviewBanner();
+              this.renderBirdSkinsGrid();
+            }
+          });
+
+          return card;
+        }
+
+        sortCosmetics(list, sortOrder = 'default') {
+          const items = [...list];
+          if (!sortOrder || sortOrder === 'default') {
+            return items;
+          }
+
+          const rarityWeights = {
+            GODLIKE: 8,
+            MYTHIC: 7,
+            LEGENDARY: 6,
+            POKEMON: 5,
+            MEME: 4.5,
+            TROLL: 4.5,
+            EPIC: 4,
+            RARE: 3,
+            UNCOMMON: 2,
+            COMMON: 1
+          };
+
+          if (sortOrder === 'score_asc') {
+            return items.sort((a, b) => (a.reqScore || 0) - (b.reqScore || 0) || a.name.localeCompare(b.name));
+          }
+          if (sortOrder === 'score_desc') {
+            return items.sort((a, b) => (b.reqScore || 0) - (a.reqScore || 0) || a.name.localeCompare(b.name));
+          }
+          if (sortOrder === 'rarity') {
+            return items.sort((a, b) => {
+              const wa = rarityWeights[a.rarity] || 0;
+              const wb = rarityWeights[b.rarity] || 0;
+              if (wb !== wa) return wb - wa;
+              return (b.reqScore || 0) - (a.reqScore || 0) || a.name.localeCompare(b.name);
+            });
+          }
+          if (sortOrder === 'name') {
+            return items.sort((a, b) => a.name.localeCompare(b.name));
+          }
+          if (sortOrder === 'status') {
+            return items.sort((a, b) => {
+              const aUnlocked = this.isCosmeticUnlocked(a) ? 1 : 0;
+              const bUnlocked = this.isCosmeticUnlocked(b) ? 1 : 0;
+              if (bUnlocked !== aUnlocked) return bUnlocked - aUnlocked;
+              return (a.reqScore || 0) - (b.reqScore || 0) || a.name.localeCompare(b.name);
+            });
+          }
+          return items;
+        }
+
+        renderBirdSkinsGrid() {
+          const gridEl = document.getElementById('bird-skins-grid');
+          if (!gridEl) return;
+          gridEl.innerHTML = '';
+
+          const activeBirdId = this.previewSkinId || this.selectedSkinId;
+          const activeBirdSkin = BIRD_SKINS.find(s => s.id === activeBirdId) || BIRD_SKINS[0];
+          this.renderSpotlightBox('bird-skin-spotlight', activeBirdSkin, false);
+
+          const filter = this.birdLockerFilter || 'all';
+          const sortOrder = this.lockerSortOrder || 'default';
+          const query = (this.skinSearchQuery || '').trim().toLowerCase();
+
+          // Step 1: Base Category Filtering
+          let filteredSkins = BIRD_SKINS;
+          if (filter === 'owned') {
+            filteredSkins = filteredSkins.filter(s => this.isCosmeticUnlocked(s));
+          } else if (filter === 'locked') {
+            filteredSkins = filteredSkins.filter(s => !this.isCosmeticUnlocked(s));
+          } else if (filter === 'pokemon') {
+            filteredSkins = filteredSkins.filter(s => s.reqMode === 'pokemon' || s.rarity === 'POKEMON');
+          } else if (filter === 'meme') {
+            filteredSkins = filteredSkins.filter(s => s.reqMode === 'meme' || s.rarity === 'MEME' || s.rarity === 'TROLL');
+          } else if (filter === 'easy' || filter === 'medium' || filter === 'hard') {
+            filteredSkins = filteredSkins.filter(s => s.reqMode === filter);
+          }
+
+          // Step 2: Search Query Filtering
+          if (query) {
+            filteredSkins = filteredSkins.filter(s =>
+              (s.name && s.name.toLowerCase().includes(query)) ||
+              (s.desc && s.desc.toLowerCase().includes(query)) ||
+              (s.rarity && s.rarity.toLowerCase().includes(query)) ||
+              (s.reqText && s.reqText.toLowerCase().includes(query)) ||
+              (s.emoji && s.emoji.includes(query))
+            );
+          }
+
+          // Step 3: Sorting
+          const sortedSkins = this.sortCosmetics(filteredSkins, sortOrder);
+
+          // Step 4: Empty state handling
+          if (sortedSkins.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'lb-empty';
+            emptyEl.style.gridColumn = '1 / -1';
+            emptyEl.style.padding = '36px 16px';
+            emptyEl.style.textAlign = 'center';
+            emptyEl.textContent = query
+              ? `🔍 No bird skins match "${query}". Try another search term.`
+              : '🔒 No bird skins found in this category.';
+            gridEl.appendChild(emptyEl);
+            return;
+          }
+
+          // Step 5: Rendering
+          // If a custom sort or search query is active, render unified sorted cards with banner
+          if (sortOrder !== 'default' || query) {
+            const sortLabels = {
+              score_asc: 'Score: Low → High',
+              score_desc: 'Score: High → Low',
+              rarity: 'Rarest First',
+              name: 'Alphabetical A → Z',
+              status: 'Owned First'
+            };
+            const divSortHeader = document.createElement('div');
+            divSortHeader.className = 'skins-section-divider owned-header';
+            divSortHeader.innerHTML = query
+              ? `<span>🔍 SEARCH & SORT RESULTS (${sortedSkins.length} SKINS)</span><span>${sortLabels[sortOrder] || 'Filtered'}</span>`
+              : `<span>🔃 SORTED BIRD SKINS (${sortedSkins.length} SKINS)</span><span>${sortLabels[sortOrder] || 'Custom Sort'}</span>`;
+            gridEl.appendChild(divSortHeader);
+
+            sortedSkins.forEach(skin => {
+              gridEl.appendChild(this.buildCosmeticCard(skin, false));
+            });
+            return;
+          }
+
+          // Category-specific divider when viewing specific mode/theme
+          if (filter === 'easy' || filter === 'medium' || filter === 'hard' || filter === 'pokemon' || filter === 'meme') {
+            const divMode = document.createElement('div');
+            divMode.className = 'skins-section-divider ' + (filter === 'pokemon' ? 'pokemon-header' : (filter === 'meme' ? 'meme-header' : (filter === 'easy' ? 'owned-header' : 'locked-header')));
+            divMode.innerHTML = filter === 'easy'
+              ? `<span>🟢 EASY MODE EXCLUSIVE BIRD SKINS (${sortedSkins.length} • UP TO SCORE 150)</span><span>Easy Mode Only</span>`
+              : (filter === 'medium'
+                ? `<span>🟡 MEDIUM MODE EXCLUSIVE BIRD SKINS (${sortedSkins.length})</span><span>Medium Mode Only</span>`
+                : (filter === 'hard'
+                  ? `<span>🔴 HARD MODE EXCLUSIVE BIRD SKINS (${sortedSkins.length})</span><span>Hard Mode Only</span>`
+                  : (filter === 'pokemon'
+                    ? `<span>🔴 POKÉMON BASE-FORM BIRD SKINS (${sortedSkins.length})</span><span>Complete Pokémon Quests!</span>`
+                    : `<span>😂 MEME QUEST BIRD SKINS (${sortedSkins.length})</span><span>Complete Meme Quests!</span>`)));
+            gridEl.appendChild(divMode);
+            sortedSkins.forEach(skin => {
+              gridEl.appendChild(this.buildCosmeticCard(skin, false));
+            });
+            return;
+          }
+
+          // Default 'all' view: Owned section then Locked section
+          if (filter === 'all') {
+            const ownedList = sortedSkins.filter(s => this.isCosmeticUnlocked(s));
+            const lockedList = sortedSkins.filter(s => !this.isCosmeticUnlocked(s));
+
+            const divOwned = document.createElement('div');
+            divOwned.className = 'skins-section-divider owned-header';
+            divOwned.innerHTML = `<span>✅ OWNED BIRD SKINS (${ownedList.length})</span><span>Click to Equip</span>`;
+            gridEl.appendChild(divOwned);
+            ownedList.forEach(skin => {
+              gridEl.appendChild(this.buildCosmeticCard(skin, false));
+            });
+
+            if (lockedList.length > 0) {
+              const divLocked = document.createElement('div');
+              divLocked.className = 'skins-section-divider locked-header';
+              divLocked.innerHTML = `<span>🔒 UNOWNED BIRD SKINS (${lockedList.length})</span><span>Click to 3D-Preview</span>`;
+              gridEl.appendChild(divLocked);
+              lockedList.forEach(skin => {
+                gridEl.appendChild(this.buildCosmeticCard(skin, false));
+              });
+            }
+            return;
+          }
+
+          // Specific 'owned' or 'locked' view
+          const divFilterHeader = document.createElement('div');
+          divFilterHeader.className = 'skins-section-divider ' + (filter === 'owned' ? 'owned-header' : 'locked-header');
+          divFilterHeader.innerHTML = filter === 'owned'
+            ? `<span>✅ OWNED BIRD SKINS (${sortedSkins.length})</span><span>Click to Equip</span>`
+            : `<span>🔒 UNOWNED BIRD SKINS (${sortedSkins.length})</span><span>Click to 3D-Preview</span>`;
+          gridEl.appendChild(divFilterHeader);
+          sortedSkins.forEach(skin => {
+            gridEl.appendChild(this.buildCosmeticCard(skin, false));
+          });
+        }
+
+        renderPipeSkinsGrid() {
+          const gridEl = document.getElementById('pipe-skins-grid');
+          if (!gridEl) return;
+          gridEl.innerHTML = '';
+
+          const activePipeId = this.previewPipeSkinId || this.selectedPipeSkinId;
+          const activePipeSkin = PIPE_SKINS.find(p => p.id === activePipeId) || PIPE_SKINS[0];
+          this.renderSpotlightBox('pipe-skin-spotlight', activePipeSkin, true);
+
+          const filter = this.pipeLockerFilter || 'all';
+          const sortOrder = this.lockerSortOrder || 'default';
+          const query = (this.skinSearchQuery || '').trim().toLowerCase();
+
+          // Step 1: Base Category Filtering
+          let filteredPipes = PIPE_SKINS;
+          if (filter === 'owned') {
+            filteredPipes = filteredPipes.filter(p => this.isCosmeticUnlocked(p));
+          } else if (filter === 'locked') {
+            filteredPipes = filteredPipes.filter(p => !this.isCosmeticUnlocked(p));
+          } else if (filter === 'pokemon') {
+            filteredPipes = filteredPipes.filter(p => p.reqMode === 'pokemon' || p.rarity === 'POKEMON');
+          } else if (filter === 'meme') {
+            filteredPipes = filteredPipes.filter(p => p.reqMode === 'meme' || p.rarity === 'MEME' || p.rarity === 'TROLL');
+          } else if (filter === 'easy' || filter === 'medium' || filter === 'hard') {
+            filteredPipes = filteredPipes.filter(p => p.reqMode === filter);
+          }
+
+          // Step 2: Search Query Filtering
+          if (query) {
+            filteredPipes = filteredPipes.filter(p =>
+              (p.name && p.name.toLowerCase().includes(query)) ||
+              (p.desc && p.desc.toLowerCase().includes(query)) ||
+              (p.rarity && p.rarity.toLowerCase().includes(query)) ||
+              (p.reqText && p.reqText.toLowerCase().includes(query)) ||
+              (p.emoji && p.emoji.includes(query))
+            );
+          }
+
+          // Step 3: Sorting
+          const sortedPipes = this.sortCosmetics(filteredPipes, sortOrder);
+
+          // Step 4: Empty state handling
+          if (sortedPipes.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'lb-empty';
+            emptyEl.style.gridColumn = '1 / -1';
+            emptyEl.style.padding = '36px 16px';
+            emptyEl.style.textAlign = 'center';
+            emptyEl.textContent = query
+              ? `🔍 No pipe skins match "${query}". Try another search term.`
+              : '🔒 No pipe skins found in this category.';
+            gridEl.appendChild(emptyEl);
+            return;
+          }
+
+          // Step 5: Rendering
+          // If a custom sort or search query is active, render unified sorted cards with banner
+          if (sortOrder !== 'default' || query) {
+            const sortLabels = {
+              score_asc: 'Score: Low → High',
+              score_desc: 'Score: High → Low',
+              rarity: 'Rarest First',
+              name: 'Alphabetical A → Z',
+              status: 'Owned First'
+            };
+            const divSortHeader = document.createElement('div');
+            divSortHeader.className = 'skins-section-divider owned-header';
+            divSortHeader.innerHTML = query
+              ? `<span>🔍 SEARCH & SORT RESULTS (${sortedPipes.length} PIPES)</span><span>${sortLabels[sortOrder] || 'Filtered'}</span>`
+              : `<span>🔃 SORTED PIPE SKINS (${sortedPipes.length} PIPES)</span><span>${sortLabels[sortOrder] || 'Custom Sort'}</span>`;
+            gridEl.appendChild(divSortHeader);
+
+            sortedPipes.forEach(pipeSkin => {
+              gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
+            });
+            return;
+          }
+
+          // Category-specific divider when viewing specific mode/theme
+          if (filter === 'easy' || filter === 'medium' || filter === 'hard' || filter === 'pokemon' || filter === 'meme') {
+            const divMode = document.createElement('div');
+            divMode.className = 'skins-section-divider ' + (filter === 'pokemon' ? 'pokemon-header' : (filter === 'meme' ? 'meme-header' : (filter === 'easy' ? 'owned-header' : 'locked-header')));
+            divMode.innerHTML = filter === 'easy'
+              ? `<span>🟢 EASY MODE EXCLUSIVE PIPE SKINS (${sortedPipes.length} • UP TO SCORE 150)</span><span>Easy Mode Only</span>`
+              : (filter === 'medium'
+                ? `<span>🟡 MEDIUM MODE EXCLUSIVE PIPE SKINS (${sortedPipes.length})</span><span>Medium Mode Only</span>`
+                : (filter === 'hard'
+                  ? `<span>🔴 HARD MODE EXCLUSIVE PIPE SKINS (${sortedPipes.length})</span><span>Hard Mode Only</span>`
+                  : (filter === 'pokemon'
+                    ? `<span>🔴 POKÉMON GYM & POKÉ BALL PIPE SKINS (${sortedPipes.length})</span><span>Complete Pokémon Quests!</span>`
+                    : `<span>😂 MEME QUEST PIPE SKINS (${sortedPipes.length})</span><span>Complete Meme Quests!</span>`)));
+            gridEl.appendChild(divMode);
+            sortedPipes.forEach(pipeSkin => {
+              gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
+            });
+            return;
+          }
+
+          // Default 'all' view: Owned section then Locked section
+          if (filter === 'all') {
+            const ownedList = sortedPipes.filter(p => this.isCosmeticUnlocked(p));
+            const lockedList = sortedPipes.filter(p => !this.isCosmeticUnlocked(p));
+
+            const divOwned = document.createElement('div');
+            divOwned.className = 'skins-section-divider owned-header';
+            divOwned.innerHTML = `<span>✅ OWNED PIPE SKINS (${ownedList.length})</span><span>Click to Equip</span>`;
+            gridEl.appendChild(divOwned);
+            ownedList.forEach(pipeSkin => {
+              gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
+            });
+
+            if (lockedList.length > 0) {
+              const divLocked = document.createElement('div');
+              divLocked.className = 'skins-section-divider locked-header';
+              divLocked.innerHTML = `<span>🔒 UNOWNED PIPE SKINS (${lockedList.length})</span><span>Click to 3D-Preview</span>`;
+              gridEl.appendChild(divLocked);
+              lockedList.forEach(pipeSkin => {
+                gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
+              });
+            }
+            return;
+          }
+
+          // Specific 'owned' or 'locked' view
+          const divFilterHeader = document.createElement('div');
+          divFilterHeader.className = 'skins-section-divider ' + (filter === 'owned' ? 'owned-header' : 'locked-header');
+          divFilterHeader.innerHTML = filter === 'owned'
+            ? `<span>✅ OWNED PIPE SKINS (${sortedPipes.length})</span><span>Click to Equip</span>`
+            : `<span>🔒 UNOWNED PIPE SKINS (${sortedPipes.length})</span><span>Click to 3D-Preview</span>`;
+          gridEl.appendChild(divFilterHeader);
+          sortedPipes.forEach(pipeSkin => {
+            gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
+          });
+        }
+
+        // ------------------------------------------------------------------------
+        // APPLYING BIRD SKINS & PIPE SKINS IN 3D
+        // ------------------------------------------------------------------------
+        applySkin(skinId, saveToServer = false) {
+          const skin = BIRD_SKINS.find(s => s.id === skinId) || BIRD_SKINS[0];
+          if (!this.isCosmeticUnlocked(skin)) return;
+
+          this.selectedSkinId = skin.id;
+          localStorage.setItem('flappy3d_skin', skin.id);
+
+          this.applySkinVisualsOnly(skin);
+
+          if (saveToServer && this.authToken && this.currentUser) {
+            this.apiRequest('/api/skin', 'POST', { skinId: skin.id }).catch(() => {});
+          }
+        }
+
+        applySkinVisualsOnly(skin) {
+          this.currentSkin = skin;
+          const labelEl = document.getElementById('current-skin-label');
+          if (labelEl) labelEl.textContent = skin.name;
+          const birdPreviewEmoji = document.getElementById('loadout-bird-preview-emoji');
+          if (birdPreviewEmoji) birdPreviewEmoji.textContent = skin.emoji || '🐤';
+          const birdPreviewBadge = document.getElementById('loadout-bird-preview-badge');
+          if (birdPreviewBadge && skin.body !== undefined) {
+            const hex = '#' + skin.body.toString(16).padStart(6, '0');
+            birdPreviewBadge.style.background = `linear-gradient(135deg, ${hex}55 0%, ${hex}22 100%)`;
+            birdPreviewBadge.style.borderColor = hex;
+          }
+
+          const isPokemon = skin.category === 'pokemon' || (skin.modelPreset && skin.modelPreset.startsWith('poke_'));
+
+          if (this.standardBirdBodyGroup) {
+            this.standardBirdBodyGroup.visible = !isPokemon;
+          }
+          if (this.leftWingPivot) {
+            this.leftWingPivot.visible = !isPokemon;
+          }
+          if (this.rightWingPivot) {
+            this.rightWingPivot.visible = !isPokemon;
+          }
+          if (this.defaultTailGroup) {
+            this.defaultTailGroup.visible = !isPokemon && !skin.hideDefaultTail;
+          }
+          if (this.fierceBrowGroup) {
+            this.fierceBrowGroup.visible = !isPokemon && Boolean(skin.fierceBrow);
+          }
+
+          if (this.birdMats) {
+            const bumpMap = (this.bumpTextures && this.bumpTextures[skin.bumpType]) || null;
+
+            this.birdMats.body.color.setHex(skin.body);
+            this.birdMats.body.emissive.setHex(skin.emissive || 0x000000);
+            this.birdMats.body.emissiveIntensity = skin.rarity === 'GODLIKE' ? 0.58 : (skin.rarity === 'MYTHIC' ? 0.48 : 0.36);
+            this.birdMats.body.metalness = skin.metalness;
+            this.birdMats.body.roughness = skin.roughness;
+            this.birdMats.body.bumpMap = bumpMap;
+            this.birdMats.body.bumpScale = skin.bumpType === 'scales' ? 0.052 : 0.026;
+            this.birdMats.body.needsUpdate = true;
+
+            this.birdMats.belly.color.setHex(skin.belly);
+            this.birdMats.belly.metalness = Math.min(0.68, skin.metalness * 0.65);
+            this.birdMats.belly.roughness = Math.max(0.12, skin.roughness * 0.9);
+
+            this.birdMats.wing.color.setHex(skin.wing);
+            this.birdMats.wing.emissive.setHex(skin.emissive || 0x000000);
+            this.birdMats.wing.emissiveIntensity = skin.rarity === 'GODLIKE' ? 0.62 : (skin.rarity === 'MYTHIC' ? 0.52 : 0.38);
+            this.birdMats.wing.metalness = skin.metalness;
+            this.birdMats.wing.roughness = skin.roughness;
+            this.birdMats.wing.bumpMap = bumpMap;
+            this.birdMats.wing.bumpScale = 0.028;
+            this.birdMats.wing.needsUpdate = true;
+
+            this.birdMats.beak.color.setHex(skin.beak);
+            this.birdMats.beak.metalness = Math.min(0.85, skin.metalness * 0.85);
+            this.birdMats.beak.roughness = Math.max(0.10, skin.roughness * 0.75);
+
+            if (this.birdMats.iris) {
+              this.birdMats.iris.color.setHex(skin.iris || 0x0284c7);
+              this.birdMats.iris.emissive.setHex(skin.iris || 0x0284c7);
+              this.birdMats.iris.emissiveIntensity = 0.35;
+            }
+          }
+
+          if (this.fierceBrowGroup) {
+            this.fierceBrowGroup.visible = Boolean(skin.fierceBrow);
+          }
+
+          if (this.defaultTailGroup) {
+            this.defaultTailGroup.visible = !skin.hideDefaultTail;
+          }
+
+          // Toggle bespoke 3D model preset groups
+          if (this.skinModelGroups) {
+            Object.keys(this.skinModelGroups).forEach(k => {
+              this.skinModelGroups[k].visible = (k === skin.modelPreset);
+            });
+          }
+
+          // Toggle custom 3D wing style attachments
+          if (this.wingStyleGroups) {
+            Object.keys(this.wingStyleGroups).forEach(k => {
+              const pair = this.wingStyleGroups[k];
+              const isMatch = (k === skin.wingStyle);
+              pair.left.visible = isMatch;
+              pair.right.visible = isMatch;
+            });
+          }
+        }
+
+        getOrCreatePipeSkinAssets(pipeSkin) {
+          if (this.pipeSkinCache[pipeSkin.id]) {
+            return this.pipeSkinCache[pipeSkin.id];
+          }
+          const tex = createPipeSkinTextures(pipeSkin);
+          const bodyMat = new THREE.MeshStandardMaterial({
+            map: tex,
+            roughness: pipeSkin.roughness,
+            metalness: pipeSkin.metalness,
+            emissive: new THREE.Color(pipeSkin.emissive || 0x000000),
+            emissiveIntensity: pipeSkin.rarity === 'GODLIKE' ? 0.65 : (pipeSkin.rarity === 'MYTHIC' ? 0.55 : 0.45),
+            bumpMap: tex,
+            bumpScale: 0.036
+          });
+
+          const isGlowTrim = (
+            pipeSkin.trimStyle === 'neon_rings' ||
+            pipeSkin.trimStyle === 'halos' ||
+            pipeSkin.trimStyle === 'crystals' ||
+            pipeSkin.trimStyle === 'laser_matrix' ||
+            pipeSkin.trimStyle === 'imperial_crown' ||
+            pipeSkin.trimStyle === 'nature_vines' ||
+            pipeSkin.trimStyle === 'clockwork_gears' ||
+            pipeSkin.trimStyle === 'classic_rim'
+          );
+          const trimMat = new THREE.MeshStandardMaterial({
+            color: pipeSkin.trimColor,
+            metalness: isGlowTrim ? 0.92 : Math.max(0.65, pipeSkin.metalness),
+            roughness: isGlowTrim ? 0.06 : 0.16,
+            emissive: new THREE.Color(pipeSkin.trimColor),
+            emissiveIntensity: pipeSkin.trimStyle === 'laser_matrix' ? 0.85 : (isGlowTrim ? 0.62 : 0.42)
+          });
+
+          const coreColor = (
+            pipeSkin.rarity === 'GODLIKE' ||
+            pipeSkin.rarity === 'MYTHIC' ||
+            pipeSkin.rarity === 'EPIC' ||
+            pipeSkin.rarity === 'RARE'
+          )
+            ? pipeSkin.trimColor
+            : 0x10b981;
+          const coreMat = new THREE.MeshBasicMaterial({
+            color: coreColor
+          });
+
+          const cached = { bodyMat, trimMat, coreMat, pipeSkin };
+          this.pipeSkinCache[pipeSkin.id] = cached;
+          return cached;
+        }
+
+        applyPipeSkin(pipeSkinId, saveToServer = false) {
+          const pipeSkin = PIPE_SKINS.find(p => p.id === pipeSkinId) || PIPE_SKINS[0];
+          if (!this.isCosmeticUnlocked(pipeSkin)) return;
+
+          this.selectedPipeSkinId = pipeSkin.id;
+          localStorage.setItem('flappy3d_pipe_skin', pipeSkin.id);
+
+          this.applyPipeSkinVisualsOnly(pipeSkin);
+
+          if (saveToServer && this.authToken && this.currentUser) {
+            this.apiRequest('/api/skin', 'POST', { pipeSkinId: pipeSkin.id }).catch(() => {});
+          }
+        }
+
+        applyPipeSkinVisualsOnly(pipeSkin) {
+          this.currentPipeSkin = pipeSkin;
+          const pipeLabelEl = document.getElementById('current-pipe-skin-label');
+          if (pipeLabelEl) pipeLabelEl.textContent = pipeSkin.name;
+          const pipePreviewEmoji = document.getElementById('loadout-pipe-preview-emoji');
+          if (pipePreviewEmoji) pipePreviewEmoji.textContent = pipeSkin.emoji || '🟢';
+          const pipePreviewBadge = document.getElementById('loadout-pipe-preview-badge');
+          if (pipePreviewBadge && pipeSkin.colors && pipeSkin.colors[0]) {
+            pipePreviewBadge.style.background = `linear-gradient(135deg, ${pipeSkin.colors[0]}55 0%, ${pipeSkin.colors[0]}22 100%)`;
+            pipePreviewBadge.style.borderColor = pipeSkin.colors[0];
+          }
+          this.activePipeAssets = this.getOrCreatePipeSkinAssets(pipeSkin);
+
+          // Rebuild existing visible pipes in place so 3D Pipe Skin changes appear immediately!
+          for (let i = 0; i < this.pipes.length; i++) {
+            const p = this.pipes[i];
+            this.rebuildPipePairVisuals(p);
+          }
+        }
+
+        initSettings() {
+          const DEFAULT_SETTINGS = {
+            graphicsQuality: 'high',
+            theme: 'dark',
+            volume: 1.0,
+            screenShake: 'full',
+            particles: true,
+            cameraTilt: true,
+            showFPS: true
+          };
+          this.settings = { ...DEFAULT_SETTINGS };
+          try {
+            const raw = localStorage.getItem('flappy3d_settings');
+            if (raw) Object.assign(this.settings, JSON.parse(raw));
+          } catch (_) {}
+
+          this.applyGraphicsQuality(this.settings.graphicsQuality);
+          this.applyTheme(this.settings.theme);
+          this.applyAudioVolume(this.settings.volume);
+
+          const shakeBtn = document.querySelector(`#setting-shake-segmented [data-shake="${this.settings.screenShake}"]`);
+          if (shakeBtn) {
+            document.querySelectorAll('#setting-shake-segmented .setting-seg-btn').forEach(b => b.classList.remove('active'));
+            shakeBtn.classList.add('active');
+          }
+          const partCb = document.getElementById('setting-particles');
+          if (partCb) partCb.checked = Boolean(this.settings.particles);
+          const camCb = document.getElementById('setting-cam-tilt');
+          if (camCb) camCb.checked = Boolean(this.settings.cameraTilt);
+          const fpsCb = document.getElementById('setting-show-fps');
+          if (fpsCb) fpsCb.checked = Boolean(this.settings.showFPS);
+          const fpsBadge = document.getElementById('header-fps-badge');
+          if (fpsBadge) fpsBadge.style.display = this.settings.showFPS ? 'inline-block' : 'none';
+        }
+
+        saveSettings() {
+          try {
+            localStorage.setItem('flappy3d_settings', JSON.stringify(this.settings));
+          } catch (_) {}
+        }
+
+        applyGraphicsQuality(quality) {
+          this.settings.graphicsQuality = quality;
+          this.saveSettings();
+
+          const isLow = quality === 'low';
+          const isMed = quality === 'medium';
+          const isHigh = quality === 'high';
+          const isUltra = quality === 'ultra';
+
+          if (this.renderer) {
+            if (isLow) {
+              this.renderer.shadowMap.enabled = false;
+              this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.0));
+              if (this.dirLight) this.dirLight.castShadow = false;
+            } else if (isMed) {
+              this.renderer.shadowMap.enabled = true;
+              this.renderer.shadowMap.type = THREE.BasicShadowMap;
+              if (this.dirLight) {
+                this.dirLight.castShadow = true;
+                this.dirLight.shadow.mapSize.width = 1024;
+                this.dirLight.shadow.mapSize.height = 1024;
+              }
+              this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+            } else if (isHigh) {
+              this.renderer.shadowMap.enabled = true;
+              this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+              if (this.dirLight) {
+                this.dirLight.castShadow = true;
+                this.dirLight.shadow.mapSize.width = 2048;
+                this.dirLight.shadow.mapSize.height = 2048;
+              }
+              this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+            } else if (isUltra) {
+              this.renderer.shadowMap.enabled = true;
+              this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+              if (this.dirLight) {
+                this.dirLight.castShadow = true;
+                this.dirLight.shadow.mapSize.width = 2048;
+                this.dirLight.shadow.mapSize.height = 2048;
+              }
+              this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+            }
+          }
+
+          document.querySelectorAll('#setting-gfx-segmented .setting-seg-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-gfx') === quality);
+          });
+          const descEl = document.getElementById('setting-gfx-desc');
+          if (descEl) {
+            descEl.textContent = isLow
+              ? 'Low: Max FPS, Shadows Disabled, 1.0x Screen Resolution'
+              : (isMed
+                ? 'Medium: 1024 Shadows, 1.25x Balanced Resolution'
+                : (isHigh
+                  ? 'High: 2048 PCFSoft Shadows, 1.75x Resolution & Particle Effects'
+                  : 'Ultra: 2048 Soft Shadows, Full Native Screen Pixel Ratio (120FPS+)'));
+          }
+        }
+
+        applyTheme(themeName) {
+          if (themeName === 'retro') themeName = 'cyber';
+          this.settings.theme = themeName;
+          this.saveSettings();
+
+          document.documentElement.className = 'theme-' + themeName;
+          document.body.className = (document.body.className || '')
+            .replace(/\btheme-[a-z0-9_-]+\b/g, '')
+            .trim() + ' theme-' + themeName;
+
+          const themeIconEl = document.getElementById('theme-icon');
+          if (themeIconEl) {
+            themeIconEl.textContent = themeName === 'light' ? '☀️' : (themeName === 'cyber' ? '👾' : '🌙');
+          }
+
+          document.querySelectorAll('#setting-theme-segmented .setting-seg-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-thm') === themeName);
+          });
+
+          // Re-render Leaderboard and Stats Menu immediately so any mode-specific elements adapt in real-time
+          if (typeof this.renderStatsMenu === 'function') {
+            this.renderStatsMenu();
+          }
+          if (typeof this.renderLeaderboard === 'function') {
+            this.renderLeaderboard();
+          }
+        }
+
+        applyAudioVolume(vol) {
+          this.settings.volume = Math.max(0, Math.min(1, Number(vol)));
+          this.saveSettings();
+          const slider = document.getElementById('setting-vol-slider');
+          if (slider) slider.value = String(Math.round(this.settings.volume * 100));
+          const text = document.getElementById('setting-vol-text');
+          if (text) text.textContent = Math.round(this.settings.volume * 100) + '%';
+        }
+
+        switchView(viewName) {
+          this.currentAppView = viewName;
+
+          document.querySelectorAll('#main-nav-dock .dock-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-view') === viewName);
+          });
+
+          const views = {
+            lobby: document.getElementById('view-lobby'),
+            skins: document.getElementById('view-skins'),
+            leaderboard: document.getElementById('view-leaderboard'),
+            stats: document.getElementById('view-stats'),
+            settings: document.getElementById('view-settings'),
+            account: document.getElementById('view-account')
+          };
+
+          Object.keys(views).forEach(k => {
+            if (views[k]) {
+              views[k].classList.toggle('active-view', k === viewName);
+            }
+          });
+
+          if (viewName === 'skins') {
+            if (this.currentLockerTab === 'pipes') {
+              this.renderPipeSkinsGrid();
+            } else {
+              this.renderBirdSkinsGrid();
+            }
+          } else if (viewName === 'leaderboard') {
+            this.fetchLeaderboards();
+          } else if (viewName === 'stats') {
+            this.renderStatsMenu();
+          } else if (viewName === 'account') {
+            this.updateProfileRecordPills();
+          }
+        }
+
+        toggleProfileModal(forceOpen) {
+          const modal = document.getElementById('profile-modal');
+          if (!modal) return;
+          const isAct = modal.classList.contains('active');
+          const target = typeof forceOpen === 'boolean' ? forceOpen : !isAct;
+          modal.classList.toggle('active', target);
+        }
+
+        toggleFullscreen() {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else {
+            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+          }
+        }
+}
+
+window.FlappyBirdUIAndProgression = FlappyBirdUIAndProgression;
