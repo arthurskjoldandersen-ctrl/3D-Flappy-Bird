@@ -66,8 +66,8 @@
 
           this.initThree();
           this.initLights();
-          this.initSettings();
           this.initMaterials();
+          this.initSettings();
           this.createEnvironment();
           this.createBird();
           this.initParticlePool();

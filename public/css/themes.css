@@ -3131,18 +3131,20 @@ body.in-game #top-app-bar,
   position: fixed;
   inset: 0;
   z-index: 9500;
-  background: rgba(2, 6, 23, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: none;
+  background: rgba(2, 6, 23, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: none !important;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  pointer-events: auto;
+  pointer-events: none !important;
   animation: fadeInGuestModal 0.22s ease-out;
 }
+.guest-modal-overlay.active,
 .guest-modal-overlay.visible {
-  display: flex;
+  display: flex !important;
+  pointer-events: auto !important;
 }
 @keyframes fadeInGuestModal {
   from { opacity: 0; transform: scale(0.96); }

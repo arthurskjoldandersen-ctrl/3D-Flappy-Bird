@@ -16,11 +16,16 @@ class FlappyBirdUIAndProgression {
                 medium: Number(parsed.medium) || 0,
                 hard: Number(parsed.hard) || 0
               };
-              if (r.easy > 0 || r.medium > 0 || r.hard > 0) return r;
+              // Sanitize: purge corrupted 109/40/27 baseline so guests & players start with their true records
+              if (r.easy === 109 && r.medium === 40 && r.hard === 27) {
+                const clean = { easy: 0, medium: 0, hard: 0 };
+                try { localStorage.setItem('flappy3d_records_v2', JSON.stringify(clean)); } catch (_) {}
+                return clean;
+              }
+              return r;
             }
           } catch (_) {}
-          // Take authentic records from the old leaderboard (MeDonut: 109 Easy, 40 Medium, 27 Hard)
-          const baseline = { easy: 109, medium: 40, hard: 27 };
+          const baseline = { easy: 0, medium: 0, hard: 0 };
           try {
             localStorage.setItem('flappy3d_records_v2', JSON.stringify(baseline));
           } catch (_) {}
@@ -408,9 +413,10 @@ class FlappyBirdUIAndProgression {
         }
 
         getBestForDifficulty(diffKey) {
-          const onlineBest = (this.currentUser && this.currentUser.records && this.currentUser.records[diffKey]) || 0;
-          const localBest = this.localRecords[diffKey] || 0;
-          return Math.max(onlineBest, localBest);
+          if (this.currentUser && this.currentUser.records) {
+            return Number(this.currentUser.records[diffKey]) || 0;
+          }
+          return Number(this.localRecords && this.localRecords[diffKey]) || 0;
         }
 
         getHighestScoreAnyMode() {
@@ -468,14 +474,19 @@ class FlappyBirdUIAndProgression {
         async initOnlineSession() {
           try {
             const info = await this.apiRequest('/api/server-info');
-            document.getElementById('server-dot').classList.remove('offline');
-            if (info.lanAddresses && info.lanAddresses.length > 0) {
-              document.getElementById('lan-url-text').textContent = `http://${info.lanAddresses[0]}:${info.port}`;
-            } else {
-              document.getElementById('lan-url-text').textContent = window.location.origin;
+            const dot = document.getElementById('server-dot');
+            if (dot) dot.classList.remove('offline');
+            const lanEl = document.getElementById('lan-url-text');
+            if (lanEl) {
+              if (info.lanAddresses && info.lanAddresses.length > 0) {
+                lanEl.textContent = `http://${info.lanAddresses[0]}:${info.port}`;
+              } else {
+                lanEl.textContent = window.location.origin;
+              }
             }
           } catch (_) {
-            document.getElementById('server-dot').classList.add('offline');
+            const dot = document.getElementById('server-dot');
+            if (dot) dot.classList.add('offline');
           }
 
           if (this.authToken) {
@@ -569,9 +580,11 @@ class FlappyBirdUIAndProgression {
           }
 
           if (user.records) {
-            this.localRecords.easy = Math.max(this.localRecords.easy || 0, Number(user.records.easy) || 0);
-            this.localRecords.medium = Math.max(this.localRecords.medium || 0, Number(user.records.medium) || 0);
-            this.localRecords.hard = Math.max(this.localRecords.hard || 0, Number(user.records.hard) || 0);
+            this.localRecords = {
+              easy: Number(user.records.easy) || 0,
+              medium: Number(user.records.medium) || 0,
+              hard: Number(user.records.hard) || 0
+            };
             this.saveLocalRecords();
           }
           this.updateProfileRecordPills();
@@ -582,6 +595,8 @@ class FlappyBirdUIAndProgression {
         clearLoggedInUser(showGuestPrompt = true) {
           this.currentUser = null;
           this.authToken = null;
+          this.localRecords = { easy: 0, medium: 0, hard: 0 };
+          this.saveLocalRecords();
           localStorage.removeItem('flappy3d_token');
 
           const dbBtn = document.getElementById('btn-open-database');
@@ -627,9 +642,11 @@ class FlappyBirdUIAndProgression {
         toggleGuestLoginModal(forceOpen) {
           const modal = document.getElementById('guest-login-modal');
           if (!modal) return;
-          const isOpen = modal.classList.contains('active');
+          const isOpen = modal.classList.contains('active') || modal.classList.contains('visible') || modal.style.display === 'flex';
           const next = typeof forceOpen === 'boolean' ? forceOpen : !isOpen;
           modal.classList.toggle('active', next);
+          modal.classList.toggle('visible', next);
+          modal.style.display = next ? 'flex' : 'none';
         }
 
         async handleGuestModalAuth(mode) {

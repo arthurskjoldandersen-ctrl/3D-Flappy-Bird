@@ -91,6 +91,7 @@
       <div class="hud-left">
         <div class="hud-pill">
           <span class="dot" id="server-dot"></span>
+          <span id="lan-url-text" style="display: none;"></span>
           <span id="hud-mode-text">MEDIUM</span> • SPEED <span class="highlight" id="speed-mult-text">1.0x</span>
         </div>
       </div>
@@ -223,6 +224,7 @@
 
           <!-- Next Goal Progress Pill -->
           <div class="next-unlock-banner next-unlock-box" id="next-unlock-box" title="Click to preview next goal in 3D">
+            <span id="next-unlock-title" style="display: none;">Next Unlock</span>
             <div class="next-goal-item" id="next-bird-goal" style="display:flex; align-items:center; gap:8px; width:100%;">
               <span class="deck-goal-icon">🎯</span>
               <span class="deck-goal-label next-goal-sub" id="next-bird-req" style="font-weight:800; font-size:0.78rem;">Next Goal</span>
@@ -423,7 +425,7 @@
           <div class="setting-row">
             <div class="setting-info">
               <span class="setting-name">Master Audio Volume</span>
-              <span class="setting-desc" id="setting-vol-desc">100% Volume</span>
+              <span class="setting-desc" id="setting-vol-desc"><span id="setting-vol-text">100%</span> Volume</span>
             </div>
             <input type="range" min="0" max="1" step="0.05" value="1.0" class="setting-slider" id="setting-vol-slider" style="width:140px; cursor:pointer;" />
           </div>
@@ -802,8 +804,13 @@
     </div>
   </div>
 
-  <!-- Three.js WebGL Engine -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Three.js WebGL Engine (Local First with CDN Fallback) -->
+  <script src="/js/three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+    }
+  </script>
 
   <!-- Modular Client Architecture -->
   <script src="/js/config.js"></script>
