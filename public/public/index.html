@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>3D Flappy Bird Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <!-- Modular Stylesheets -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/themes.css" />
+</head>
+<body class="theme-dark">
+  <!-- 3D WebGL Viewport -->
+  <div id="game-canvas-container"></div>
+
+  <!-- Crash Screen Flash -->
+  <div id="damage-flash"></div>
+
+  <!-- Top App Navigation Bar / Dock (Fixed & Global) -->
+  <header id="top-app-bar" class="app-header">
+    <div class="header-left">
+      <div class="brand-badge" id="brand-home-btn" title="3D Flappy Bird Home">
+        <span class="brand-icon">🐤</span>
+        <span class="brand-title">3D FLAPPY BIRD</span>
+        <span class="fps-pill" id="header-fps-badge">⚡ 120 FPS</span>
+      </div>
+    </div>
+
+    <!-- Navigation Dock (Seamless View Switcher) -->
+    <nav class="nav-dock" id="main-nav-dock">
+      <button type="button" class="dock-tab active" data-view="lobby" id="dock-btn-lobby">
+        <span class="tab-icon">🎮</span>
+        <span class="tab-label">Lobby</span>
+      </button>
+      <button type="button" class="dock-tab" data-view="skins" id="dock-btn-skins">
+        <span class="tab-icon">🎨</span>
+        <span class="tab-label">Locker</span>
+        <span class="tab-badge" id="dock-skins-badge">2/103</span>
+      </button>
+      <button type="button" class="dock-tab" data-view="leaderboard" id="dock-btn-leaderboard">
+        <span class="tab-icon">🏆</span>
+        <span class="tab-label">Leaderboard</span>
+      </button>
+      <button type="button" class="dock-tab" data-view="stats" id="dock-btn-stats">
+        <span class="tab-icon">📊</span>
+        <span class="tab-label">Stats</span>
+      </button>
+      <button type="button" class="dock-tab" data-view="settings" id="dock-btn-settings">
+        <span class="tab-icon">⚙️</span>
+        <span class="tab-label">Settings</span>
+      </button>
+      <button type="button" class="dock-tab" data-view="account" id="dock-btn-account">
+        <span class="tab-icon">👤</span>
+        <span class="tab-label" id="dock-account-label">Login</span>
+      </button>
+    </nav>
+
+    <!-- Top Right Quick Controls -->
+    <div class="header-right">
+      <button type="button" class="profile-capsule-btn" id="open-profile-btn" title="Player Account & Cloud Sync">
+        <span class="capsule-avatar">👤</span>
+        <span class="capsule-name" id="capsule-username">Guest Player</span>
+        <span class="capsule-count" id="capsule-owned-count">🎨 2/103</span>
+      </button>
+
+      <a href="/database" target="_blank" class="icon-tool-btn" id="btn-open-database" title="MeDonut Admin Only: Open Live Player & Leaderboard Database Manager (/database)" style="display:none; text-decoration:none;"><span>🗄️</span></a>
+
+      <button type="button" class="icon-tool-btn" id="btn-reset-view" title="Reset 3D View & Fix Black Screen (R)">
+        <span>🔄</span>
+      </button>
+
+      <button type="button" class="icon-tool-btn" id="btn-theme-toggle" title="Toggle Theme (Dark / Light / Cyber)">
+        <span id="theme-icon">🌙</span>
+      </button>
+
+      <button type="button" class="icon-tool-btn" id="btn-audio-toggle" title="Toggle Sound (M)">
+        <span id="audio-icon-display">🔊</span>
+      </button>
+
+      <button type="button" class="icon-tool-btn" id="btn-fullscreen-toggle" title="Toggle Fullscreen">
+        <span>⛶</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- User Interface Layer -->
+  <div id="ui-layer">
+    <div class="top-bar">
+      <div class="hud-left">
+        <div class="hud-pill">
+          <span class="dot" id="server-dot"></span>
+          <span id="hud-mode-text">MEDIUM</span> • SPEED <span class="highlight" id="speed-mult-text">1.0x</span>
+        </div>
+      </div>
+
+      <div id="hud-score-wrapper">
+        <div id="hud-score">0</div>
+      </div>
+
+      <div class="hud-right">
+        <div class="user-chip" id="hud-user-chip">
+          <span id="hud-username">Guest</span>
+          <button id="hud-logout-btn" type="button" style="display: none;">Logout</button>
+        </div>
+
+        <button id="mute-btn" type="button" aria-label="Toggle Sound" title="Mute / Unmute Sound (M)">
+          <svg id="icon-sound-on" viewBox="0 0 24 24">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+          <svg id="icon-sound-off" viewBox="0 0 24 24" style="display: none;">
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    
+  <!-- Top App Navigation Bar / Dock -->
+  
+  
+
+
+  <!-- Start / Online Lobby Overlay -->
+  <div id="start-screen" class="screen-overlay active">
+    <div id="hub-views-container">
+
+      <!-- VIEW 1: SPACIOUS 3D LOBBY WITH COMMAND DECK -->
+      <div id="view-lobby" class="hub-view-panel active-view">
+        <div class="play-deck-card" id="play-command-deck">
+
+          <!-- Upgraded Arena Mode Selection Cards -->
+          <div class="mode-select-deck" id="difficulty-selector">
+            <!-- 🟢 EASY MODE -->
+            <button type="button" class="mode-card diff-btn" data-diff="easy" id="diff-card-easy">
+              <div class="mode-card-header">
+                <div class="mode-badge-wrap">
+                  <span class="mode-icon">🟢</span>
+                  <span class="mode-name">EASY</span>
+                </div>
+                <span class="mode-tag-pill tag-easy">Relaxed</span>
+              </div>
+              <div class="mode-card-specs">
+                <span class="spec-item">Gap: <strong>Wide</strong></span>
+                <span class="spec-dot">•</span>
+                <span class="spec-item">Speed: <strong>Gentle</strong></span>
+              </div>
+              <div class="mode-card-meta diff-meta" id="diff-meta-easy">Best: 0 • 13 Skins</div>
+            </button>
+
+            <!-- 🟡 MEDIUM MODE (Default) -->
+            <button type="button" class="mode-card diff-btn active" data-diff="medium" id="diff-card-medium">
+              <div class="mode-card-header">
+                <div class="mode-badge-wrap">
+                  <span class="mode-icon">🟡</span>
+                  <span class="mode-name">MEDIUM</span>
+                </div>
+                <span class="mode-tag-pill tag-medium">Standard</span>
+              </div>
+              <div class="mode-card-specs">
+                <span class="spec-item">Gap: <strong>Classic</strong></span>
+                <span class="spec-dot">•</span>
+                <span class="spec-item">Speed: <strong>Dynamic</strong></span>
+              </div>
+              <div class="mode-card-meta diff-meta" id="diff-meta-medium">Best: 0 • 9 Skins</div>
+            </button>
+
+            <!-- 🔴 HARD MODE -->
+            <button type="button" class="mode-card diff-btn" data-diff="hard" id="diff-card-hard">
+              <div class="mode-card-header">
+                <div class="mode-badge-wrap">
+                  <span class="mode-icon">🔴</span>
+                  <span class="mode-name">HARD</span>
+                </div>
+                <span class="mode-tag-pill tag-hard">Hardcore</span>
+              </div>
+              <div class="mode-card-specs">
+                <span class="spec-item">Gap: <strong>Tight</strong></span>
+                <span class="spec-dot">•</span>
+                <span class="spec-item">Speed: <strong>Fast</strong></span>
+              </div>
+              <div class="mode-card-meta diff-meta" id="diff-meta-hard">Best: 0 • 12 Skins</div>
+            </button>
+          </div>
+
+          <!-- Active Loadout Row: 1-Click Jump to Locker -->
+          <div class="loadout-deck-row">
+            <div class="loadout-deck-pill equipped-skin-bar" id="loadout-card-bird" title="Click to Customize Bird Skins">
+              <div class="loadout-preview-circle" id="loadout-bird-preview-badge">
+                <span class="preview-emoji" id="loadout-bird-preview-emoji">🐤</span>
+              </div>
+              <div class="loadout-deck-meta">
+                <span class="loadout-deck-type">🐦 Bird Skin</span>
+                <strong class="loadout-deck-name" id="current-skin-label">Sunny Canary</strong>
+              </div>
+              <span class="deck-change-tag" id="open-bird-skins-btn">Change →</span>
+            </div>
+            <div class="loadout-deck-pill equipped-skin-bar pipe-bar" id="loadout-card-pipe" title="Click to Customize Pipe Skins">
+              <div class="loadout-preview-circle pipe-preview" id="loadout-pipe-preview-badge">
+                <span class="preview-emoji" id="loadout-pipe-preview-emoji">🟢</span>
+              </div>
+              <div class="loadout-deck-meta">
+                <span class="loadout-deck-type">🏗️ Pipe Skin</span>
+                <strong class="loadout-deck-name" id="current-pipe-skin-label">Classic Emerald</strong>
+              </div>
+              <span class="deck-change-tag" id="open-pipe-skins-btn">Change →</span>
+            </div>
+          </div>
+
+          <!-- Lobby Account / Guest Quick Status Prompt -->
+          <div class="lobby-auth-bar" id="lobby-auth-prompt">
+            <span id="lobby-auth-text">👤 Playing as <strong>Guest</strong></span>
+            <button type="button" class="btn-lobby-login-trigger" id="btn-lobby-auth-action">🔑 Log In / Register</button>
+          </div>
+
+          <!-- Hero Glowing Play Button -->
+          <button type="button" class="btn-play-hero btn-play" id="start-btn">
+            <span class="play-icon">▶</span>
+            <span class="play-text">START FLIGHT</span>
+            <span class="play-sub">(Space or Click)</span>
+          </button>
+
+          <!-- Next Goal Progress Pill -->
+          <div class="next-unlock-banner next-unlock-box" id="next-unlock-box" title="Click to preview next goal in 3D">
+            <div class="next-goal-item" id="next-bird-goal" style="display:flex; align-items:center; gap:8px; width:100%;">
+              <span class="deck-goal-icon">🎯</span>
+              <span class="deck-goal-label next-goal-sub" id="next-bird-req" style="font-weight:800; font-size:0.78rem;">Next Goal</span>
+              <span id="next-bird-name" style="font-size:0.78rem; font-weight:900; color:var(--text-primary); margin-left:4px;">Canary</span>
+              <div class="deck-goal-track next-goal-bar"><div class="deck-goal-fill next-goal-fill" id="next-bird-fill" style="width: 0%;"></div></div>
+            </div>
+            <div class="next-goal-item" id="next-pipe-goal" style="display:none;">
+              <span id="next-pipe-req"></span>
+              <span id="next-pipe-name"></span>
+              <div class="next-goal-fill" id="next-pipe-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: FULL-PAGE SKINS LOCKER VIEW -->
+      <div id="view-skins" class="hub-view-panel">
+        <div class="locker-full-card card">
+          <div class="locker-top-nav">
+            <div class="locker-tab-switch">
+              <button type="button" class="locker-tab-btn active" id="tab-btn-bird-skins">
+                <span>🐦</span> Bird Skins (60)
+              </button>
+              <button type="button" class="locker-tab-btn" id="tab-btn-pipe-skins">
+                <span>🏗️</span> Pipe Skins (43)
+              </button>
+            </div>
+
+            <div class="locker-tools-row">
+              <div class="skin-search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="skin-search-input" placeholder="Search by name, requirement, or rarity..." autocomplete="off" />
+              </div>
+              <div class="locker-sort-box">
+                <span class="sort-icon">🔃</span>
+                <select id="locker-sort-select" class="locker-sort-select" title="Sort Locker Items">
+                  <option value="default">Sort: Default</option>
+                  <option value="score_asc">Req Score: Low → High</option>
+                  <option value="score_desc">Req Score: High → Low</option>
+                  <option value="rarity">Rarity: Rarest First</option>
+                  <option value="name">Alphabetical: A → Z</option>
+                  <option value="status">Status: Owned First</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live 3D Preview Notice Banner -->
+          <div class="preview-banner" id="preview-banner">
+            <span id="preview-banner-text">👁️ Live 3D Preview: <span id="preview-skin-name">Locked Skin</span></span>
+            <button type="button" class="preview-reset-btn" id="preview-reset-btn">↩ Reset to Equipped</button>
+          </div>
+
+          <!-- Live 3D Spotlight Inspection Box -->
+          <div class="skin-spotlight owned-spot" id="bird-skin-spotlight"></div>
+          <div class="skin-spotlight owned-spot" id="pipe-skin-spotlight" style="display:none;"></div>
+
+          <!-- Sub-Panel: Bird Skins Grid -->
+          <div id="panel-view-bird-skins" class="locker-panel-view" style="display:flex;">
+            <div class="locker-filter-bar" id="bird-filter-bar">
+              <button type="button" class="locker-filter-btn active" data-filter="all" id="bird-filter-all">✨ All (53)</button>
+              <button type="button" class="locker-filter-btn" data-filter="owned" id="bird-filter-owned">✅ Owned</button>
+              <button type="button" class="locker-filter-btn" data-filter="locked" id="bird-filter-locked">🔒 Locked</button>
+              <button type="button" class="locker-filter-btn" data-filter="pokemon" id="bird-filter-pokemon">🔴 Pokémon (10)</button>
+              <button type="button" class="locker-filter-btn" data-filter="easy" id="bird-filter-easy">🟢 Easy (7)</button>
+              <button type="button" class="locker-filter-btn" data-filter="medium" id="bird-filter-medium">🟡 Medium (5)</button>
+              <button type="button" class="locker-filter-btn" data-filter="hard" id="bird-filter-hard">🔴 Hard (7)</button>
+              <button type="button" class="locker-filter-btn" data-filter="meme" id="bird-filter-meme">😂 Meme (10)</button>
+            </div>
+            <div class="skins-scroll-container" id="bird-skins-grid"></div>
+          </div>
+
+          <!-- Sub-Panel: Pipe Skins Grid -->
+          <div id="panel-view-pipe-skins" class="locker-panel-view" style="display:none;">
+            <div class="locker-filter-bar" id="pipe-filter-bar">
+              <button type="button" class="locker-filter-btn active" data-filter="all" id="pipe-filter-all">✨ All (43)</button>
+              <button type="button" class="locker-filter-btn" data-filter="owned" id="pipe-filter-owned">✅ Owned</button>
+              <button type="button" class="locker-filter-btn" data-filter="locked" id="pipe-filter-locked">🔒 Locked</button>
+              <button type="button" class="locker-filter-btn" data-filter="pokemon" id="pipe-filter-pokemon">🔴 Pokémon (8)</button>
+              <button type="button" class="locker-filter-btn" data-filter="easy" id="pipe-filter-easy">🟢 Easy (6)</button>
+              <button type="button" class="locker-filter-btn" data-filter="medium" id="pipe-filter-medium">🟡 Medium (4)</button>
+              <button type="button" class="locker-filter-btn" data-filter="hard" id="pipe-filter-hard">🔴 Hard (5)</button>
+              <button type="button" class="locker-filter-btn" data-filter="meme" id="pipe-filter-meme">😂 Meme (10)</button>
+            </div>
+            <div class="skins-scroll-container" id="pipe-skins-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 3: DEDICATED FULL-PAGE TOP 100 LEADERBOARDS -->
+      <div id="view-leaderboard" class="hub-view-panel">
+        <div class="lb-full-card card">
+          <div class="lb-header-row">
+            <div>
+              <h2 style="font-size: 1.45rem; font-family:'Fredoka',sans-serif; color:var(--text-primary); margin:0;">🏆 Global Leaderboards</h2>
+              <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Multi-entry verified rankings across all 100 spots • Real-time anti-cheat protected</p>
+            </div>
+            <div class="lb-controls-wrap">
+              <div class="lb-search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="lb-search-input" placeholder="Search player, rank (#1), or score..." autocomplete="off" />
+              </div>
+              <div class="lb-tabs" id="lb-tabs">
+                <button type="button" class="lb-tab" data-tab="easy" id="tab-btn-lb-easy">🟢 Easy</button>
+                <button type="button" class="lb-tab active" data-tab="medium" id="tab-btn-lb-med">🟡 Medium</button>
+                <button type="button" class="lb-tab" data-tab="hard" id="tab-btn-lb-hard">🔴 Hard</button>
+              </div>
+            </div>
+            <button type="button" class="btn-small" id="tab-btn-lb" style="display:none;">LB</button>
+          </div>
+
+          <div id="panel-view-lb" class="panel-view-animated" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+            <div class="lb-list-scrollable" id="lb-list">
+              <!-- Top 100 dynamic rows rendered here -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 4: DEDICATED FULL-PAGE STATS VIEW -->
+      <div id="view-stats" class="hub-view-panel">
+        <div class="stats-full-card card">
+          <div class="stats-header-row">
+            <div>
+              <h2 style="font-size: 1.45rem; font-family:'Fredoka',sans-serif; color:var(--text-primary); margin:0;">📊 Career Statistics & Records</h2>
+              <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Full-screen telemetry across all modes, flight physics efficiency, collection mastery & next unlocks</p>
+            </div>
+            <div class="stats-subfilter-bar" id="stats-subfilter-bar">
+              <button type="button" class="stats-subfilter-btn active" data-mode="all">🌐 Overview</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="easy">🟢 Easy</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="medium">🟡 Medium</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="hard">🔴 Hard</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="records">🏆 Records</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="collection">🎨 Collection</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="roadmap">🎯 Unlocks</button>
+            </div>
+            <button type="button" class="btn-small" id="tab-btn-stats" style="display:none;">Stats</button>
+          </div>
+
+          <div id="panel-view-stats" class="panel-view-animated" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+            <div class="stats-scroll-area" id="stats-scroll-area">
+              <!-- Career stats cards rendered dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 5: DEDICATED SETTINGS & GRAPHICS VIEW -->
+      <div id="view-settings" class="hub-view-panel">
+        <div class="settings-modal-card card">
+          <div style="text-align: left; margin-bottom: 12px;">
+            <h2 style="font-size: 1.45rem; font-family:'Fredoka',sans-serif; color:var(--text-primary); margin:0;">⚙️ Game & UI Settings</h2>
+            <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Customize graphics performance, visual theme, sound effects & camera feel</p>
+          </div>
+
+          <div class="settings-section-title"><span>🌟</span> Graphics & Visual Fidelity</div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Render Quality & Shadows</span>
+              <span class="setting-desc" id="setting-gfx-desc">High: 2048 PCFSoft Shadows, 1.75x Resolution & Particle Effects</span>
+            </div>
+            <div class="setting-seg-group" id="setting-gfx-segmented">
+              <button type="button" class="setting-seg-btn" data-gfx="low">⚡ Low</button>
+              <button type="button" class="setting-seg-btn" data-gfx="medium">🌟 Medium</button>
+              <button type="button" class="setting-seg-btn active" data-gfx="high">💎 High</button>
+              <button type="button" class="setting-seg-btn" data-gfx="ultra">🚀 Ultra</button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Ambient Particles & Auroras</span>
+              <span class="setting-desc">Clouds, pipe orbital rings, and score bursts</span>
+            </div>
+            <label class="setting-switch" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="setting-particles" checked style="width:18px; height:18px; cursor:pointer;" />
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-primary);">Enabled</span>
+            </label>
+          </div>
+
+          <div class="settings-section-title"><span>🎨</span> UI Appearance & Theme</div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Color Theme</span>
+              <span class="setting-desc">Switch between Midnight Dark, Daylight Clean, and Cyber Neon</span>
+            </div>
+            <div class="setting-seg-group" id="setting-theme-segmented">
+              <button type="button" class="setting-seg-btn active" data-thm="dark">🌙 Dark</button>
+              <button type="button" class="setting-seg-btn" data-thm="light">☀️ Light</button>
+              <button type="button" class="setting-seg-btn" data-thm="cyber">👾 Cyber / Retro</button>
+            </div>
+          </div>
+
+          <div class="settings-section-title"><span>🔊</span> Audio & Controls</div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Master Audio Volume</span>
+              <span class="setting-desc" id="setting-vol-desc">100% Volume</span>
+            </div>
+            <input type="range" min="0" max="1" step="0.05" value="1.0" class="setting-slider" id="setting-vol-slider" style="width:140px; cursor:pointer;" />
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Screen Shake Intensity</span>
+              <span class="setting-desc">Impact shake intensity upon crashing or high speeds</span>
+            </div>
+            <div class="setting-seg-group" id="setting-shake-segmented">
+              <button type="button" class="setting-seg-btn active" data-shake="full">Full</button>
+              <button type="button" class="setting-seg-btn" data-shake="reduced">Reduced</button>
+              <button type="button" class="setting-seg-btn" data-shake="off">Off</button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Dynamic 3D Camera Tilt</span>
+              <span class="setting-desc">Gentle banking and perspective tilt when climbing or diving</span>
+            </div>
+            <label class="setting-switch" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="setting-cam-tilt" checked style="width:18px; height:18px; cursor:pointer;" />
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-primary);">Enabled</span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Live FPS Counter Badge</span>
+              <span class="setting-desc">Display real-time performance FPS pill in the top header</span>
+            </div>
+            <label class="setting-switch" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="setting-show-fps" checked style="width:18px; height:18px; cursor:pointer;" />
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-primary);">Visible</span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">🎯 Show Exact 0.60m Hitbox Ring</span>
+              <span class="setting-desc">Display the exact spherical collision boundary (identical across all 53 bird & Pokémon skins)</span>
+            </div>
+            <label class="setting-switch" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="setting-show-hitbox" style="width:18px; height:18px; cursor:pointer;" />
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-primary);">Show Ring</span>
+            </label>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; border-top:1px solid var(--border-subtle); padding-top:14px;">
+            <button type="button" class="btn-small" id="btn-settings-reset" style="background:var(--pill-bg); color:var(--text-secondary); border:1px solid var(--border-subtle);">
+              ↻ Reset to Defaults
+            </button>
+            <span style="font-size:0.75rem; color:var(--text-muted);">Settings saved automatically to browser</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 6: DEDICATED PLAYER ACCOUNT & LOGIN SCREEN VIEW -->
+      <div id="view-account" class="hub-view-panel">
+        <div class="account-panel-card card">
+          <div class="account-card-header">
+            <div class="account-header-text">
+              <h2 class="account-title">👤 Pilot Command Center & Cloud Profile</h2>
+              <p class="account-subtitle">Manage your cloud account, inspect your active 3D loadout, review personal best records, and track career flight telemetry!</p>
+            </div>
+            <div class="account-header-badges">
+              <span class="hitbox-fairness-tag">🎯 0.60m Uniform Hitbox</span>
+              <span class="security-tag">🛡️ 60Hz Anti-Cheat Verified</span>
+            </div>
+          </div>
+
+          <div class="account-body-layout is-guest-split" id="account-body-layout">
+            <!-- Auth Box (Visible when logged out) -->
+            <div class="auth-box" id="auth-form-box">
+              <div class="auth-box-header">
+                <h3 class="auth-box-title">🔑 Cloud Sign In / Register</h3>
+                <p class="auth-box-sub">Log in or create a free account to sync your unlocked skins across devices and post verified scores to the global Top 100!</p>
+              </div>
+
+              <div class="auth-inputs-grid">
+                <div class="auth-field">
+                  <label for="auth-username" class="auth-label">Player Username</label>
+                  <div class="auth-input-wrap">
+                    <span class="auth-input-icon">👤</span>
+                    <input type="text" id="auth-username" class="account-input" placeholder="Enter username (3-16 chars)" maxlength="16" autocomplete="username" />
+                  </div>
+                </div>
+                <div class="auth-field">
+                  <label for="auth-password" class="auth-label">Secret Password</label>
+                  <div class="auth-input-wrap">
+                    <span class="auth-input-icon">🔒</span>
+                    <input type="password" id="auth-password" class="account-input" placeholder="Enter password (4+ chars)" maxlength="64" autocomplete="current-password" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="auth-actions-row">
+                <button type="button" id="btn-login" class="btn-action-primary btn-login">
+                  <span>🔑</span> Log In
+                </button>
+                <button type="button" id="btn-register" class="btn-action-secondary btn-register">
+                  <span>✨</span> Create New Account
+                </button>
+              </div>
+
+              <div class="auth-msg" id="auth-message">Sign in to sync skins & post scores to the online leaderboard!</div>
+
+              <div class="auth-perks-row">
+                <div class="auth-perk-item">
+                  <span class="perk-icon">☁️</span>
+                  <span class="perk-text">Cross-device cloud skin & record syncing</span>
+                </div>
+                <div class="auth-perk-item">
+                  <span class="perk-icon">🏆</span>
+                  <span class="perk-text">Verified Top 100 leaderboard rankings</span>
+                </div>
+                <div class="auth-perk-item">
+                  <span class="perk-icon">🛡️</span>
+                  <span class="perk-text">Deterministic 60Hz anti-cheat verification</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Summary Dashboard (Always fills remaining space; full width when logged in) -->
+            <div class="profile-summary" id="profile-summary-box">
+              <!-- Top Pilot Identity & Mastery Hero -->
+              <div class="profile-hero-card">
+                <div class="profile-avatar-circle" id="profile-avatar-emoji">🐤</div>
+                <div class="profile-hero-info">
+                  <div class="profile-hero-top-row">
+                    <div class="profile-status-pill">🟢 Online & Authenticated</div>
+                    <span class="profile-rank-pill" id="profile-rank-pill">🌱 Rookie Flyer</span>
+                    <span class="profile-hero-badge" id="unlocked-count-badge">🎨 2 / 96 Owned (2%)</span>
+                  </div>
+                  <h3 class="profile-hero-name" id="profile-name-text">Guest Player</h3>
+                  <div class="profile-mastery-wrap">
+                    <div class="profile-mastery-labels">
+                      <span>🎨 Overall 3D Cosmetic Mastery</span>
+                      <strong id="profile-mastery-pct">2 / 96 Skins (2%)</strong>
+                    </div>
+                    <div class="profile-mastery-track">
+                      <div class="profile-mastery-fill" id="profile-mastery-bar-fill" style="width: 2%;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="profile-hero-actions">
+                  <button type="button" class="btn-logout" id="hud-logout-btn">
+                    🚪 Log Out
+                  </button>
+                </div>
+              </div>
+
+              <!-- 4-Column Personal Best Mode Cards -->
+              <div class="profile-records-grid">
+                <div class="profile-rec-card rec-easy-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">🟢 Easy Mode Best</span>
+                    <span class="rec-mode-tag">GAP 4.9M</span>
+                  </div>
+                  <strong class="rec-score" id="rec-easy">0</strong>
+                  <span class="rec-sub" id="rec-easy-meta">Avg: 0.0 pts • 0 Flights</span>
+                </div>
+                <div class="profile-rec-card rec-med-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">🟡 Medium Mode Best</span>
+                    <span class="rec-mode-tag">GAP 3.9M</span>
+                  </div>
+                  <strong class="rec-score" id="rec-medium">0</strong>
+                  <span class="rec-sub" id="rec-med-meta">Avg: 0.0 pts • 0 Flights</span>
+                </div>
+                <div class="profile-rec-card rec-hard-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">🔴 Hard Mode Best</span>
+                    <span class="rec-mode-tag">GAP 3.35M</span>
+                  </div>
+                  <strong class="rec-score" id="rec-hard">0</strong>
+                  <span class="rec-sub" id="rec-hard-meta">Avg: 0.0 pts • 0 Flights</span>
+                </div>
+                <div class="profile-rec-card rec-any-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">⭐ All-Time Peak</span>
+                    <span class="rec-mode-tag">ALL MODES</span>
+                  </div>
+                  <strong class="rec-score" id="rec-any">0</strong>
+                  <span class="rec-sub" id="rec-any-meta">Avg: 0.0 pts • 0 Total Runs</span>
+                </div>
+              </div>
+
+              <!-- Lower 2-Column Dashboard Split: Active 3D Loadout Showcase + Lifetime Career Telemetry -->
+              <div class="profile-dashboard-split">
+                <!-- Left Column: Active 3D Loadout Showcase -->
+                <div class="profile-loadout-box">
+                  <div class="profile-subbox-header">
+                    <span>⚡ Active 3D Flight Loadout</span>
+                    <span class="profile-subbox-hint">Click to Customize →</span>
+                  </div>
+                  <div class="profile-loadout-cards">
+                    <div class="profile-equip-card" id="profile-equipped-bird-card">
+                      <div class="profile-equip-swatch" id="profile-eq-bird-icon">🐤</div>
+                      <div class="profile-equip-info">
+                        <div class="profile-equip-top">
+                          <span class="profile-equip-label">Equipped 3D Bird</span>
+                          <span class="rarity-tag rarity-COMMON" id="profile-eq-bird-tier">COMMON</span>
+                        </div>
+                        <strong class="profile-equip-name" id="profile-eq-bird-name">Classic Gold Finch</strong>
+                        <span class="profile-equip-hitbox">🎯 0.60m Spherical Hitbox (Centered)</span>
+                      </div>
+                      <span class="profile-equip-cta">🐦 Swap</span>
+                    </div>
+
+                    <div class="profile-equip-card" id="profile-equipped-pipe-card">
+                      <div class="profile-equip-swatch" id="profile-eq-pipe-icon">🟢</div>
+                      <div class="profile-equip-info">
+                        <div class="profile-equip-top">
+                          <span class="profile-equip-label">Equipped 3D Pipe</span>
+                          <span class="rarity-tag rarity-COMMON" id="profile-eq-pipe-tier">COMMON</span>
+                        </div>
+                        <strong class="profile-equip-name" id="profile-eq-pipe-name">Classic Emerald Warp</strong>
+                        <span class="profile-equip-hitbox">🎯 1.05m Shaft / 1.24m Cap Hitbox</span>
+                      </div>
+                      <span class="profile-equip-cta">🏗️ Swap</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right Column: Lifetime Career & Quest Telemetry -->
+                <div class="profile-telemetry-box">
+                  <div class="profile-subbox-header">
+                    <span>📈 Lifetime Career & Quest Telemetry</span>
+                    <span class="profile-subbox-hint">All Modes Combined</span>
+                  </div>
+                  <div class="profile-telemetry-grid">
+                    <div class="profile-tele-pill">
+                      <small>🎮 Total Flights</small>
+                      <strong id="prof-stat-runs">0</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>🧱 Pipes Cleared</small>
+                      <strong id="prof-stat-pipes">0</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>🪶 Total Flaps</small>
+                      <strong id="prof-stat-flaps">0</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>⚡ Flaps / Pipe</small>
+                      <strong id="prof-stat-efficiency">—</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>🔴 Pokémon Quests</small>
+                      <strong id="prof-stat-pokemon">0 / 10</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>😂 Meme Quests</small>
+                      <strong id="prof-stat-meme">0 / 16</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom 4-Button Quick Navigation Bar -->
+              <div class="profile-quick-nav">
+                <button type="button" class="btn-quick-nav" id="btn-account-goto-lobby">
+                  🎮 Play Game
+                </button>
+                <button type="button" class="btn-quick-nav" id="btn-account-goto-locker">
+                  🎨 3D Locker (96 Skins)
+                </button>
+                <button type="button" class="btn-quick-nav" id="open-stats-btn">
+                  📊 Detailed Stats
+                </button>
+                <button type="button" class="btn-quick-nav" id="btn-account-goto-lb">
+                  🏆 Top 100 Ranks
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Game Over Screen Overlay -->
+    <div id="gameover-screen" class="screen-overlay">
+      <div class="card gameover-card">
+        <div>
+          <h2 class="gameover-title">GAME OVER</h2>
+
+          <div class="anticheat-status" id="anticheat-status-pill">
+            🛡️ Verifying run replay with server anti-cheat...
+          </div>
+
+          <div class="unlock-toast" id="unlock-toast">
+            🎉 NEW COSMETIC UNLOCKED! Check Bird Skins & Pipe Skins!
+          </div>
+
+          <div class="scoreboard">
+            <div class="new-record-badge" id="new-record-badge">NEW RECORD!</div>
+            <div class="score-box">
+              <span class="score-label" id="gameover-score-label">Score</span>
+              <span class="score-value" id="final-score">0</span>
+            </div>
+            <div class="score-box">
+              <span class="score-label" id="gameover-best-label">Best (Medium)</span>
+              <span class="score-value" id="best-score">0</span>
+            </div>
+          </div>
+
+          <!-- Live Leaderboard directly on Game Over Screen -->
+          <div style="text-align: left; margin-bottom: 12px;">
+            <div class="section-label" id="gameover-lb-title" style="margin-bottom: 6px;">🏆 Live Leaderboard (Medium)</div>
+            <div class="lb-list" id="gameover-lb-list" style="min-height: 125px; max-height: 155px; margin-bottom: 0;">
+              <div class="lb-empty">Updating leaderboard...</div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="gameover-actions">
+          <button id="back-hub-btn" class="btn-hub" type="button">
+            🎨 Skins & Menu
+          </button>
+          <button id="restart-btn" class="btn-restart" type="button">
+            ↻ Play Again
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Guest Account Login Prompt Screen Modal -->
+    <div id="guest-login-modal" class="guest-modal-overlay">
+      <div class="card guest-modal-card">
+        <button type="button" class="guest-modal-close" id="guest-modal-close-btn" title="Continue as Guest">✕</button>
+        <div class="guest-modal-badge">👤 GUEST ACCOUNT DETECTED</div>
+        <h2 class="guest-modal-title">Log In to Save Your Records & Skins!</h2>
+        <p class="guest-modal-subtitle">
+          You are currently on a <strong>Guest Account</strong>. Sign in or create an account below so your high scores, Pokémon &amp; Meme quests, and Top 100 Leaderboard ranks are saved to the cloud!
+        </p>
+
+        <div class="auth-inputs-grid" style="margin-top: 8px;">
+          <div class="auth-field">
+            <label for="guest-modal-username" class="auth-label">Player Username</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">👤</span>
+              <input type="text" id="guest-modal-username" class="account-input" placeholder="Enter username (3-16 chars)" maxlength="16" autocomplete="username" />
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="guest-modal-password" class="auth-label">Secret Password</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon">🔒</span>
+              <input type="password" id="guest-modal-password" class="account-input" placeholder="Enter password (4+ chars)" maxlength="64" autocomplete="current-password" />
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-actions-row" style="margin-top: 10px;">
+          <button type="button" id="btn-guest-modal-login" class="btn-action-primary btn-login">
+            <span>🔑</span> Log In
+          </button>
+          <button type="button" id="btn-guest-modal-register" class="btn-action-secondary btn-register">
+            <span>✨</span> Create New Account
+          </button>
+        </div>
+
+        <div class="auth-msg" id="guest-modal-message">Enter your username and password to sign in or register!</div>
+
+        <div class="guest-modal-footer">
+          <button type="button" class="btn-guest-continue" id="btn-guest-modal-skip">
+            Continue Playing as Guest (Local Only) →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Three.js WebGL Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Modular Client Architecture -->
+  <script src="/js/config.js"></script>
+  <script src="/js/skins-data.js"></script>
+  <script src="/js/sound.js"></script>
+  <script src="/js/textures.js"></script>
+  <script src="/js/ui-views.js"></script>
+  <script src="/js/models-3d.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+</html>
