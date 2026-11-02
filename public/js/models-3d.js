@@ -415,6 +415,20 @@ class FlappyBird3DModels {
           this.createCustomWingStyles();
           this.createRealisticEndgameModels();
 
+          // Exact 0.60m Competitive Hitbox Visualizer Ring (Identical Across All 53 Skins)
+          const hitboxGeo = new THREE.RingGeometry(CONFIG.birdRadius - 0.025, CONFIG.birdRadius + 0.015, 44);
+          const hitboxMat = new THREE.MeshBasicMaterial({
+            color: 0x22d3ee,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85,
+            depthTest: false
+          });
+          this.hitboxRingMesh = new THREE.Mesh(hitboxGeo, hitboxMat);
+          this.hitboxRingMesh.renderOrder = 999;
+          this.hitboxRingMesh.visible = Boolean(this.settings && this.settings.showHitbox);
+          this.birdGroup.add(this.hitboxRingMesh);
+
           this.birdGroup.position.set(CONFIG.birdX, CONFIG.birdStartY, 0);
           this.scene.add(this.birdGroup);
         }
@@ -1023,6 +1037,35 @@ class FlappyBird3DModels {
 
           const addPreset = (key, group) => {
             group.visible = false;
+            // Calibrate 3D model scale & center offset so every skin matches the exact 0.60m collision sphere at (0,0,0)
+            let baseScale = 1.0;
+            let basePos = { x: 0, y: 0, z: 0 };
+            if (key.startsWith('poke_')) {
+              if (key === 'poke_jigglypuff' || key === 'poke_magikarp' || key === 'poke_gengar' || key === 'poke_snorlax') {
+                baseScale = 0.78;
+                basePos = { x: 0, y: 0, z: 0 };
+              } else if (key === 'poke_charizard' || key === 'poke_rayquaza' || key === 'poke_mewtwo') {
+                baseScale = 0.72;
+                basePos = { x: -0.06, y: -0.08, z: 0 };
+              } else {
+                baseScale = 0.78;
+                basePos = { x: -0.08, y: -0.10, z: 0 };
+              }
+            } else if (
+              key === 'bonsai_island' ||
+              key === 'troll_traffic' ||
+              key === 'troll_jackpot' ||
+              key === 'eternity_sovereign' ||
+              key === 'ragnarok' ||
+              key === 'singularity' ||
+              key === 'nebula_god'
+            ) {
+              baseScale = 0.88;
+            }
+            group.userData.baseScale = baseScale;
+            group.userData.basePos = basePos;
+            group.scale.set(baseScale, baseScale, baseScale);
+            group.position.set(basePos.x, basePos.y, basePos.z);
             this.birdMeshGroup.add(group);
             this.skinModelGroups[key] = group;
           };
@@ -2633,13 +2676,14 @@ class FlappyBird3DModels {
           charGroup.add(charTail);
           addPreset('poke_charmander', charGroup);
 
-          // P3. Squirtle ('poke_squirtle': Tiny Turtle Carapace Shell + Cream Rim + Yellow Plastron + Curled Wave Tail)
+          // P3. Squirtle ('poke_squirtle': Tiny Turtle Carapace Shell + Cream Rim + Yellow Plastron + Squirtle-Squad Sunglasses + Hind Feet + Curled Wave Tail)
           const squirtleGroup = new THREE.Group();
           const squirBlue = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.28, metalness: 0.15 });
           const squirShellBrown = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.45 });
           const squirShellRim = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.35 });
           const squirBellyYellow = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.32 });
           const squirEye = new THREE.MeshStandardMaterial({ color: 0x881337, roughness: 0.1 });
+          const squadGlassMat = new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.08, metalness: 0.92 });
 
           const squirShellGroup = new THREE.Group();
           squirShellGroup.position.set(-0.24, 0.02, 0);
@@ -2666,6 +2710,12 @@ class FlappyBird3DModels {
           squirHead.position.set(0.28, 0.34, 0);
           squirtleGroup.add(squirHead);
 
+          // Pointed Black Squirtle-Squad Sunglasses + Smile
+          const squadShades = new THREE.Group();
+          const shadeBridge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.56), squadGlassMat);
+          shadeBridge.position.set(0.76, 0.48, 0);
+          squadShades.add(shadeBridge);
+
           const squirFlippers = new THREE.Group();
           [-1, 1].forEach(side => {
             const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), squirEye);
@@ -2674,13 +2724,35 @@ class FlappyBird3DModels {
             glint.position.set(0.72, 0.48, side * 0.35 + 0.02);
             squirtleGroup.add(eye, glint);
 
+            // Pointed triangular sunglasses lens
+            const lens = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.44, 3), squadGlassMat);
+            lens.scale.set(0.32, 1.0, 0.78);
+            lens.position.set(0.76, 0.46, side * 0.34);
+            lens.rotation.x = side * (Math.PI / 2 - 0.25);
+            lens.rotation.z = -0.15;
+            squadShades.add(lens);
+
             const flipperGeo = new THREE.CylinderGeometry(0.08, 0.16, 0.40, 8);
             flipperGeo.rotateZ(Math.PI / 2.5);
             const flipper = new THREE.Mesh(flipperGeo, squirBlue);
             flipper.position.set(0.24, 0.02, side * 0.48);
             flipper.rotation.y = side * 0.4;
             squirFlippers.add(flipper);
+
+            // Missing Hind Legs & Feet
+            const hindFootGeo = new THREE.SphereGeometry(0.15, 12, 12);
+            hindFootGeo.scale(1.35, 0.65, 0.90);
+            const hindFoot = new THREE.Mesh(hindFootGeo, squirBlue);
+            hindFoot.position.set(-0.04, -0.62, side * 0.34);
+            squirtleGroup.add(hindFoot);
           });
+          squirtleGroup.add(squadShades);
+          const squirSmile = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.022, 6, 12, Math.PI * 0.85), pixelBlackMat);
+          squirSmile.position.set(0.78, 0.26, 0);
+          squirSmile.rotation.y = Math.PI / 2;
+          squirSmile.rotation.z = Math.PI;
+          squirtleGroup.add(squirSmile);
+
           this.animatedSkinParts.squirtleFlippers = squirFlippers;
           squirtleGroup.add(squirFlippers);
 
@@ -2695,7 +2767,7 @@ class FlappyBird3DModels {
           squirtleGroup.add(squirTail);
           addPreset('poke_squirtle', squirtleGroup);
 
-          // P4. Bulbasaur ('poke_bulbasaur': Quadrupedal Dino-Frog + Garlic Bulb on Back + Unfurling Leaves + Animated Twin Vine Whips)
+          // P4. Bulbasaur ('poke_bulbasaur': Quadrupedal Dino-Frog + Garlic Bulb on Back + Unfurling Leaves + Fangs & Smile + Animated Twin Vine Whips)
           const bulbaGroup = new THREE.Group();
           const bulbaTeal = new THREE.MeshStandardMaterial({ color: 0x2dd4bf, roughness: 0.32, metalness: 0.1 });
           const bulbaDarkSpot = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.4 });
@@ -2746,12 +2818,32 @@ class FlappyBird3DModels {
             glint.position.set(0.72, 0.36, side * 0.44);
             bulbaGroup.add(eye, glint);
 
+            // Nostrils & Fangs
+            const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), pixelBlackMat);
+            nostril.position.set(0.95, 0.26, side * 0.10);
+            const fang = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.09, 6), pixelWhiteMat);
+            fang.position.set(0.90, 0.10, side * 0.16);
+            fang.rotation.z = Math.PI;
+            bulbaGroup.add(nostril, fang);
+
             const fLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.38, 8), bulbaTeal);
             fLeg.position.set(0.24, -0.48, side * 0.44);
             const bLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.38, 8), bulbaTeal);
             bLeg.position.set(-0.32, -0.48, side * 0.44);
-            bulbaGroup.add(fLeg, bLeg);
+            const fClaw = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 6), pixelWhiteMat);
+            fClaw.rotation.z = -Math.PI / 2;
+            fClaw.position.set(0.38, -0.62, side * 0.44);
+            const bClaw = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 6), pixelWhiteMat);
+            bClaw.rotation.z = -Math.PI / 2;
+            bClaw.position.set(-0.18, -0.62, side * 0.44);
+            bulbaGroup.add(fLeg, bLeg, fClaw, bClaw);
           });
+
+          const bulbaSmile = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.024, 6, 14, Math.PI * 0.85), pixelBlackMat);
+          bulbaSmile.position.set(0.88, 0.12, 0);
+          bulbaSmile.rotation.y = Math.PI / 2;
+          bulbaSmile.rotation.z = Math.PI;
+          bulbaGroup.add(bulbaSmile);
 
           const plantBulb = new THREE.Group();
           plantBulb.position.set(-0.24, 0.38, 0);
@@ -2782,7 +2874,7 @@ class FlappyBird3DModels {
           bulbaGroup.add(vineGroup);
           addPreset('poke_bulbasaur', bulbaGroup);
 
-          // P5. Bidoof ('poke_bidoof': Plump Beaver Cheeks + Giant Buck Incisor Teeth + 5-Puff Tail + Floating Golden God Crown)
+          // P5. Bidoof ('poke_bidoof': Plump Beaver Cheeks + Giant Buck Incisor Teeth + 4 Paws + 5-Puff Tail + Floating Golden God Crown)
           const bidoofGroup = new THREE.Group();
           const bidoofBrown = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.42 });
           const bidoofDarkBrown = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.46 });
@@ -2820,16 +2912,22 @@ class FlappyBird3DModels {
             glint.position.set(0.73, 0.47, side * 0.32 + 0.02);
             bidoofGroup.add(eye, glint);
 
-            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), bidoofBrown);
-            paw.position.set(0.36, -0.22, side * 0.38);
-            bidoofGroup.add(paw);
+            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), bidoofDarkBrown);
+            paw.scale.set(1.2, 0.7, 0.9);
+            paw.position.set(0.36, -0.34, side * 0.38);
+            const hindPaw = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), bidoofDarkBrown);
+            hindPaw.scale.set(1.3, 0.7, 0.95);
+            hindPaw.position.set(-0.32, -0.58, side * 0.38);
+            bidoofGroup.add(paw, hindPaw);
           });
 
           const bidoofRedNoseMesh = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), bidoofRedNose);
           bidoofRedNoseMesh.position.set(0.80, 0.32, 0);
           const beaverTeeth = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.32, 0.32), pixelWhiteMat);
           beaverTeeth.position.set(0.72, 0.02, 0);
-          bidoofGroup.add(bidoofRedNoseMesh, beaverTeeth);
+          const toothLine = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.32, 0.02), pixelBlackMat);
+          toothLine.position.set(0.73, 0.02, 0);
+          bidoofGroup.add(bidoofRedNoseMesh, beaverTeeth, toothLine);
 
           const beaverTail = new THREE.Group();
           beaverTail.position.set(-0.78, -0.04, 0);
@@ -2935,7 +3033,7 @@ class FlappyBird3DModels {
           mewGroup.add(mewAura);
           addPreset('poke_mew', mewGroup);
 
-          // P7. Eevee ('poke_eevee': Caramel Fox Body + Voluminous Fluffy Cream Neck Mane + Tall Fox Ears + Giant Bushy Tail)
+          // P7. Eevee ('poke_eevee': Caramel Fox Body + Fluffy Cream Neck Mane + Tall Fox Ears + 4 Paws + Bushy Tail + 3 Orbiting Evolution Stones)
           const eeveeGroup = new THREE.Group();
           const eeveeBrown = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.38 });
           const eeveeDarkBrown = new THREE.MeshStandardMaterial({ color: 0x593206, roughness: 0.44 });
@@ -2986,14 +3084,21 @@ class FlappyBird3DModels {
             glint.position.set(0.72, 0.48, side * 0.32 + 0.02);
             eeveeGroup.add(eye, glint);
 
-            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), eeveeBrown);
-            paw.position.set(0.28, -0.32, side * 0.36);
-            eeveeGroup.add(paw);
+            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), eeveeBrown);
+            paw.position.set(0.28, -0.34, side * 0.36);
+            const hindPaw = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), eeveeBrown);
+            hindPaw.scale.set(1.25, 0.75, 0.9);
+            hindPaw.position.set(-0.28, -0.56, side * 0.34);
+            eeveeGroup.add(paw, hindPaw);
           });
 
           const eeveeNose = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), pixelBlackMat);
           eeveeNose.position.set(0.80, 0.36, 0);
-          eeveeGroup.add(eeveeNose);
+          const eeveeSmile = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.02, 6, 12, Math.PI * 0.8), pixelBlackMat);
+          eeveeSmile.position.set(0.74, 0.28, 0);
+          eeveeSmile.rotation.y = Math.PI / 2;
+          eeveeSmile.rotation.z = Math.PI;
+          eeveeGroup.add(eeveeNose, eeveeSmile);
 
           const eeveeTail = new THREE.Group();
           eeveeTail.position.set(-0.66, -0.06, 0);
@@ -3006,14 +3111,31 @@ class FlappyBird3DModels {
           eeveeTail.add(eeveeTailBase, eeveeTailTip);
           this.animatedSkinParts.eeveeTail = eeveeTail;
           eeveeGroup.add(eeveeTail);
+
+          // 3 Orbiting Evolution Stones (Water Blue, Thunder Yellow, Fire Orange)
+          const eeveeStones = new THREE.Group();
+          const stoneColors = [
+            new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.75, roughness: 0.1, metalness: 0.7 }),
+            new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xd97706, emissiveIntensity: 0.75, roughness: 0.1, metalness: 0.7 }),
+            new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0xdc2626, emissiveIntensity: 0.75, roughness: 0.1, metalness: 0.7 })
+          ];
+          stoneColors.forEach((mat, idx) => {
+            const sa = (idx / 3) * Math.PI * 2;
+            const stone = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), mat);
+            stone.position.set(Math.cos(sa) * 1.05, 0.15, Math.sin(sa) * 1.05);
+            eeveeStones.add(stone);
+          });
+          this.animatedSkinParts.eeveeStones = eeveeStones;
+          eeveeGroup.add(eeveeStones);
           addPreset('poke_eevee', eeveeGroup);
 
-          // P8. Jigglypuff ('poke_jigglypuff': Spherical Pink Balloon Body + Forehead Swirl Tuft + Huge Sparkling Teal Eyes + Karaoke Mic)
+          // P8. Jigglypuff ('poke_jigglypuff': Spherical Pink Balloon Body + Forehead Swirl Tuft + Huge Sparkling Teal Eyes + Green Marker Mic + Sleep Notes)
           const jigglyGroup = new THREE.Group();
           const jigglyPink = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.26 });
           const jigglyTealEye = new THREE.MeshStandardMaterial({ color: 0x14b8a6, roughness: 0.06 });
           const jigglyInnerEar = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, roughness: 0.35 });
           const micSilver = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.2, metalness: 0.8 });
+          const markerGreen = new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x059669, emissiveIntensity: 0.45, roughness: 0.2 });
 
           const jigglyBody = new THREE.Mesh(new THREE.SphereGeometry(0.74, 26, 26), jigglyPink);
           jigglyBody.castShadow = true;
@@ -3052,24 +3174,48 @@ class FlappyBird3DModels {
             jigglyGroup.add(foot);
           });
 
+          const jigglyMouth = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), new THREE.MeshBasicMaterial({ color: 0x9f1239 }));
+          jigglyMouth.scale.set(0.5, 1.1, 1.0);
+          jigglyMouth.position.set(0.73, 0.02, 0);
+          jigglyGroup.add(jigglyMouth);
+
           const jigglyArmL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), jigglyPink);
           jigglyArmL.position.set(0.48, -0.18, -0.42);
           const jigglyArmR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), jigglyPink);
           jigglyArmR.position.set(0.54, -0.12, 0.40);
 
-          const micHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.24, 8), pixelBlackMat);
+          const micHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.26, 10), markerGreen);
           micHandle.position.set(0.65, -0.08, 0.44);
           micHandle.rotation.z = Math.PI / 4;
-          const micHead = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), micSilver);
-          micHead.position.set(0.72, 0.01, 0.44);
-          jigglyGroup.add(jigglyArmL, jigglyArmR, micHandle, micHead);
+          const micBand = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.06, 10), pixelBlackMat);
+          micBand.position.set(0.69, -0.04, 0.44);
+          micBand.rotation.z = Math.PI / 4;
+          const micHead = new THREE.Mesh(new THREE.SphereGeometry(0.095, 12, 12), micSilver);
+          micHead.position.set(0.75, 0.03, 0.44);
+          jigglyGroup.add(jigglyArmL, jigglyArmR, micHandle, micBand, micHead);
+
+          // Orbiting Lullaby Music Notes
+          const jigglyNotes = new THREE.Group();
+          for (let n = 0; n < 3; n++) {
+            const na = (n / 3) * Math.PI * 2;
+            const note = new THREE.Group();
+            const noteOrb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), markerGreen);
+            const noteStem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.22, 6), markerGreen);
+            noteStem.position.set(0.06, 0.11, 0);
+            note.add(noteOrb, noteStem);
+            note.position.set(Math.cos(na) * 1.02, 0.25 + n * 0.12, Math.sin(na) * 1.02);
+            jigglyNotes.add(note);
+          }
+          this.animatedSkinParts.jigglyNotes = jigglyNotes;
+          jigglyGroup.add(jigglyNotes);
           addPreset('poke_jigglypuff', jigglyGroup);
 
-          // P9. Magikarp ('poke_magikarp': Flattened Orange-Red Fish Body + 3-Peaked Crown Fin + Gaping Lips + Golden Splash Tail)
+          // P9. Magikarp ('poke_magikarp': Flattened Orange-Red Fish Body + 3-Peaked Crown Fin + Gaping Lips + Golden Splash Tail + Flopping Water Splash Rings)
           const karpGroup = new THREE.Group();
           const karpRed = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.26, metalness: 0.15 });
           const karpGold = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.20, metalness: 0.3 });
           const karpLipPink = new THREE.MeshStandardMaterial({ color: 0xfbcfe8, roughness: 0.3 });
+          const splashBlueMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.65, transparent: true, opacity: 0.78 });
 
           const karpBodyGeo = new THREE.SphereGeometry(0.76, 24, 24);
           karpBodyGeo.scale(1.24, 0.96, 0.52);
@@ -3104,14 +3250,22 @@ class FlappyBird3DModels {
 
           const dorsalCrown = new THREE.Group();
           dorsalCrown.position.set(-0.05, 0.72, 0);
+          const ventralCrown = new THREE.Group();
+          ventralCrown.position.set(-0.05, -0.72, 0);
           [-0.22, 0, 0.22].forEach((xOff, idx) => {
             const h = idx === 1 ? 0.48 : 0.36;
             const spike = new THREE.Mesh(new THREE.ConeGeometry(0.14, h, 6), karpGold);
             spike.position.x = xOff;
             spike.scale.set(1, 1, 0.25);
             dorsalCrown.add(spike);
+
+            const vSpike = new THREE.Mesh(new THREE.ConeGeometry(0.12, h * 0.78, 6), karpGold);
+            vSpike.position.x = xOff;
+            vSpike.rotation.z = Math.PI;
+            vSpike.scale.set(1, 1, 0.25);
+            ventralCrown.add(vSpike);
           });
-          karpGroup.add(dorsalCrown);
+          karpGroup.add(dorsalCrown, ventralCrown);
 
           const karpTail = new THREE.Group();
           karpTail.position.set(-0.84, 0, 0);
@@ -3121,9 +3275,24 @@ class FlappyBird3DModels {
           karpTail.add(tailFin);
           this.animatedSkinParts.magikarpTail = karpTail;
           karpGroup.add(karpTail);
+
+          // Flopping Water Splash Rings & Droplets
+          const karpSplash = new THREE.Group();
+          const splashRing = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.04, 8, 24), splashBlueMat);
+          splashRing.rotation.x = Math.PI / 2;
+          splashRing.position.y = -0.35;
+          karpSplash.add(splashRing);
+          for (let d = 0; d < 6; d++) {
+            const da = (d / 6) * Math.PI * 2;
+            const drop = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.20, 8), splashBlueMat);
+            drop.position.set(Math.cos(da) * 0.92, -0.22 + (d % 2) * 0.18, Math.sin(da) * 0.92);
+            karpSplash.add(drop);
+          }
+          this.animatedSkinParts.magikarpSplash = karpSplash;
+          karpGroup.add(karpSplash);
           addPreset('poke_magikarp', karpGroup);
 
-          // P10. Meowth ('poke_meowth': Sleek Cream Cat Body + Radiant Golden Koban Forehead Coin + Whisker Cheeks + Orbiting Pay Day Coins)
+          // P10. Meowth ('poke_meowth': Sleek Cream Cat Body + Radiant Golden Koban Forehead Coin + Whisker Cheeks + Cat Grin & Hind Feet + Orbiting Pay Day Coins)
           const meowthGroup = new THREE.Group();
           const meowthCream = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.35 });
           const meowthBrown = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.42 });
@@ -3168,16 +3337,28 @@ class FlappyBird3DModels {
             meowthGroup.add(eye, pupil);
 
             for (let w = -1; w <= 1; w += 2) {
-              const whisker = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.015, 0.42, 6), pixelBlackMat);
+              const whisker = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.015, 0.42, 6), meowthCream);
               whisker.position.set(0.54, 0.26 + w * 0.07, side * 0.52);
               whisker.rotation.x = side * (Math.PI / 2 - w * 0.22);
               meowthGroup.add(whisker);
             }
 
-            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), meowthBrown);
+            const paw = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), meowthCream);
             paw.position.set(0.32, -0.16, side * 0.36);
-            meowthGroup.add(paw);
+            const hindFoot = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 10), meowthBrown);
+            hindFoot.scale.set(1.5, 0.6, 0.85);
+            hindFoot.position.set(-0.02, -0.64, side * 0.30);
+            const fang = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 6), pixelWhiteMat);
+            fang.position.set(0.78, 0.22, side * 0.12);
+            fang.rotation.z = Math.PI;
+            meowthGroup.add(paw, hindFoot, fang);
           });
+
+          const meowthMouth = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.022, 6, 12, Math.PI * 0.85), pixelBlackMat);
+          meowthMouth.position.set(0.78, 0.26, 0);
+          meowthMouth.rotation.y = Math.PI / 2;
+          meowthMouth.rotation.z = Math.PI;
+          meowthGroup.add(meowthMouth);
 
           const meowthTail = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 10, 18, Math.PI * 1.4), meowthBrown);
           meowthTail.position.set(-0.76, 0.12, 0);
@@ -3194,6 +3375,538 @@ class FlappyBird3DModels {
           this.animatedSkinParts.meowthCoins = payDayOrbit;
           meowthGroup.add(payDayOrbit);
           addPreset('poke_meowth', meowthGroup);
+
+          // P11. Charizard ('poke_charizard': Flame Dragon Body + Dual Teal/Orange Dragon Wings + Twin Horns + Roaring Inferno Tail Flame)
+          const charizardGroup = new THREE.Group();
+          const zardOrange = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.26, metalness: 0.16 });
+          const zardCream = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.30 });
+          const zardTealWing = new THREE.MeshStandardMaterial({ color: 0x0d9488, emissive: 0x115e59, emissiveIntensity: 0.35, roughness: 0.28, side: THREE.DoubleSide });
+
+          const zardBodyGeo = new THREE.SphereGeometry(0.68, 24, 24);
+          zardBodyGeo.scale(0.96, 1.14, 0.88);
+          const zardBody = new THREE.Mesh(zardBodyGeo, zardOrange);
+          zardBody.position.set(-0.08, -0.06, 0);
+          zardBody.castShadow = true;
+          charizardGroup.add(zardBody);
+
+          const zardBellyGeo = new THREE.SphereGeometry(0.58, 20, 20);
+          zardBellyGeo.scale(0.86, 1.04, 0.74);
+          const zardBelly = new THREE.Mesh(zardBellyGeo, zardCream);
+          zardBelly.position.set(0.10, -0.08, 0);
+          charizardGroup.add(zardBelly);
+
+          const zardNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.45, 12), zardOrange);
+          zardNeck.position.set(0.16, 0.34, 0);
+          zardNeck.rotation.z = -0.35;
+          charizardGroup.add(zardNeck);
+
+          const zardHeadGeo = new THREE.SphereGeometry(0.46, 22, 22);
+          zardHeadGeo.scale(1.26, 0.90, 0.86);
+          const zardHead = new THREE.Mesh(zardHeadGeo, zardOrange);
+          zardHead.position.set(0.38, 0.56, 0);
+          charizardGroup.add(zardHead);
+
+          // Articulated Dual Teal/Orange Dragon Bat-Wings
+          const zardWings = new THREE.Group();
+          [-1, 1].forEach(side => {
+            const horn = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.42, 8), zardOrange);
+            horn.position.set(0.10, 0.82, side * 0.22);
+            horn.rotation.z = 0.65;
+            horn.rotation.x = side * 0.24;
+            charizardGroup.add(horn);
+
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.10, 12, 12), pixelWhiteMat);
+            eye.position.set(0.68, 0.62, side * 0.28);
+            const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), charTealEye);
+            pupil.position.set(0.76, 0.62, side * 0.28);
+            const brow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.06, 0.12), zardOrange);
+            brow.position.set(0.68, 0.70, side * 0.28);
+            brow.rotation.z = -0.28;
+            const fang = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.09, 6), pixelWhiteMat);
+            fang.position.set(0.84, 0.44, side * 0.14);
+            fang.rotation.z = Math.PI;
+            charizardGroup.add(eye, pupil, brow, fang);
+
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.10, 0.36, 8), zardOrange);
+            arm.position.set(0.24, 0.10, side * 0.38);
+            arm.rotation.z = -Math.PI / 3;
+            const leg = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), zardOrange);
+            leg.scale.set(1.1, 1.2, 0.9);
+            leg.position.set(-0.04, -0.52, side * 0.36);
+            const foot = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), zardOrange);
+            foot.scale.set(1.5, 0.55, 0.9);
+            foot.position.set(0.08, -0.74, side * 0.36);
+            charizardGroup.add(arm, leg, foot);
+
+            // Dragon Wing Membrane & Struts
+            const wingPivot = new THREE.Group();
+            wingPivot.position.set(-0.10, 0.22, side * 0.36);
+            const mainBone = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.96, 8), zardOrange);
+            mainBone.position.set(-0.06, 0.28, side * 0.42);
+            mainBone.rotation.x = side * (Math.PI / 3);
+            const wingThumb = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 6), pixelWhiteMat);
+            wingThumb.position.set(0.06, 0.58, side * 0.72);
+            const membrane = new THREE.Mesh(new THREE.ConeGeometry(0.58, 0.95, 5), zardTealWing);
+            membrane.scale.set(0.85, 1.0, 0.18);
+            membrane.position.set(-0.24, 0.18, side * 0.54);
+            membrane.rotation.x = side * (Math.PI / 2.4);
+            membrane.rotation.z = 0.42;
+            wingPivot.add(mainBone, wingThumb, membrane);
+            zardWings.add(wingPivot);
+          });
+          this.animatedSkinParts.charizardWings = zardWings;
+          charizardGroup.add(zardWings);
+
+          const zardTail = new THREE.Group();
+          zardTail.position.set(-0.68, -0.18, 0);
+          const zardTailShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.26, 0.92, 12), zardOrange);
+          zardTailShaft.rotation.z = Math.PI / 2.6;
+          zardTailShaft.position.set(-0.38, 0.18, 0);
+          const zardFlame = new THREE.Group();
+          zardFlame.position.set(-0.82, 0.48, 0);
+          const zfOuter = new THREE.Mesh(new THREE.ConeGeometry(0.30, 0.68, 10), charFlameOuter);
+          const zfMid = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.54, 10), charFlameMid);
+          const zfCore = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.40, 10), charFlameCore);
+          zardFlame.add(zfOuter, zfMid, zfCore);
+          zardTail.add(zardTailShaft, zardFlame);
+          this.animatedSkinParts.charizardFlame = zardFlame;
+          this.animatedSkinParts.charizardTail = zardTail;
+          charizardGroup.add(zardTail);
+          addPreset('poke_charizard', charizardGroup);
+
+          // P12. Gengar ('poke_gengar': Deep-Violet Shadow Body + Back Crown Spikes + Glowing Crimson Eyes + Wide Cheshire Tooth Grin + 3 Ghost Will-O-Wisps)
+          const gengarGroup = new THREE.Group();
+          const gengarPurple = new THREE.MeshStandardMaterial({ color: 0x4c1d95, emissive: 0x2e1065, emissiveIntensity: 0.40, roughness: 0.28, metalness: 0.22 });
+          const gengarRedEye = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xdc2626, emissiveIntensity: 0.95, roughness: 0.08 });
+          const ghostWispMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, emissive: 0x9333ea, emissiveIntensity: 0.95, transparent: true, opacity: 0.82 });
+
+          const gengarBodyGeo = new THREE.SphereGeometry(0.76, 26, 26);
+          gengarBodyGeo.scale(1.06, 1.02, 0.98);
+          const gengarBody = new THREE.Mesh(gengarBodyGeo, gengarPurple);
+          gengarBody.castShadow = true;
+          gengarGroup.add(gengarBody);
+
+          // Jagged Crown & Back Spikes
+          for (let sp = 0; sp < 5; sp++) {
+            const spike = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.38 - sp * 0.03, 6), gengarPurple);
+            spike.position.set(0.18 - sp * 0.18, 0.72 - sp * 0.10, 0);
+            spike.rotation.z = 0.25 + sp * 0.20;
+            gengarGroup.add(spike);
+          }
+
+          const gengarArms = new THREE.Group();
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.56, 8), gengarPurple);
+            ear.position.set(0.16, 0.68, side * 0.46);
+            ear.rotation.x = side * 0.52;
+            ear.rotation.z = -0.18;
+            gengarGroup.add(ear);
+
+            const eye = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.30, 6), gengarRedEye);
+            eye.position.set(0.62, 0.26, side * 0.34);
+            eye.rotation.y = side * Math.PI / 2;
+            eye.rotation.z = -Math.PI / 3;
+            const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 0.04), pixelBlackMat);
+            pupil.position.set(0.74, 0.26, side * 0.34);
+            gengarGroup.add(eye, pupil);
+
+            const arm = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.46, 10), gengarPurple);
+            arm.position.set(0.28, -0.06, side * 0.68);
+            arm.rotation.x = side * (Math.PI / 2.3);
+            gengarArms.add(arm);
+
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.34, 10), gengarPurple);
+            leg.position.set(0.04, -0.68, side * 0.36);
+            gengarGroup.add(leg);
+          });
+          this.animatedSkinParts.gengarArms = gengarArms;
+          gengarGroup.add(gengarArms);
+
+          // Wide Curved Cheshire Grin with Teeth Dividers
+          const gengarGrin = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.09, 10, 20, Math.PI * 0.85), pixelWhiteMat);
+          gengarGrin.position.set(0.56, -0.02, 0);
+          gengarGrin.rotation.y = Math.PI / 2;
+          gengarGrin.rotation.z = Math.PI;
+          gengarGroup.add(gengarGrin);
+          for (let t = -2; t <= 2; t++) {
+            const toothLine = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.20, 0.025), pixelBlackMat);
+            toothLine.position.set(0.74, -0.12 + Math.abs(t) * 0.03, t * 0.11);
+            gengarGroup.add(toothLine);
+          }
+
+          const gengarTail = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.44, 8), gengarPurple);
+          gengarTail.position.set(-0.78, -0.26, 0);
+          gengarTail.rotation.z = Math.PI / 2.2;
+          gengarGroup.add(gengarTail);
+
+          // 3 Orbiting Will-O-Wisp Ghost Orbs
+          const gengarWisps = new THREE.Group();
+          for (let w = 0; w < 3; w++) {
+            const wa = (w / 3) * Math.PI * 2;
+            const wisp = new THREE.Group();
+            const wCore = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 10), ghostWispMat);
+            const wTail = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.28, 8), ghostWispMat);
+            wTail.position.y = 0.16;
+            wisp.add(wCore, wTail);
+            wisp.position.set(Math.cos(wa) * 1.12, 0.10, Math.sin(wa) * 1.12);
+            gengarWisps.add(wisp);
+          }
+          this.animatedSkinParts.gengarWisps = gengarWisps;
+          gengarGroup.add(gengarWisps);
+          addPreset('poke_gengar', gengarGroup);
+
+          // P13. Lucario ('poke_lucario': Cobalt-Blue & Black Martial Jackal + Golden Furry Torso + Steel Chest Spike + 4 Aura Dreadlocks + Dual Aura Spheres)
+          const lucarioGroup = new THREE.Group();
+          const lucBlue = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.25, metalness: 0.30 });
+          const lucYellow = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.35 });
+          const lucBlack = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.30 });
+          const lucSpikeSteel = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.12, metalness: 0.92 });
+          const auraSphereMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 1.1, transparent: true, opacity: 0.85 });
+
+          const lucTorso = new THREE.Mesh(new THREE.SphereGeometry(0.56, 22, 22), lucYellow);
+          lucTorso.scale.set(0.88, 1.12, 0.84);
+          lucTorso.position.set(-0.04, -0.02, 0);
+          const chestSpike = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.32, 10), lucSpikeSteel);
+          chestSpike.rotation.z = -Math.PI / 2;
+          chestSpike.position.set(0.52, 0.04, 0);
+          lucarioGroup.add(lucTorso, chestSpike);
+
+          const lucHead = new THREE.Mesh(new THREE.SphereGeometry(0.46, 22, 22), lucBlue);
+          lucHead.position.set(0.22, 0.48, 0);
+          const lucSnout = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.44, 12), lucBlue);
+          lucSnout.rotation.z = -Math.PI / 2 + 0.12;
+          lucSnout.position.set(0.62, 0.42, 0);
+          const lucMask = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.18, 0.72), lucBlack);
+          lucMask.position.set(0.42, 0.50, 0);
+          lucarioGroup.add(lucHead, lucSnout, lucMask);
+
+          const lucSensors = new THREE.Group();
+          lucSensors.position.set(-0.08, 0.44, 0);
+          const lucAuraSpheres = new THREE.Group();
+
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.52, 10), lucBlue);
+            ear.position.set(0.16, 0.92, side * 0.24);
+            ear.rotation.x = side * 0.22;
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), gengarRedEye);
+            eye.position.set(0.56, 0.52, side * 0.26);
+            lucarioGroup.add(ear, eye);
+
+            // 2 Black Dreadlock Aura Sensors per side
+            for (let d = 0; d < 2; d++) {
+              const dread = new THREE.Mesh(new THREE.CapsuleGeometry ? new THREE.CylinderGeometry(0.07, 0.11, 0.46, 8) : new THREE.CylinderGeometry(0.07, 0.11, 0.46, 8), lucBlack);
+              dread.position.set(-0.22 - d * 0.10, -0.10 - d * 0.08, side * (0.18 + d * 0.12));
+              dread.rotation.z = 0.65 + d * 0.20;
+              lucSensors.add(dread);
+            }
+
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.44, 8), lucBlue);
+            arm.position.set(0.24, 0.04, side * 0.44);
+            arm.rotation.z = -Math.PI / 3;
+            const pawSpike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 8), lucSpikeSteel);
+            pawSpike.rotation.z = -Math.PI / 2;
+            pawSpike.position.set(0.44, -0.04, side * 0.48);
+
+            const auraOrb = new THREE.Mesh(new THREE.SphereGeometry(0.20, 14, 14), auraSphereMat);
+            auraOrb.position.set(0.64, -0.04, side * 0.54);
+            const auraRing = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.025, 8, 18), auraSphereMat);
+            auraRing.position.copy(auraOrb.position);
+            lucAuraSpheres.add(auraOrb, auraRing);
+
+            const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), lucBlue);
+            thigh.position.set(-0.08, -0.44, side * 0.28);
+            const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 0.34, 8), lucBlack);
+            foot.position.set(-0.04, -0.68, side * 0.28);
+            lucarioGroup.add(arm, pawSpike, thigh, foot);
+          });
+          const lucTail = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.62, 8), lucBlue);
+          lucTail.rotation.z = Math.PI / 2.4;
+          lucTail.position.set(-0.62, -0.22, 0);
+          lucarioGroup.add(lucSensors, lucAuraSpheres, lucTail);
+          this.animatedSkinParts.lucarioSensors = lucSensors;
+          this.animatedSkinParts.lucarioAuraSpheres = lucAuraSpheres;
+          addPreset('poke_lucario', lucarioGroup);
+
+          // P14. Greninja ('poke_greninja': Stealth Navy Ninja Frog + 3-Pronged Head Fin + Pink Tongue Scarf + Spinning Hydro Water Shuriken)
+          const greninjaGroup = new THREE.Group();
+          const grenNavy = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.24, metalness: 0.28 });
+          const grenYellow = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.32 });
+          const grenTonguePink = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.28 });
+          const waterShurikenMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.95, roughness: 0.08, metalness: 0.75, transparent: true, opacity: 0.90 });
+
+          const grenBody = new THREE.Mesh(new THREE.SphereGeometry(0.58, 22, 22), grenNavy);
+          grenBody.scale.set(1.08, 0.92, 0.88);
+          grenBody.position.set(-0.06, -0.06, 0);
+          const grenBelly = new THREE.Mesh(new THREE.SphereGeometry(0.48, 18, 18), grenYellow);
+          grenBelly.scale.set(0.95, 0.82, 0.76);
+          grenBelly.position.set(0.10, -0.10, 0);
+          greninjaGroup.add(grenBody, grenBelly);
+
+          const grenHead = new THREE.Mesh(new THREE.SphereGeometry(0.48, 20, 20), grenNavy);
+          grenHead.scale.set(1.22, 0.84, 0.94);
+          grenHead.position.set(0.32, 0.34, 0);
+          const centerFin = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.62, 6), grenNavy);
+          centerFin.rotation.z = 0.78;
+          centerFin.position.set(0.08, 0.66, 0);
+          greninjaGroup.add(grenHead, centerFin);
+
+          // Pink Tongue Scarf wrapped around neck & billowing behind
+          const scarfRing = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.13, 12, 22), grenTonguePink);
+          scarfRing.rotation.x = Math.PI / 2.2;
+          scarfRing.position.set(0.20, 0.18, 0);
+          const scarfTail = new THREE.Group();
+          scarfTail.position.set(-0.18, 0.22, 0);
+          const scarfBlade1 = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.10, 0.28), grenTonguePink);
+          scarfBlade1.position.set(-0.38, 0.08, 0);
+          scarfBlade1.rotation.z = -0.22;
+          const scarfBlade2 = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.09, 0.24), grenTonguePink);
+          scarfBlade2.position.set(-0.78, 0.18, 0);
+          scarfBlade2.rotation.z = 0.15;
+          scarfTail.add(scarfBlade1, scarfBlade2);
+          this.animatedSkinParts.greninjaScarf = scarfTail;
+          greninjaGroup.add(scarfRing, scarfTail);
+
+          [-1, 1].forEach(side => {
+            const sideFin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.56, 6), grenNavy);
+            sideFin.position.set(0.12, 0.58, side * 0.34);
+            sideFin.rotation.z = 0.68;
+            sideFin.rotation.x = side * 0.35;
+            const eyePatch = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), pixelWhiteMat);
+            eyePatch.scale.set(1.2, 0.6, 0.5);
+            eyePatch.position.set(0.48, 0.44, side * 0.34);
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), gengarRedEye);
+            eye.position.set(0.64, 0.42, side * 0.32);
+
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.42, 8), grenNavy);
+            arm.position.set(0.32, -0.10, side * 0.42);
+            arm.rotation.z = -Math.PI / 2.8;
+            const handPad = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), pixelWhiteMat);
+            handPad.position.set(0.52, -0.18, side * 0.46);
+
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.44, 8), grenNavy);
+            leg.position.set(-0.22, -0.48, side * 0.36);
+            greninjaGroup.add(sideFin, eyePatch, eye, arm, handPad, leg);
+          });
+
+          // Giant Spinning Hydro Water Shuriken on Back
+          const waterShuriken = new THREE.Group();
+          waterShuriken.position.set(-0.42, 0.36, 0);
+          waterShuriken.rotation.y = Math.PI / 2;
+          const shurikenHub = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.045, 8, 18), waterShurikenMat);
+          waterShuriken.add(shurikenHub);
+          for (let b = 0; b < 4; b++) {
+            const ba = (b / 4) * Math.PI * 2;
+            const blade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.58, 4), waterShurikenMat);
+            blade.scale.set(1.0, 1.0, 0.25);
+            blade.position.set(Math.cos(ba) * 0.36, Math.sin(ba) * 0.36, 0);
+            blade.rotation.z = ba - Math.PI / 2;
+            waterShuriken.add(blade);
+          }
+          this.animatedSkinParts.greninjaShuriken = waterShuriken;
+          greninjaGroup.add(waterShuriken);
+          addPreset('poke_greninja', greninjaGroup);
+
+          // P15. Snorlax ('poke_snorlax': Colossal Dark-Teal Sleeping Titan + Cream Belly & Face + Closed Sleeping Eyes + Big Paw Pads + Floating Zzz Rings)
+          const snorlaxGroup = new THREE.Group();
+          const snorlaxTeal = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.36, metalness: 0.10 });
+          const snorlaxCream = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.38 });
+          const snorlaxPawPink = new THREE.MeshStandardMaterial({ color: 0xfda4af, roughness: 0.35 });
+
+          const snorBody = new THREE.Mesh(new THREE.SphereGeometry(0.80, 26, 26), snorlaxTeal);
+          snorBody.scale.set(1.02, 0.98, 1.04);
+          snorBody.position.set(-0.06, -0.10, 0);
+          const snorBelly = new THREE.Mesh(new THREE.SphereGeometry(0.72, 24, 24), snorlaxCream);
+          snorBelly.scale.set(0.92, 0.90, 0.92);
+          snorBelly.position.set(0.14, -0.10, 0);
+          snorlaxGroup.add(snorBody, snorBelly);
+
+          const snorHead = new THREE.Mesh(new THREE.SphereGeometry(0.50, 22, 22), snorlaxTeal);
+          snorHead.position.set(0.18, 0.48, 0);
+          const snorFace = new THREE.Mesh(new THREE.SphereGeometry(0.42, 20, 20), snorlaxCream);
+          snorFace.position.set(0.32, 0.46, 0);
+          snorlaxGroup.add(snorHead, snorFace);
+
+          const snorArms = new THREE.Group();
+          [-1, 1].forEach(side => {
+            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.36, 8), snorlaxTeal);
+            ear.position.set(0.14, 0.86, side * 0.34);
+            ear.rotation.x = side * 0.32;
+
+            // Closed Peaceful Sleeping Arc Eye
+            const closedEye = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.20), pixelBlackMat);
+            closedEye.position.set(0.70, 0.54, side * 0.22);
+            const fang = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.09, 6), pixelWhiteMat);
+            fang.position.set(0.71, 0.38, side * 0.14);
+
+            const arm = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), snorlaxTeal);
+            arm.scale.set(1.3, 0.75, 0.85);
+            arm.position.set(0.24, 0.04, side * 0.68);
+            snorArms.add(arm);
+
+            const foot = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), snorlaxCream);
+            foot.scale.set(0.65, 1.0, 1.0);
+            foot.position.set(0.46, -0.52, side * 0.44);
+            const pad = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), snorlaxPawPink);
+            pad.scale.set(0.45, 0.85, 0.85);
+            pad.position.set(0.58, -0.52, side * 0.44);
+            snorlaxGroup.add(ear, closedEye, fang, foot, pad);
+          });
+          const snorMouth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.32), pixelBlackMat);
+          snorMouth.position.set(0.71, 0.35, 0);
+          this.animatedSkinParts.snorlaxArms = snorArms;
+          snorlaxGroup.add(snorMouth, snorArms);
+
+          // Floating Sleep Bubbles above Snorlax
+          const snorZzz = new THREE.Group();
+          snorZzz.position.set(0.42, 0.90, 0);
+          for (let b = 0; b < 3; b++) {
+            const bub = new THREE.Mesh(new THREE.SphereGeometry(0.08 + b * 0.04, 12, 12), auraSphereMat);
+            bub.position.set(b * 0.14, b * 0.18, b * 0.08);
+            snorZzz.add(bub);
+          }
+          this.animatedSkinParts.snorlaxZzz = snorZzz;
+          snorlaxGroup.add(snorZzz);
+          addPreset('poke_snorlax', snorlaxGroup);
+
+          // P16. Mewtwo ('poke_mewtwo': Silver-Lavender Genetic Psychic Body + Secondary Brain-Stem Neck Tube + Purple Whip Tail + Dual Psystrike Rings)
+          const mewtwoGroup = new THREE.Group();
+          const m2Silver = new THREE.MeshStandardMaterial({ color: 0xe9d5ff, roughness: 0.22, metalness: 0.28 });
+          const m2Purple = new THREE.MeshStandardMaterial({ color: 0x9333ea, emissive: 0x6b21a8, emissiveIntensity: 0.45, roughness: 0.25 });
+          const psystrikeMat = new THREE.MeshStandardMaterial({ color: 0xd946ef, emissive: 0xc026d3, emissiveIntensity: 1.1, transparent: true, opacity: 0.82 });
+
+          const m2Torso = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.22, 0.68, 16), m2Silver);
+          m2Torso.position.set(0.02, 0.08, 0);
+          const m2Pelvis = new THREE.Mesh(new THREE.SphereGeometry(0.38, 18, 18), m2Purple);
+          m2Pelvis.scale.set(0.95, 1.05, 0.92);
+          m2Pelvis.position.set(-0.04, -0.34, 0);
+          mewtwoGroup.add(m2Torso, m2Pelvis);
+
+          const m2Head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 20, 20), m2Silver);
+          m2Head.scale.set(1.12, 0.96, 0.92);
+          m2Head.position.set(0.18, 0.62, 0);
+          // Iconic Secondary Brain-Stem Neck Tube
+          const brainTube = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.065, 10, 18, Math.PI * 1.1), m2Silver);
+          brainTube.position.set(-0.14, 0.44, 0);
+          brainTube.rotation.z = Math.PI / 2;
+          mewtwoGroup.add(m2Head, brainTube);
+
+          [-1, 1].forEach(side => {
+            const horn = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.28, 8), m2Silver);
+            horn.position.set(0.10, 0.94, side * 0.22);
+            horn.rotation.x = side * 0.25;
+            const eye = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.22, 6), psystrikeMat);
+            eye.position.set(0.52, 0.62, side * 0.24);
+            eye.rotation.y = side * Math.PI / 2;
+            eye.rotation.z = -Math.PI / 3;
+
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.46, 8), m2Silver);
+            arm.position.set(0.22, 0.14, side * 0.42);
+            arm.rotation.z = -Math.PI / 3;
+            const fingerSphere = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), m2Silver);
+            fingerSphere.position.set(0.44, 0.04, side * 0.48);
+
+            const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), m2Purple);
+            thigh.scale.set(0.9, 1.3, 0.9);
+            thigh.position.set(-0.04, -0.58, side * 0.28);
+            mewtwoGroup.add(horn, eye, arm, fingerSphere, thigh);
+          });
+
+          const m2Tail = new THREE.Group();
+          m2Tail.position.set(-0.34, -0.34, 0);
+          const m2TailCurve = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.11, 12, 24, Math.PI * 1.15), m2Purple);
+          m2TailCurve.position.set(-0.38, 0.42, 0);
+          m2TailCurve.rotation.z = Math.PI * 0.65;
+          const m2TailBulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), m2Purple);
+          m2TailBulb.position.set(-0.62, 0.92, 0);
+          m2Tail.add(m2TailCurve, m2TailBulb);
+          this.animatedSkinParts.mewtwoTail = m2Tail;
+          mewtwoGroup.add(m2Tail);
+
+          const psystrikeRings = new THREE.Group();
+          const psyRing1 = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.038, 8, 28), psystrikeMat);
+          psyRing1.rotation.x = Math.PI / 3;
+          const psyRing2 = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.032, 8, 28), psystrikeMat);
+          psyRing2.rotation.y = Math.PI / 3;
+          psystrikeRings.add(psyRing1, psyRing2);
+          this.animatedSkinParts.mewtwoPsystrike = psystrikeRings;
+          mewtwoGroup.add(psystrikeRings);
+          addPreset('poke_mewtwo', mewtwoGroup);
+
+          // P17. Rayquaza ('poke_rayquaza': Coiled Emerald Sky Dragon + Golden Ring Markings + Crimson-Edged Rudder Fins + Delta-Stream Wind Vortex)
+          const rayquazaGroup = new THREE.Group();
+          const rayEmerald = new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x065f46, emissiveIntensity: 0.35, roughness: 0.24, metalness: 0.32 });
+          const rayGold = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xd97706, emissiveIntensity: 0.75, roughness: 0.16, metalness: 0.85 });
+          const rayCrimson = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x991b1b, emissiveIntensity: 0.45, roughness: 0.25 });
+
+          // Segmented Coiled Serpentine Dragon Body
+          const rayCoils = new THREE.Group();
+          const coilPositions = [
+            { x: 0.16, y: 0.18, z: 0, r: 0.32 },
+            { x: -0.14, y: -0.08, z: 0.18, r: 0.30 },
+            { x: -0.44, y: 0.12, z: -0.16, r: 0.27 },
+            { x: -0.74, y: -0.12, z: 0.10, r: 0.23 },
+            { x: -1.02, y: 0.06, z: 0, r: 0.18 }
+          ];
+          coilPositions.forEach((cp, idx) => {
+            const seg = new THREE.Mesh(new THREE.SphereGeometry(cp.r, 18, 18), rayEmerald);
+            seg.scale.set(1.35, 0.95, 0.95);
+            seg.position.set(cp.x, cp.y, cp.z);
+            const goldRing = new THREE.Mesh(new THREE.TorusGeometry(cp.r * 0.98, 0.035, 8, 20), rayGold);
+            goldRing.rotation.y = Math.PI / 2;
+            goldRing.position.copy(seg.position);
+            rayCoils.add(seg, goldRing);
+
+            if (idx % 2 === 0) {
+              const fin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 4), rayEmerald);
+              fin.position.set(cp.x, cp.y + cp.r + 0.14, cp.z);
+              const finTrim = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.14, 4), rayCrimson);
+              finTrim.position.set(cp.x, cp.y + cp.r + 0.30, cp.z);
+              rayCoils.add(fin, finTrim);
+            }
+          });
+          this.animatedSkinParts.rayquazaCoils = rayCoils;
+          rayquazaGroup.add(rayCoils);
+
+          // Armored Dragon Head + 4 Swept Golden/Emerald Horns + Blazing Yellow Eyes
+          const rayHead = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.78, 8), rayEmerald);
+          rayHead.rotation.z = -Math.PI / 2;
+          rayHead.position.set(0.56, 0.32, 0);
+          const rayJaw = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.62, 8), rayCrimson);
+          rayJaw.rotation.z = -Math.PI / 2 + 0.18;
+          rayJaw.position.set(0.54, 0.18, 0);
+          rayquazaGroup.add(rayHead, rayJaw);
+
+          [-1, 1].forEach(side => {
+            const upperHorn = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.62, 8), rayEmerald);
+            upperHorn.position.set(0.18, 0.64, side * 0.28);
+            upperHorn.rotation.z = 0.82;
+            upperHorn.rotation.x = side * 0.32;
+            const lowerHorn = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.48, 8), rayGold);
+            lowerHorn.position.set(0.20, 0.38, side * 0.34);
+            lowerHorn.rotation.z = 0.95;
+            lowerHorn.rotation.x = side * 0.45;
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), rayGold);
+            eye.position.set(0.62, 0.40, side * 0.24);
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.38, 8), rayEmerald);
+            arm.position.set(0.28, -0.06, side * 0.38);
+            arm.rotation.z = -Math.PI / 3;
+            rayquazaGroup.add(upperHorn, lowerHorn, eye, arm);
+          });
+
+          // Delta-Stream Wind Vortex & Emerald Meteor Shards
+          const rayDelta = new THREE.Group();
+          const deltaRing = new THREE.Mesh(new THREE.TorusGeometry(1.06, 0.036, 8, 28), rayGold);
+          deltaRing.rotation.x = Math.PI / 2.4;
+          rayDelta.add(deltaRing);
+          for (let m = 0; m < 4; m++) {
+            const ma = (m / 4) * Math.PI * 2;
+            const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), m % 2 === 0 ? rayEmerald : rayGold);
+            shard.position.set(Math.cos(ma) * 1.06, 0, Math.sin(ma) * 1.06);
+            rayDelta.add(shard);
+          }
+          this.animatedSkinParts.rayquazaDelta = rayDelta;
+          rayquazaGroup.add(rayDelta);
+          addPreset('poke_rayquaza', rayquazaGroup);
         }
 
         // ------------------------------------------------------------------------
@@ -3495,8 +4208,8 @@ class FlappyBird3DModels {
             }
           } else if (trimStyle === 'nature_vines') {
             const vineRing = new THREE.Mesh(this.sharedGeo.pipeHaloTorus, trimMat);
-            vineRing.position.y = capCenterY;
-            vineRing.rotation.x = 0.22;
+            vineRing.position.y = isBottom ? (capCenterY - 0.16) : (capCenterY + 0.16);
+            vineRing.rotation.x = 0.12;
             container.add(vineRing);
             if (animatedRingsOut) animatedRingsOut.push(vineRing);
             for (let i = 0; i < 6; i++) {
@@ -3513,7 +4226,7 @@ class FlappyBird3DModels {
             }
           } else if (trimStyle === 'clockwork_gears') {
             const gearRing = new THREE.Group();
-            gearRing.position.y = capCenterY;
+            gearRing.position.y = isBottom ? (capCenterY - 0.14) : (capCenterY + 0.14);
             const torus = new THREE.Mesh(this.sharedGeo.pipeHaloTorus, trimMat);
             gearRing.add(torus);
             for (let i = 0; i < 12; i++) {
@@ -3528,8 +4241,8 @@ class FlappyBird3DModels {
               gearRing.add(tooth);
             }
             const outerOrbit = new THREE.Mesh(this.sharedGeo.pipeOuterOrbitTorus, trimMat);
-            outerOrbit.position.y = capCenterY;
-            outerOrbit.rotation.x = 0.28;
+            outerOrbit.position.y = isBottom ? (capCenterY - 0.22) : (capCenterY + 0.22);
+            outerOrbit.rotation.x = 0.14;
             container.add(gearRing, outerOrbit);
             if (animatedRingsOut) animatedRingsOut.push(gearRing, outerOrbit);
           } else if (trimStyle === 'neon_rings') {
@@ -3573,22 +4286,22 @@ class FlappyBird3DModels {
             }
           } else if (trimStyle === 'halos') {
             const halo1 = new THREE.Mesh(this.sharedGeo.pipeHaloTorus, trimMat);
-            halo1.position.y = capCenterY;
-            halo1.rotation.x = 0.25;
+            halo1.position.y = isBottom ? (capCenterY - 0.18) : (capCenterY + 0.18);
+            halo1.rotation.x = 0.14;
             const halo2 = new THREE.Mesh(this.sharedGeo.pipeOuterOrbitTorus, trimMat);
-            halo2.position.y = capCenterY;
-            halo2.rotation.y = 0.35;
+            halo2.position.y = isBottom ? (capCenterY - 0.24) : (capCenterY + 0.24);
+            halo2.rotation.y = 0.25;
             const collar = new THREE.Mesh(this.sharedGeo.pipeCollarTorus, trimMat);
             collar.position.y = isBottom ? (capCenterY + capH * 0.45) : (capCenterY - capH * 0.45);
             container.add(halo1, halo2, collar);
             if (animatedRingsOut) animatedRingsOut.push(halo1, halo2);
           } else if (trimStyle === 'laser_matrix') {
             const orbit1 = new THREE.Mesh(this.sharedGeo.pipeHaloTorus, trimMat);
-            orbit1.position.y = capCenterY;
-            orbit1.rotation.x = 0.32;
+            orbit1.position.y = isBottom ? (capCenterY - 0.18) : (capCenterY + 0.18);
+            orbit1.rotation.x = 0.14;
             const orbit2 = new THREE.Mesh(this.sharedGeo.pipeOuterOrbitTorus, trimMat);
             orbit2.position.y = isBottom ? (capCenterY - 0.65) : (capCenterY + 0.65);
-            orbit2.rotation.z = -0.28;
+            orbit2.rotation.z = -0.20;
             container.add(orbit1, orbit2);
             if (animatedRingsOut) animatedRingsOut.push(orbit1, orbit2);
             for (let i = 0; i < 8; i++) {
@@ -3847,17 +4560,18 @@ class FlappyBird3DModels {
             parts.trollTrafficTower.rotation.y = Math.sin(t * 3.5) * 0.35;
           }
 
-          // Dynamic Animations for True Pokémon Characters
+          // Dynamic Animations for True Pokémon Characters (Strictly locked to calibrated 0.60m hitbox center!)
           if (this.currentSkin && (this.currentSkin.category === 'pokemon' || (this.currentSkin.modelPreset && this.currentSkin.modelPreset.startsWith('poke_')))) {
             const presetKey = this.currentSkin.modelPreset;
             const activePokeGroup = presetKey && this.skinModelGroups ? this.skinModelGroups[presetKey] : null;
             if (activePokeGroup && presetKey !== 'poke_jigglypuff') {
-              const hopBoost = (this.wingFlapBoost || 0) * 0.12;
-              const idleBob = Math.sin(t * 10) * 0.04;
-              activePokeGroup.position.y = idleBob + hopBoost;
-              const stretch = 1.0 + hopBoost * 0.65 + Math.sin(t * 11) * 0.025;
-              const squash = 1.0 / Math.sqrt(Math.max(0.85, stretch));
-              activePokeGroup.scale.set(squash, stretch, squash);
+              const baseScale = activePokeGroup.userData.baseScale || 0.78;
+              const basePos = activePokeGroup.userData.basePos || { x: -0.08, y: -0.10, z: 0 };
+              const hopBoost = (this.wingFlapBoost || 0) * 0.08;
+              activePokeGroup.position.set(basePos.x, basePos.y, basePos.z);
+              const stretch = 1.0 + hopBoost * 0.55 + Math.sin(t * 11) * 0.02;
+              const squash = 1.0 / Math.sqrt(Math.max(0.88, stretch));
+              activePokeGroup.scale.set(baseScale * squash, baseScale * stretch, baseScale * squash);
             }
             if (parts.pikachuArms) parts.pikachuArms.rotation.x = flapAngle * 0.65;
             if (parts.pikachuTail) parts.pikachuTail.rotation.z = Math.sin(t * 9) * 0.24 + (this.wingFlapBoost || 0) * 0.25;
@@ -3885,17 +4599,91 @@ class FlappyBird3DModels {
               parts.mewAura.scale.setScalar(0.95 + Math.sin(t * 4.5) * 0.07);
             }
             if (parts.eeveeTail) parts.eeveeTail.rotation.z = -Math.PI / 3 + Math.sin(t * 5.5) * 0.28;
+            if (parts.eeveeStones) {
+              parts.eeveeStones.rotation.y += frameDt * 3.2;
+              parts.eeveeStones.children.forEach((st, idx) => {
+                st.rotation.x += frameDt * 5.0;
+                st.position.y = 0.15 + Math.sin(t * 5 + idx * 2.1) * 0.15;
+              });
+            }
             if (this.skinModelGroups.poke_jigglypuff && this.skinModelGroups.poke_jigglypuff.visible) {
-              const squish = 1.0 + Math.sin(t * 9) * 0.06 + (this.wingFlapBoost || 0) * 0.08;
-              this.skinModelGroups.poke_jigglypuff.scale.set(squish, 2.0 - squish, squish);
+              const jGroup = this.skinModelGroups.poke_jigglypuff;
+              const jScale = jGroup.userData.baseScale || 0.78;
+              const jPos = jGroup.userData.basePos || { x: 0, y: 0, z: 0 };
+              jGroup.position.set(jPos.x, jPos.y, jPos.z);
+              const squish = 1.0 + Math.sin(t * 9) * 0.05 + (this.wingFlapBoost || 0) * 0.06;
+              jGroup.scale.set(jScale * squish, jScale * (2.0 - squish), jScale * squish);
+            }
+            if (parts.jigglyNotes) {
+              parts.jigglyNotes.rotation.y += frameDt * 2.8;
+              parts.jigglyNotes.children.forEach((nt, idx) => {
+                nt.position.y = 0.20 + Math.sin(t * 5.5 + idx * 2.0) * 0.18;
+              });
             }
             if (parts.magikarpTail) parts.magikarpTail.rotation.y = Math.sin(t * 16) * 0.58;
+            if (parts.magikarpSplash) {
+              parts.magikarpSplash.rotation.y += frameDt * 3.0;
+              parts.magikarpSplash.scale.setScalar(0.92 + Math.sin(t * 12) * 0.12);
+            }
             if (parts.meowthCoins) {
               parts.meowthCoins.rotation.y += frameDt * 3.6;
               parts.meowthCoins.children.forEach((c, idx) => {
                 c.rotation.z += frameDt * 7.0;
                 c.position.y = 0.12 + Math.sin(t * 6 + idx) * 0.16;
               });
+            }
+            if (parts.charizardWings) {
+              parts.charizardWings.children.forEach((wp, idx) => {
+                const side = idx === 0 ? -1 : 1;
+                wp.rotation.x = side * flapAngle * 0.85;
+              });
+            }
+            if (parts.charizardFlame) {
+              const zScale = 0.90 + Math.sin(t * 20) * 0.20 + (this.wingFlapBoost || 0) * 0.25;
+              parts.charizardFlame.scale.set(zScale, zScale * 1.12, zScale);
+            }
+            if (parts.charizardTail) parts.charizardTail.rotation.z = Math.sin(t * 5.0) * 0.16;
+            if (parts.gengarArms) parts.gengarArms.rotation.x = flapAngle * 0.55;
+            if (parts.gengarWisps) {
+              parts.gengarWisps.rotation.y -= frameDt * 3.8;
+              parts.gengarWisps.children.forEach((w, idx) => {
+                w.position.y = 0.10 + Math.sin(t * 6.5 + idx * 2.1) * 0.20;
+              });
+            }
+            if (parts.lucarioSensors) parts.lucarioSensors.rotation.z = Math.sin(t * 7) * 0.18;
+            if (parts.lucarioAuraSpheres) {
+              parts.lucarioAuraSpheres.children.forEach((orb, idx) => {
+                orb.rotation.y += frameDt * 6.0;
+                orb.rotation.z -= frameDt * 4.5;
+                const s = 0.90 + Math.sin(t * 10 + idx) * 0.15 + (this.wingFlapBoost || 0) * 0.15;
+                orb.scale.setScalar(s);
+              });
+            }
+            if (parts.greninjaScarf) {
+              parts.greninjaScarf.rotation.z = Math.sin(t * 12) * 0.22;
+              parts.greninjaScarf.rotation.y = Math.cos(t * 9) * 0.16;
+            }
+            if (parts.greninjaShuriken) {
+              parts.greninjaShuriken.rotation.z -= frameDt * 14.0;
+            }
+            if (parts.snorlaxArms) parts.snorlaxArms.rotation.x = flapAngle * 0.45;
+            if (parts.snorlaxZzz) {
+              parts.snorlaxZzz.children.forEach((bub, idx) => {
+                const s = 0.85 + Math.sin(t * 4.5 + idx * 1.3) * 0.22;
+                bub.scale.setScalar(s);
+              });
+            }
+            if (parts.mewtwoTail) parts.mewtwoTail.rotation.z = Math.sin(t * 4.5) * 0.20;
+            if (parts.mewtwoPsystrike) {
+              parts.mewtwoPsystrike.children[0].rotation.z += frameDt * 3.5;
+              parts.mewtwoPsystrike.children[1].rotation.x -= frameDt * 4.2;
+            }
+            if (parts.rayquazaCoils) {
+              parts.rayquazaCoils.rotation.z = Math.sin(t * 6.0) * 0.12;
+            }
+            if (parts.rayquazaDelta) {
+              parts.rayquazaDelta.rotation.y += frameDt * 4.8;
+              parts.rayquazaDelta.rotation.z = Math.sin(t * 3.5) * 0.22;
             }
           }
 
@@ -3956,17 +4744,22 @@ class FlappyBird3DModels {
               const by = this.birdGroup.position.y + 0.12;
               this.spotlightCamera.position.set(bx + 0.45, by + 0.42, 4.15);
               this.spotlightCamera.lookAt(bx - 0.15, by + 0.08, 0);
-            } else if (isPipeTab && this.pipes.length > 0) {
-              const p0 = this.pipes[0];
-              const px = p0.x;
-              const py = p0.bottomTopY - 0.45;
-              const angle = Math.sin(this.elapsedTime * 1.1) * 0.55;
-              this.spotlightCamera.position.set(
-                px + Math.sin(angle) * 5.2,
-                py + 0.65,
-                Math.cos(angle) * 5.2
-              );
-              this.spotlightCamera.lookAt(px, py, 0);
+            } else if (isPipeTab) {
+              if (this.pipes.length === 0 && typeof this.spawnLobbyPreviewPipes === 'function') {
+                this.spawnLobbyPreviewPipes();
+              }
+              if (this.pipes.length > 0) {
+                const p0 = this.pipes[0];
+                const px = p0.x;
+                const py = p0.bottomTopY - 0.45;
+                const angle = Math.sin(this.elapsedTime * 1.1) * 0.55;
+                this.spotlightCamera.position.set(
+                  px + Math.sin(angle) * 5.2,
+                  py + 0.65,
+                  Math.cos(angle) * 5.2
+                );
+                this.spotlightCamera.lookAt(px, py, 0);
+              }
             }
 
             const w = Math.max(1, window.innerWidth);

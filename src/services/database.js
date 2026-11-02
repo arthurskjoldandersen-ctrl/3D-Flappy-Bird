@@ -86,6 +86,95 @@ function logDatabaseEvent(type, username, message, details = {}) {
 }
 
 /**
+ * Synchronizes a user's runs in `db.runs[diff]` when their Best Score is changed to `newBest`.
+ * - If `newBest === 0`: removes any non-hidden runs for that user in `diff` (or marks them hidden if already hidden) so they no longer appear on the leaderboard.
+ * - If `newBest > 0`:
+ *   1. Any run for this user in `db.runs[diff]` with `score > newBest` is clamped down to `newBest`.
+ *   2. If the user's highest visible run in `db.runs[diff]` is `< newBest`, updates their top run to `newBest` (or inserts a new visible run if they have none).
+ *   3. Deduplicates multiple identical top-score runs created by clamping.
+ */
+function syncUserRunsToBestScore(username, diff, newBest, timestampMs = Date.now()) {
+  if (!db.runs || !Array.isArray(db.runs[diff])) return;
+  const uLower = String(username || '').toLowerCase();
+  const cleanBest = Math.max(0, Math.floor(Number(newBest) || 0));
+
+  if (cleanBest === 0) {
+    // Remove visible runs for this user in this mode so they are removed from the leaderboard
+    db.runs[diff] = db.runs[diff].filter(
+      r => !r || !r.username || r.username.toLowerCase() !== uLower || r.hidden === true
+    );
+    return;
+  }
+
+  const userRuns = db.runs[diff].filter(r => r && r.username && r.username.toLowerCase() === uLower);
+  if (userRuns.length === 0) {
+    db.runs[diff].push({
+      id: crypto.randomBytes(8).toString('hex'),
+      username,
+      score: cleanBest,
+      hidden: false,
+      createdAt: timestampMs
+    });
+    return;
+  }
+
+  // Clamp any runs that exceed `cleanBest` down to `cleanBest`
+  let hasRunWithNewBest = false;
+  for (const r of userRuns) {
+    if (r.score > cleanBest) {
+      r.score = cleanBest;
+      r.createdAt = timestampMs;
+    }
+    if (!r.hidden && r.score === cleanBest) {
+      hasRunWithNewBest = true;
+    }
+  }
+
+  // If no visible run has `cleanBest`, update their highest run to `cleanBest` (and make it visible)
+  if (!hasRunWithNewBest) {
+    const visibleRuns = userRuns.filter(r => !r.hidden);
+    const targetRun = (visibleRuns.length > 0 ? visibleRuns : userRuns).reduce(
+      (bestR, curR) => (!bestR || curR.score > bestR.score ? curR : bestR),
+      null
+    );
+    if (targetRun) {
+      targetRun.score = cleanBest;
+      targetRun.hidden = false;
+      targetRun.createdAt = timestampMs;
+    } else {
+      db.runs[diff].push({
+        id: crypto.randomBytes(8).toString('hex'),
+        username,
+        score: cleanBest,
+        hidden: false,
+        createdAt: timestampMs
+      });
+    }
+  }
+}
+
+/**
+ * Recalculates `user.records[diff]` from the user's highest visible (`!r.hidden`) run in `db.runs[diff]`.
+ */
+function recalculateUserBestFromVisibleRuns(username, diff) {
+  const uLower = String(username || '').toLowerCase();
+  const user = db.users && db.users[uLower];
+  if (!user) return 0;
+  if (!user.records) user.records = { easy: 0, medium: 0, hard: 0 };
+
+  const list = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
+  const highestVisible = list
+    .filter(r => r && r.username && r.username.toLowerCase() === uLower && !r.hidden)
+    .reduce((max, r) => Math.max(max, Number(r.score) || 0), 0);
+
+  user.records[diff] = highestVisible;
+  if (user._lastSyncedRecords) {
+    user._lastSyncedRecords[diff] = highestVisible;
+  }
+  return highestVisible;
+}
+
+/**
  * Synchronizes `playerRecordsOverview`, `users`, and `runs` (Top 100 per mode).
  * If someone manually edited `playerRecordsOverview[username].records` or `users[key].records`
  * in `data/db.json`, this applies those edits and ensures the Top 100 leaderboard reflects them!
@@ -113,16 +202,18 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
         const oldUserScore = Number(user._lastSyncedRecords && user._lastSyncedRecords[diff]);
         if (!Number.isNaN(ovScore) && ovScore >= 0 && ovScore !== oldUserScore && ovScore !== Number(user.records[diff])) {
           const prev = Number(user.records[diff]) || 0;
-          user.records[diff] = ovScore;
+          const cleanVal = Math.max(0, Math.floor(ovScore));
+          user.records[diff] = cleanVal;
           if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
           user.recordTimestamps[diff] = Date.now();
           user.lastNewBestAt = Date.now();
-          user.lastNewBestText = `🏆 Updated ${diff.toUpperCase()} Best: ${ovScore} pts (was ${prev} pts)`;
+          user.lastNewBestText = `🏆 Updated ${diff.toUpperCase()} Best: ${cleanVal} pts (was ${prev} pts)`;
+          syncUserRunsToBestScore(user.username, diff, cleanVal, Date.now());
           logDatabaseEvent(
             'RECORD_EDITED',
             user.username,
-            `✏️ ${user.username}'s ${diff.toUpperCase()} record was updated in db.json: ${prev} -> ${ovScore} pts`,
-            { difficulty: diff, oldScore: prev, newScore: ovScore }
+            `✏️ ${user.username}'s ${diff.toUpperCase()} record was updated in db.json: ${prev} -> ${cleanVal} pts`,
+            { difficulty: diff, oldScore: prev, newScore: cleanVal }
           );
         }
       });
@@ -162,12 +253,14 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     // Also check if `user.records` was directly edited in `db.users`
     if (fromExternalFileLoad && user._lastSyncedRecords) {
       ['easy', 'medium', 'hard'].forEach(diff => {
-        const cur = Number(user.records[diff]) || 0;
+        const cur = Math.max(0, Math.floor(Number(user.records[diff]) || 0));
         const prev = Number(user._lastSyncedRecords[diff]) || 0;
         if (cur !== prev) {
+          user.records[diff] = cur;
           user.recordTimestamps[diff] = Date.now();
           user.lastNewBestAt = Date.now();
           user.lastNewBestText = `🏆 Updated ${diff.toUpperCase()} Best: ${cur} pts (was ${prev} pts)`;
+          syncUserRunsToBestScore(user.username, diff, cur, Date.now());
           logDatabaseEvent(
             'RECORD_EDITED',
             user.username,
@@ -189,6 +282,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
             id: crypto.randomBytes(8).toString('hex'),
             username: user.username,
             score: best,
+            hidden: false,
             createdAt: (user.recordTimestamps && user.recordTimestamps[diff]) || user.createdAt || Date.now()
           });
         }
@@ -202,15 +296,19 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     };
   }
 
-  // 3. Sort and trim `db.runs` (Top 100 per difficulty)
+  // 3. Sort and trim `db.runs` (keep up to 300 runs per difficulty so hidden & historical runs are preserved)
   ['easy', 'medium', 'hard'].forEach(diff => {
     db.runs[diff] = db.runs[diff]
       .filter(r => r && typeof r.score === 'number' && r.score > 0 && r.username)
+      .map(r => ({
+        ...r,
+        hidden: Boolean(r.hidden)
+      }))
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return (a.createdAt || 0) - (b.createdAt || 0);
       })
-      .slice(0, 100);
+      .slice(0, 300);
   });
 
   // 4. Rebuild `playerRecordsOverview` sorted by highest all-time best score so `db.json` is super easy to inspect & edit
@@ -229,11 +327,18 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     const mBest = Number(u.records?.medium) || 0;
     const hBest = Number(u.records?.hard) || 0;
     const allTimeBest = Math.max(eBest, mBest, hBest);
+    const uLower = u.username.toLowerCase();
 
-    // Count how many placements this player currently holds across the Top 100 leaderboards
-    const easySpots = db.runs.easy.filter(r => r.username.toLowerCase() === u.username.toLowerCase()).length;
-    const medSpots = db.runs.medium.filter(r => r.username.toLowerCase() === u.username.toLowerCase()).length;
-    const hardSpots = db.runs.hard.filter(r => r.username.toLowerCase() === u.username.toLowerCase()).length;
+    // Count how many VISIBLE placements this player currently holds across the leaderboards
+    const easySpots = db.runs.easy.filter(r => r.username.toLowerCase() === uLower && !r.hidden).length;
+    const medSpots = db.runs.medium.filter(r => r.username.toLowerCase() === uLower && !r.hidden).length;
+    const hardSpots = db.runs.hard.filter(r => r.username.toLowerCase() === uLower && !r.hidden).length;
+
+    // Also count total runs (including hidden) per mode
+    const easyTotalRuns = db.runs.easy.filter(r => r.username.toLowerCase() === uLower).length;
+    const medTotalRuns = db.runs.medium.filter(r => r.username.toLowerCase() === uLower).length;
+    const hardTotalRuns = db.runs.hard.filter(r => r.username.toLowerCase() === uLower).length;
+    const hiddenRunsCount = (easyTotalRuns - easySpots) + (medTotalRuns - medSpots) + (hardTotalRuns - hardSpots);
 
     const latestBestTime = Math.max(
       Number(u.recordTimestamps?.easy) || 0,
@@ -261,7 +366,9 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
         total: easySpots + medSpots + hardSpots,
         easy: easySpots,
         medium: medSpots,
-        hard: hardSpots
+        hard: hardSpots,
+        totalRecordedRuns: easyTotalRuns + medTotalRuns + hardTotalRuns,
+        hiddenRuns: hiddenRunsCount
       },
       selectedSkin: u.selectedSkin || 'classic',
       selectedPipeSkin: u.selectedPipeSkin || 'classic_pipe',
@@ -274,9 +381,12 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
   db.playerRecordsOverview = overview;
 
   // 5. Update `databaseStatus` summary header at the very top of `db.json`
-  const easyChamp = db.runs.easy[0] ? `${db.runs.easy[0].username} (${db.runs.easy[0].score} pts)` : 'None';
-  const medChamp = db.runs.medium[0] ? `${db.runs.medium[0].username} (${db.runs.medium[0].score} pts)` : 'None';
-  const hardChamp = db.runs.hard[0] ? `${db.runs.hard[0].username} (${db.runs.hard[0].score} pts)` : 'None';
+  const visibleEasy = db.runs.easy.filter(r => !r.hidden);
+  const visibleMed = db.runs.medium.filter(r => !r.hidden);
+  const visibleHard = db.runs.hard.filter(r => !r.hidden);
+  const easyChamp = visibleEasy[0] ? `${visibleEasy[0].username} (${visibleEasy[0].score} pts)` : 'None';
+  const medChamp = visibleMed[0] ? `${visibleMed[0].username} (${visibleMed[0].score} pts)` : 'None';
+  const hardChamp = visibleHard[0] ? `${visibleHard[0].username} (${visibleHard[0].score} pts)` : 'None';
 
   const now = Date.now();
   db.databaseStatus = {
@@ -377,7 +487,7 @@ function buildLeaderboards() {
   ['easy', 'medium', 'hard'].forEach(diff => {
     const runsList = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
     result[diff] = runsList
-      .filter(entry => entry && typeof entry.score === 'number' && entry.score > 0)
+      .filter(entry => entry && typeof entry.score === 'number' && entry.score > 0 && !entry.hidden)
       .slice()
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -471,6 +581,7 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
       id: newRunId,
       username: user.username,
       score: verifiedScore,
+      hidden: false,
       createdAt: now
     });
 
@@ -478,8 +589,8 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
       if (b.score !== a.score) return b.score - a.score;
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
-    if (db.runs[diffKey].length > 100) {
-      db.runs[diffKey].length = 100;
+    if (db.runs[diffKey].length > 300) {
+      db.runs[diffKey].length = 300;
     }
   }
 
@@ -488,7 +599,8 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
 }
 
 /**
- * Allows the game owner to directly update a player's records or skins via the `/database` manager
+ * Allows the game owner (MeDonut) to directly update a player's records or skins via the `/database` manager
+ * AND immediately syncs `db.runs[diff]` so the leaderboard reflects the new best score (whether raised, lowered, or set to 0)!
  */
 function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPipeSkin) {
   const cleanName = typeof username === 'string' ? username.trim() : '';
@@ -507,20 +619,12 @@ function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPi
     if (newRecords && newRecords[diff] !== undefined) {
       const val = Math.max(0, Math.floor(Number(newRecords[diff]) || 0));
       const oldVal = Number(user.records[diff]) || 0;
+      user.records[diff] = val;
+      if (user._lastSyncedRecords) user._lastSyncedRecords[diff] = val;
+      syncUserRunsToBestScore(user.username, diff, val, now);
       if (val !== oldVal) {
-        user.records[diff] = val;
         user.recordTimestamps[diff] = now;
         changes.push(`${diff.toUpperCase()}: ${oldVal} -> ${val}`);
-
-        // Also update or insert into db.runs[diff]
-        if (val > 0) {
-          db.runs[diff].push({
-            id: crypto.randomBytes(8).toString('hex'),
-            username: user.username,
-            score: val,
-            createdAt: now
-          });
-        }
       }
     }
   });
@@ -539,13 +643,170 @@ function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPi
     logDatabaseEvent(
       'ADMIN_RECORD_UPDATE',
       user.username,
-      `🛠️ Updated ${user.username}'s records: ${changes.join(', ')}`,
+      `🛠️ Updated ${user.username}'s records & leaderboard: ${changes.join(', ')}`,
       { changes, records: { ...user.records } }
     );
   }
 
   saveDatabase();
   return db.playerRecordsOverview[user.username];
+}
+
+/**
+ * Updates a specific run's score and/or leaderboard visibility (`hidden: true/false`) for any user.
+ * Automatically recalculates the user's best score in that mode from their visible runs so leaderboard & profile stay in sync.
+ */
+function updateLeaderboardRunAdmin(difficulty, entryId, updates = {}) {
+  if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+    throw new Error('Invalid difficulty.');
+  }
+  const list = db.runs[difficulty] || [];
+  const run = list.find(r => r && r.id === entryId);
+  if (!run) {
+    throw new Error('Run entry not found.');
+  }
+
+  const oldScore = run.score;
+  const oldHidden = Boolean(run.hidden);
+  const actionParts = [];
+
+  if (updates.score !== undefined) {
+    const newScore = Math.max(1, Math.floor(Number(updates.score) || 1));
+    if (newScore !== oldScore) {
+      run.score = newScore;
+      actionParts.push(`score ${oldScore} -> ${newScore} pts`);
+    }
+  }
+
+  if (updates.hidden !== undefined) {
+    const newHidden = Boolean(updates.hidden);
+    if (newHidden !== oldHidden) {
+      run.hidden = newHidden;
+      actionParts.push(newHidden ? 'visibility OFF (hidden from leaderboard)' : 'visibility ON (shown on leaderboard)');
+    }
+  }
+
+  // Sync user's personal best in this difficulty to their highest visible run
+  const newBest = recalculateUserBestFromVisibleRuns(run.username, difficulty);
+
+  if (actionParts.length > 0) {
+    logDatabaseEvent(
+      'ADMIN_EDIT_RUN',
+      run.username,
+      `🛠️ Edited ${run.username}'s ${difficulty.toUpperCase()} run (${actionParts.join(', ')}) • Visible Best: ${newBest} pts`,
+      { difficulty, entryId, oldScore, newScore: run.score, hidden: run.hidden, newBest }
+    );
+  }
+
+  saveDatabase();
+  return { run, newBest };
+}
+
+/**
+ * Adds a new run for any user in a given difficulty mode.
+ */
+function addLeaderboardRunAdmin(username, difficulty, score, hidden = false) {
+  if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+    throw new Error('Invalid difficulty.');
+  }
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  const user = db.users[uKey];
+  const canonicalUsername = user ? user.username : cleanName;
+  if (!canonicalUsername) {
+    throw new Error('Username is required.');
+  }
+  const cleanScore = Math.max(1, Math.floor(Number(score) || 0));
+  const now = Date.now();
+
+  if (!db.runs[difficulty]) db.runs[difficulty] = [];
+  const newRun = {
+    id: crypto.randomBytes(8).toString('hex'),
+    username: canonicalUsername,
+    score: cleanScore,
+    hidden: Boolean(hidden),
+    createdAt: now
+  };
+  db.runs[difficulty].push(newRun);
+
+  if (user) {
+    recalculateUserBestFromVisibleRuns(user.username, difficulty);
+  }
+
+  logDatabaseEvent(
+    'ADMIN_ADD_RUN',
+    canonicalUsername,
+    `➕ Added ${difficulty.toUpperCase()} run of ${cleanScore} pts for ${canonicalUsername} (${hidden ? 'Hidden' : 'Visible'})`,
+    { difficulty, run: newRun }
+  );
+  saveDatabase();
+  return newRun;
+}
+
+/**
+ * Toggles visibility (`hidden: true/false`) on all runs for a specific user (either in one mode or all modes).
+ */
+function toggleUserRunsVisibilityAdmin(username, difficulty, hidden) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uLower = cleanName.toLowerCase();
+  if (!uLower) throw new Error('Username is required.');
+
+  const targetModes = (difficulty && ['easy', 'medium', 'hard'].includes(difficulty))
+    ? [difficulty]
+    : ['easy', 'medium', 'hard'];
+  const makeHidden = Boolean(hidden);
+  let count = 0;
+
+  targetModes.forEach(diff => {
+    const list = db.runs[diff] || [];
+    list.forEach(r => {
+      if (r && r.username && r.username.toLowerCase() === uLower) {
+        r.hidden = makeHidden;
+        count++;
+      }
+    });
+    recalculateUserBestFromVisibleRuns(cleanName, diff);
+  });
+
+  logDatabaseEvent(
+    'ADMIN_VISIBILITY_BULK',
+    cleanName,
+    `${makeHidden ? '🚫 Hid' : '👁️ Unhid'} ${count} run(s) for ${cleanName} (${targetModes.join(', ').toUpperCase()})`,
+    { username: cleanName, modes: targetModes, hidden: makeHidden, affectedRuns: count }
+  );
+  saveDatabase();
+  return { affectedRuns: count, hidden: makeHidden };
+}
+
+/**
+ * Returns all runs across Easy, Medium, and Hard (including hidden runs) with formatted timestamps and visible rank.
+ */
+function getAllRunsAdmin() {
+  const result = { easy: [], medium: [], hard: [] };
+  ['easy', 'medium', 'hard'].forEach(diff => {
+    const list = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
+    let visibleRankCounter = 0;
+    result[diff] = list
+      .slice()
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      })
+      .map(r => {
+        const isHidden = Boolean(r.hidden);
+        if (!isHidden) visibleRankCounter++;
+        return {
+          id: r.id,
+          username: r.username,
+          score: r.score,
+          hidden: isHidden,
+          visibleRank: isHidden ? null : visibleRankCounter,
+          createdAt: r.createdAt || 0,
+          readableTime: formatReadableTimestamp(r.createdAt)
+        };
+      });
+  });
+  return result;
 }
 
 /**
@@ -562,20 +823,13 @@ function deleteLeaderboardEntryAdmin(difficulty, entryId) {
   }
   const removed = list.splice(idx, 1)[0];
 
-  // Recalculate that player's highest remaining score in this mode if their best matched the removed run
-  const uKey = removed.username.toLowerCase();
-  const user = db.users[uKey];
-  if (user && user.records && user.records[difficulty] === removed.score) {
-    const highestRemaining = list
-      .filter(r => r.username.toLowerCase() === uKey)
-      .reduce((max, r) => Math.max(max, r.score), 0);
-    user.records[difficulty] = highestRemaining;
-  }
+  // Recalculate that player's highest remaining visible score in this mode
+  recalculateUserBestFromVisibleRuns(removed.username, difficulty);
 
   logDatabaseEvent(
     'ADMIN_DELETE_RUN',
     removed.username,
-    `🗑️ Removed ${removed.username}'s ${difficulty.toUpperCase()} score of ${removed.score} pts from the leaderboard`,
+    `🗑️ Removed ${removed.username}'s ${difficulty.toUpperCase()} score of ${removed.score} pts from the database`,
     { difficulty, removed }
   );
   saveDatabase();
@@ -595,6 +849,10 @@ module.exports = {
   recordUserLogin,
   recordVerifiedRun,
   updatePlayerRecordsAdmin,
+  updateLeaderboardRunAdmin,
+  addLeaderboardRunAdmin,
+  toggleUserRunsVisibilityAdmin,
+  getAllRunsAdmin,
   deleteLeaderboardEntryAdmin,
   formatReadableTimestamp
 };

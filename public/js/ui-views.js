@@ -249,76 +249,107 @@ class FlappyBirdUIAndProgression {
 
           switch (questId) {
             case 'poke_pikachu':
+              return multiModeEval(50, 95, 32);
             case 'poke_charmander':
             case 'poke_eevee':
-              return multiModeEval(30, 60, 20);
+              return multiModeEval(48, 90, 30);
             case 'poke_squirtle':
-              return multiModeEval(28, 55, 18);
+              return multiModeEval(45, 85, 28);
             case 'poke_bulbasaur':
-              return multiModeEval(25, 50, 16);
-            case 'poke_pipe_pokeball':
-              return multiModeEval(25, 50, 15);
-            case 'poke_mew':
-              return multiModeEval(40, 75, 25);
-            case 'poke_masterball':
               return multiModeEval(42, 80, 26);
+            case 'poke_pipe_pokeball':
+              return multiModeEval(40, 75, 25);
+            case 'poke_mew':
+              return multiModeEval(65, 125, 42);
+            case 'poke_masterball':
+              return multiModeEval(70, 135, 46);
+            case 'poke_charizard':
+              return multiModeEval(60, 115, 38);
+            case 'poke_gengar':
+              return multiModeEval(55, 105, 35);
+            case 'poke_lucario':
+              return multiModeEval(58, 110, 36);
+            case 'poke_greninja':
+              return multiModeEval(56, 108, 35);
+            case 'poke_mewtwo':
+              return multiModeEval(72, 140, 48);
+            case 'poke_rayquaza':
+              return multiModeEval(80, 155, 55);
+            case 'poke_snorlax': {
+              if (tq.unlockedIds && tq.unlockedIds[questId]) {
+                return { current: 500, target: 500, percent: 100, unlocked: true };
+              }
+              const fallback = multiModeEval(52, 100, 34);
+              if (careerPipes >= 500 || fallback.unlocked) {
+                return { current: 500, target: 500, percent: 100, unlocked: true };
+              }
+              const cPct = Math.round((careerPipes / 500) * 100);
+              if (cPct >= fallback.percent) {
+                return { current: careerPipes, target: 500, percent: cPct, unlocked: false };
+              }
+              return fallback;
+            }
             case 'poke_bidoof': {
               if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 2, target: 2, percent: 100, unlocked: true };
+                return { current: 4, target: 4, percent: 100, unlocked: true };
               }
               const d15 = Number(sd[15]) || 0;
-              const fallback = multiModeEval(25, 50, 16);
-              if (d15 >= 2 || fallback.unlocked) {
-                return { current: 2, target: 2, percent: 100, unlocked: true };
+              const fallback = multiModeEval(45, 85, 28);
+              if (d15 >= 4 || fallback.unlocked) {
+                return { current: 4, target: 4, percent: 100, unlocked: true };
               }
-              const dPct = Math.round((d15 / 2) * 100);
+              const dPct = Math.round((d15 / 4) * 100);
               if (dPct >= fallback.percent) {
-                return { current: d15, target: 2, percent: dPct, unlocked: false };
+                return { current: d15, target: 4, percent: dPct, unlocked: false };
               }
               return fallback;
             }
             case 'poke_jigglypuff': {
               if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 1, target: 1, percent: 100, unlocked: true };
+                return { current: 2, target: 2, percent: 100, unlocked: true };
               }
               const d39 = Number(sd[39]) || 0;
-              const fallback = multiModeEval(26, 52, 17);
-              if (d39 >= 1 || fallback.unlocked) {
-                return { current: 1, target: 1, percent: 100, unlocked: true };
+              const fallback = multiModeEval(44, 85, 28);
+              if (d39 >= 2 || fallback.unlocked) {
+                return { current: 2, target: 2, percent: 100, unlocked: true };
+              }
+              const dPct = Math.round((d39 / 2) * 100);
+              if (dPct >= fallback.percent) {
+                return { current: d39, target: 2, percent: dPct, unlocked: false };
               }
               return fallback;
             }
             case 'poke_magikarp': {
               if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 35, target: 35, percent: 100, unlocked: true };
+                return { current: 50, target: 50, percent: 100, unlocked: true };
               }
-              const splashFlaps = Math.min(35, Number(tq.bestFlapsUnder8) || 0);
-              const fallback = multiModeEval(28, 55, 18);
-              if (splashFlaps >= 35 || fallback.unlocked) {
-                return { current: 35, target: 35, percent: 100, unlocked: true };
+              const splashFlaps = Math.min(50, Number(tq.bestFlapsUnder8) || 0);
+              const fallback = multiModeEval(46, 88, 29);
+              if (splashFlaps >= 50 || fallback.unlocked) {
+                return { current: 50, target: 50, percent: 100, unlocked: true };
               }
-              const fPct = Math.round((splashFlaps / 35) * 100);
+              const fPct = Math.round((splashFlaps / 50) * 100);
               if (fPct >= fallback.percent) {
-                return { current: splashFlaps, target: 35, percent: fPct, unlocked: false };
+                return { current: splashFlaps, target: 50, percent: fPct, unlocked: false };
               }
               return fallback;
             }
             case 'poke_meowth': {
               if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 100, target: 100, percent: 100, unlocked: true };
+                return { current: 350, target: 350, percent: 100, unlocked: true };
               }
-              const fallback = multiModeEval(30, 60, 20);
-              if (careerPipes >= 100 || fallback.unlocked) {
-                return { current: 100, target: 100, percent: 100, unlocked: true };
+              const fallback = multiModeEval(50, 95, 32);
+              if (careerPipes >= 350 || fallback.unlocked) {
+                return { current: 350, target: 350, percent: 100, unlocked: true };
               }
-              const cPct = Math.round((careerPipes / 100) * 100);
+              const cPct = Math.round((careerPipes / 350) * 100);
               if (cPct >= fallback.percent) {
-                return { current: careerPipes, target: 100, percent: cPct, unlocked: false };
+                return { current: careerPipes, target: 350, percent: cPct, unlocked: false };
               }
               return fallback;
             }
             default:
-              return multiModeEval(30, 60, 20);
+              return multiModeEval(50, 95, 32);
           }
         }
 
@@ -489,8 +520,13 @@ class FlappyBirdUIAndProgression {
 
           const authBox = document.getElementById('auth-form-box');
           if (authBox) authBox.style.display = 'none';
+          const accLayout = document.getElementById('account-body-layout');
+          if (accLayout) {
+            accLayout.classList.remove('is-guest-split');
+            accLayout.classList.add('is-logged-in');
+          }
 
-          document.getElementById('profile-summary-box').style.display = 'block';
+          document.getElementById('profile-summary-box').style.display = 'flex';
           document.getElementById('profile-name-text').textContent = user.username;
           const statusPill = document.querySelector('#profile-summary-box .profile-status-pill');
           if (statusPill) {
@@ -554,9 +590,14 @@ class FlappyBirdUIAndProgression {
           }
 
           const authBox = document.getElementById('auth-form-box');
-          if (authBox) authBox.style.display = 'block';
+          if (authBox) authBox.style.display = 'flex';
+          const accLayout = document.getElementById('account-body-layout');
+          if (accLayout) {
+            accLayout.classList.add('is-guest-split');
+            accLayout.classList.remove('is-logged-in');
+          }
 
-          document.getElementById('profile-summary-box').style.display = 'block';
+          document.getElementById('profile-summary-box').style.display = 'flex';
           document.getElementById('profile-name-text').textContent = 'Guest Player';
           const statusPill2 = document.querySelector('#profile-summary-box .profile-status-pill');
           if (statusPill2) {
@@ -637,9 +678,43 @@ class FlappyBirdUIAndProgression {
           const unlockedPipes = this.getUnlockedPipeSkinCount();
           const totalUnlocked = unlockedBirds + unlockedPipes;
           const totalCosmetics = BIRD_SKINS.length + PIPE_SKINS.length;
+          const totalPct = Math.round((totalUnlocked / totalCosmetics) * 100);
 
           const badgeEl = document.getElementById('unlocked-count-badge');
-          if (badgeEl) badgeEl.textContent = `🎨 ${totalUnlocked}/${totalCosmetics} Owned`;
+          if (badgeEl) badgeEl.textContent = `🎨 ${totalUnlocked}/${totalCosmetics} Owned (${totalPct}%)`;
+
+          // Dynamically update top-right profile capsule badge, nav dock badge, and locker tab counts!
+          const capsuleCountEl = document.getElementById('capsule-owned-count');
+          if (capsuleCountEl) capsuleCountEl.textContent = `🎨 ${totalUnlocked}/${totalCosmetics}`;
+          const dockSkinsBadgeEl = document.getElementById('dock-skins-badge');
+          if (dockSkinsBadgeEl) dockSkinsBadgeEl.textContent = `${totalUnlocked}/${totalCosmetics}`;
+          const tabBirdBtnEl = document.getElementById('tab-btn-bird-skins');
+          if (tabBirdBtnEl) tabBirdBtnEl.innerHTML = `<span>🐦</span> Bird Skins (${unlockedBirds}/${BIRD_SKINS.length})`;
+          const tabPipeBtnEl = document.getElementById('tab-btn-pipe-skins');
+          if (tabPipeBtnEl) tabPipeBtnEl.innerHTML = `<span>🏗️</span> Pipe Skins (${unlockedPipes}/${PIPE_SKINS.length})`;
+          const gotoLockerBtnEl = document.getElementById('btn-account-goto-locker');
+          if (gotoLockerBtnEl) gotoLockerBtnEl.textContent = `🎨 Open Skins Locker (${totalUnlocked}/${totalCosmetics})`;
+
+          // Determine Pilot Rank Title for Profile & Stats
+          let rankTitle = '🌱 Rookie Flyer';
+          if (hardBest >= 55 || anyBest >= 95 || totalUnlocked >= 55) {
+            rankTitle = '👑 Godlike Grandmaster';
+          } else if (hardBest >= 35 || anyBest >= 65 || totalUnlocked >= 38) {
+            rankTitle = '💎 Mythic Sky Ace';
+          } else if (anyBest >= 30 || totalUnlocked >= 22) {
+            rankTitle = '🥇 Gold Aviator';
+          } else if (anyBest >= 15 || totalUnlocked >= 10) {
+            rankTitle = '🥈 Silver Glider';
+          } else if (anyBest >= 5 || totalUnlocked >= 4) {
+            rankTitle = '🥉 Bronze Wing';
+          }
+          const rankPillEl = document.getElementById('profile-rank-pill');
+          if (rankPillEl) rankPillEl.textContent = rankTitle;
+
+          const profMasteryFill = document.getElementById('profile-mastery-bar-fill');
+          if (profMasteryFill) profMasteryFill.style.width = `${totalPct}%`;
+          const profMasteryPct = document.getElementById('profile-mastery-pct');
+          if (profMasteryPct) profMasteryPct.textContent = `${totalUnlocked} / ${totalCosmetics} Skins (${totalPct}%)`;
 
           const easyBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'easy').length;
           const medBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'medium').length;
@@ -659,6 +734,81 @@ class FlappyBirdUIAndProgression {
             const m = modesStats[mKey];
             return (m && m.runs > 0) ? (m.totalScore / m.runs).toFixed(1) : '0.0';
           };
+          const getRunsCount = (mKey) => {
+            const m = modesStats[mKey];
+            return (m && m.runs) ? m.runs : 0;
+          };
+          const overallRuns = (this.careerStats && this.careerStats.totalRuns) || 0;
+          const overallScore = (this.careerStats && this.careerStats.totalScore) || 0;
+          const overallFlaps = (this.careerStats && this.careerStats.totalFlaps) || 0;
+          const overallAvg = overallRuns > 0 ? (overallScore / overallRuns).toFixed(1) : '0.0';
+          const overallFlapsPerPipe = overallScore > 0 ? (overallFlaps / overallScore).toFixed(1) : '—';
+
+          // Update Profile Mode Record Meta Pills
+          const recEasyMeta = document.getElementById('rec-easy-meta');
+          if (recEasyMeta) recEasyMeta.textContent = `Avg: ${getAvgStr('easy')} pts • ${getRunsCount('easy')} Flights`;
+          const recMedMeta = document.getElementById('rec-med-meta');
+          if (recMedMeta) recMedMeta.textContent = `Avg: ${getAvgStr('medium')} pts • ${getRunsCount('medium')} Flights`;
+          const recHardMeta = document.getElementById('rec-hard-meta');
+          if (recHardMeta) recHardMeta.textContent = `Avg: ${getAvgStr('hard')} pts • ${getRunsCount('hard')} Flights`;
+          const recAnyMeta = document.getElementById('rec-any-meta');
+          if (recAnyMeta) recAnyMeta.textContent = `Avg: ${overallAvg} pts • ${overallRuns} Total Runs`;
+
+          // Update Profile Active 3D Loadout Showcase & Avatar
+          const activeBird = BIRD_SKINS.find(s => s.id === this.selectedSkinId) || BIRD_SKINS[0];
+          const activePipe = PIPE_SKINS.find(p => p.id === this.selectedPipeSkinId) || PIPE_SKINS[0];
+          const profAvatarEl = document.getElementById('profile-avatar-emoji');
+          if (profAvatarEl && activeBird) {
+            profAvatarEl.textContent = activeBird.emoji || '🐤';
+            const hexBody = '#' + activeBird.body.toString(16).padStart(6, '0');
+            const hexWing = '#' + activeBird.wing.toString(16).padStart(6, '0');
+            profAvatarEl.style.background = `linear-gradient(135deg, ${hexBody} 50%, ${hexWing} 100%)`;
+          }
+          const eqBirdIcon = document.getElementById('profile-eq-bird-icon');
+          if (eqBirdIcon && activeBird) {
+            eqBirdIcon.textContent = activeBird.emoji;
+            const hexBody = '#' + activeBird.body.toString(16).padStart(6, '0');
+            const hexWing = '#' + activeBird.wing.toString(16).padStart(6, '0');
+            eqBirdIcon.style.background = `linear-gradient(135deg, ${hexBody} 55%, ${hexWing} 100%)`;
+          }
+          const eqBirdName = document.getElementById('profile-eq-bird-name');
+          if (eqBirdName && activeBird) eqBirdName.textContent = activeBird.name;
+          const eqBirdTier = document.getElementById('profile-eq-bird-tier');
+          if (eqBirdTier && activeBird) {
+            eqBirdTier.textContent = activeBird.rarity;
+            eqBirdTier.className = `rarity-tag rarity-${activeBird.rarity}`;
+          }
+
+          const eqPipeIcon = document.getElementById('profile-eq-pipe-icon');
+          if (eqPipeIcon && activePipe) {
+            eqPipeIcon.textContent = activePipe.emoji;
+            eqPipeIcon.style.background = `linear-gradient(135deg, ${activePipe.colors[0]} 0%, ${activePipe.colors[2]} 50%, ${activePipe.colors[1]} 100%)`;
+          }
+          const eqPipeName = document.getElementById('profile-eq-pipe-name');
+          if (eqPipeName && activePipe) eqPipeName.textContent = activePipe.name;
+          const eqPipeTier = document.getElementById('profile-eq-pipe-tier');
+          if (eqPipeTier && activePipe) {
+            eqPipeTier.textContent = activePipe.rarity;
+            eqPipeTier.className = `rarity-tag rarity-${activePipe.rarity}`;
+          }
+
+          // Update Profile Career & Quest Telemetry Counters
+          const allCosmetics = [...BIRD_SKINS, ...PIPE_SKINS];
+          const pokeOwned = allCosmetics.filter(i => i.reqMode === 'pokemon' && this.isCosmeticUnlocked(i)).length;
+          const pokeTotal = pokeBirdsCount + pokePipesCount;
+          const memeOwned = allCosmetics.filter(i => i.reqMode === 'meme' && this.isCosmeticUnlocked(i)).length;
+          const memeTotal = memeBirdsCount + memePipesCount;
+
+          const setElText = (id, txt) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = txt;
+          };
+          setElText('prof-stat-runs', String(overallRuns));
+          setElText('prof-stat-pipes', String(overallScore));
+          setElText('prof-stat-flaps', String(overallFlaps));
+          setElText('prof-stat-efficiency', `${overallFlapsPerPipe}`);
+          setElText('prof-stat-pokemon', `${pokeOwned} / ${pokeTotal}`);
+          setElText('prof-stat-meme', `${memeOwned} / ${memeTotal}`);
 
           const metaEasy = document.getElementById('diff-meta-easy');
           const metaMed = document.getElementById('diff-meta-medium');
@@ -853,6 +1003,9 @@ class FlappyBirdUIAndProgression {
           const entries = this.leaderboards[diffKey] || [];
           const label = CONFIG.difficulties[diffKey].label;
 
+          // Preserve scroll position so periodic leaderboard refreshes NEVER jump back to the top!
+          const prevScrollTop = listEl.scrollTop || 0;
+
           listEl.innerHTML = '';
 
           // 1. Dedicated "Your Standing" Header Card
@@ -923,9 +1076,24 @@ class FlappyBirdUIAndProgression {
             return;
           }
 
+          const rawQuery = listEl.id === 'lb-list'
+            ? ((this.lbSearchQuery !== undefined ? this.lbSearchQuery : (document.getElementById('lb-search-input')?.value || '')) || '').trim().toLowerCase()
+            : '';
+
           let meRowElement = null;
+          let matchedCount = 0;
 
           entries.forEach((item, idx) => {
+            const rankStr = `#${idx + 1}`;
+            if (rawQuery) {
+              const uname = (item.username || '').toLowerCase();
+              const scoreStr = String(item.score);
+              if (!uname.includes(rawQuery) && !rankStr.includes(rawQuery) && !scoreStr.includes(rawQuery)) {
+                return;
+              }
+            }
+            matchedCount++;
+
             const row = document.createElement('div');
             const isMe = this.currentUser && this.currentUser.username.toLowerCase() === item.username.toLowerCase();
             const isLatestRun = highlightEntryId && item.id === highlightEntryId;
@@ -933,7 +1101,7 @@ class FlappyBirdUIAndProgression {
 
             const rankEl = document.createElement('span');
             rankEl.className = 'lb-rank' + (idx < 3 ? ` rank-top rank-${idx + 1}` : '');
-            rankEl.textContent = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+            rankEl.textContent = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : rankStr;
 
             const nameEl = document.createElement('span');
             nameEl.className = 'lb-player';
@@ -969,8 +1137,17 @@ class FlappyBirdUIAndProgression {
             }
           });
 
-          // If current user is in the list, gently scroll them into view
-          if (meRowElement && listEl.id === 'lb-list') {
+          if (matchedCount === 0 && rawQuery) {
+            const emptySearchEl = document.createElement('div');
+            emptySearchEl.className = 'lb-empty';
+            emptySearchEl.innerHTML = `🔍 No leaderboard players or scores match "<strong>${rawQuery}</strong>" on ${label}.`;
+            listEl.appendChild(emptySearchEl);
+          }
+
+          // Restore previous scroll position so scrolling down never jumps back to top after ~2s
+          if (!highlightEntryId && prevScrollTop > 0) {
+            listEl.scrollTop = prevScrollTop;
+          } else if (highlightEntryId && meRowElement && listEl.id === 'lb-list') {
             setTimeout(() => {
               meRowElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }, 100);
@@ -1005,45 +1182,96 @@ class FlappyBirdUIAndProgression {
           const totalCosmetics = BIRD_SKINS.length + PIPE_SKINS.length;
           const totalPct = Math.round((totalUnlocked / totalCosmetics) * 100);
 
+          const mStats = (this.careerStats && this.careerStats.modes) || {};
+          const getModeStat = (k) => mStats[k] || { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 };
+          const calcAvg = (m) => m.runs > 0 ? (m.totalScore / m.runs).toFixed(1) : '0.0';
+          const calcFlapsPerPipe = (m) => m.totalScore > 0 ? (m.totalFlaps / m.totalScore).toFixed(1) : '—';
+
+          const easyM = getModeStat('easy');
+          const medM  = getModeStat('medium');
+          const hardM = getModeStat('hard');
+          const overallRuns = (this.careerStats && this.careerStats.totalRuns) || 0;
+          const overallScore = (this.careerStats && this.careerStats.totalScore) || 0;
+          const overallFlaps = (this.careerStats && this.careerStats.totalFlaps) || 0;
+          const overallAvg = overallRuns > 0 ? (overallScore / overallRuns).toFixed(1) : '0.0';
+          const overallFlapsPerPipe = overallScore > 0 ? (overallFlaps / overallScore).toFixed(1) : '—';
+
+          const allItems = [...BIRD_SKINS, ...PIPE_SKINS];
+          const pokeItems = allItems.filter(i => i.reqMode === 'pokemon');
+          const pokeOwnedCount = pokeItems.filter(i => this.isCosmeticUnlocked(i)).length;
+          const memeItems = allItems.filter(i => i.reqMode === 'meme');
+          const memeOwnedCount = memeItems.filter(i => this.isCosmeticUnlocked(i)).length;
+
           // Determine Pilot Rank Title
           let rankTitle = '🌱 Rookie Flyer';
-          let rankSub = 'Reach Score 10+ to advance';
+          let rankSub = `Reach Score 10+ to advance • All ${BIRD_SKINS.length} Bird Skins share an identical 0.60m competitive hitbox`;
           if (hardBest >= 55 || anyBest >= 95 || totalUnlocked >= 55) {
             rankTitle = '👑 Godlike Grandmaster';
-            rankSub = 'Pinnacle 3D Flappy Bird Legend';
+            rankSub = `Pinnacle 3D Flappy Bird Legend • All ${BIRD_SKINS.length} Bird Skins share an identical 0.60m competitive hitbox`;
           } else if (hardBest >= 35 || anyBest >= 65 || totalUnlocked >= 38) {
             rankTitle = '💎 Mythic Sky Ace';
-            rankSub = 'Master of High-Speed Flight';
+            rankSub = `Master of High-Speed Flight • All ${BIRD_SKINS.length} Bird Skins share an identical 0.60m competitive hitbox`;
           } else if (anyBest >= 30 || totalUnlocked >= 22) {
             rankTitle = '🥇 Gold Aviator';
-            rankSub = 'Pokémon Trainer & Obstacle Navigator';
+            rankSub = `Pokémon Trainer & Obstacle Navigator • All ${BIRD_SKINS.length} Bird Skins share an identical 0.60m competitive hitbox`;
           } else if (anyBest >= 15 || totalUnlocked >= 10) {
             rankTitle = '🥈 Silver Glider';
-            rankSub = 'Building Your 3D Locker';
+            rankSub = `Building Your 3D Locker • All ${BIRD_SKINS.length} Bird Skins share an identical 0.60m competitive hitbox`;
           } else if (anyBest >= 5 || totalUnlocked >= 4) {
             rankTitle = '🥉 Bronze Wing';
-            rankSub = 'First Skins Unlocked';
+            rankSub = `First Skins Unlocked • All ${BIRD_SKINS.length} Bird Skins share an identical 0.60m competitive hitbox`;
           }
 
           const sfilter = this.statsSubfilter || 'all';
           const isModeFilter = (sfilter === 'easy' || sfilter === 'medium' || sfilter === 'hard');
 
-          // Always show Pilot Rank & Overall Mastery Hero Card
+          // Always show Pilot Rank & Overall Mastery Hero Banner with 6-KPI Strip
           const hero = document.createElement('div');
           hero.className = 'stats-rank-hero';
           hero.innerHTML = `
             <div class="stats-rank-top">
-              <div class="stats-rank-title">${rankTitle}</div>
-              <span class="stats-rank-badge">${this.currentUser ? '👤 ' + this.currentUser.username : '👤 Guest Profile'}</span>
+              <div>
+                <div class="stats-rank-title">${rankTitle}</div>
+                <div class="stats-rank-sub" style="font-size: 0.74rem; font-weight: 800; margin-top: 2px;">${rankSub}</div>
+              </div>
+              <div class="stats-rank-badges-wrap">
+                <span class="stats-fairness-pill">🎯 0.60m Uniform Hitbox Verified</span>
+                <span class="stats-rank-badge">${this.currentUser ? '👤 ' + this.currentUser.username : '👤 Guest Profile'}</span>
+              </div>
             </div>
-            <div class="stats-rank-sub" style="font-size: 0.7rem; font-weight: 800;">${rankSub}</div>
             <div class="stats-master-bar-wrap">
               <div class="stats-master-bar-labels">
-                <span>🎨 Total Cosmetic Mastery</span>
+                <span>🎨 Total 3D Cosmetic Mastery (${BIRD_SKINS.length} Birds + ${PIPE_SKINS.length} Pipes)</span>
                 <span class="stats-header-link">${totalUnlocked} / ${totalCosmetics} Unlocked (${totalPct}%)</span>
               </div>
               <div class="stats-master-bar-track">
                 <div class="stats-master-bar-fill" style="width: ${totalPct}%;"></div>
+              </div>
+            </div>
+            <div class="stats-hero-kpi-strip">
+              <div class="stats-hero-kpi">
+                <small>👑 Peak Score</small>
+                <strong>${anyBest} <span class="kpi-unit">PTS</span></strong>
+              </div>
+              <div class="stats-hero-kpi">
+                <small>📈 Career Avg</small>
+                <strong>${overallAvg} <span class="kpi-unit">PTS</span></strong>
+              </div>
+              <div class="stats-hero-kpi">
+                <small>🎮 Total Flights</small>
+                <strong>${overallRuns}</strong>
+              </div>
+              <div class="stats-hero-kpi">
+                <small>🧱 Pipes Cleared</small>
+                <strong>${overallScore}</strong>
+              </div>
+              <div class="stats-hero-kpi">
+                <small>🐦 Birds Owned</small>
+                <strong>${unlockedBirds} / ${BIRD_SKINS.length}</strong>
+              </div>
+              <div class="stats-hero-kpi">
+                <small>🏗️ Pipes Owned</small>
+                <strong>${unlockedPipes} / ${PIPE_SKINS.length}</strong>
               </div>
             </div>
           `;
@@ -1053,29 +1281,27 @@ class FlappyBirdUIAndProgression {
           if (sfilter === 'all' || sfilter === 'records' || isModeFilter) {
             const recHeader = document.createElement('div');
             recHeader.className = 'stats-block-header';
-            recHeader.innerHTML = `<span>🏆 Personal Best Records ${isModeFilter ? '(' + sfilter.toUpperCase() + ')' : 'by Mode'}</span><span class="stats-header-link">Click Mode to View Ranks →</span>`;
+            recHeader.innerHTML = `<span>🏆 Personal Best Records ${isModeFilter ? '(' + sfilter.toUpperCase() + ')' : 'by Gamemode'}</span><span class="stats-header-link">Click Mode Card to Open Live Leaderboard →</span>`;
             container.appendChild(recHeader);
-
-            const mStats = (this.careerStats && this.careerStats.modes) || {};
-            const getModeStat = (k) => mStats[k] || { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 };
-            const calcAvg = (m) => m.runs > 0 ? (m.totalScore / m.runs).toFixed(1) : '0.0';
-            const calcFlapsPerPipe = (m) => m.totalScore > 0 ? (m.totalFlaps / m.totalScore).toFixed(1) : '—';
-
-            const easyM = getModeStat('easy');
-            const medM  = getModeStat('medium');
-            const hardM = getModeStat('hard');
-            const overallAvg = this.careerStats.totalRuns > 0
-              ? (this.careerStats.totalScore / this.careerStats.totalRuns).toFixed(1)
-              : '0.0';
 
             const recGrid = document.createElement('div');
             recGrid.className = 'stats-records-grid';
 
+            const countModeMastery = (mKey) => {
+              const items = allItems.filter(i => i.reqMode === mKey);
+              const owned = items.filter(i => this.isCosmeticUnlocked(i)).length;
+              const pct = items.length > 0 ? Math.round((owned / items.length) * 100) : 100;
+              return { owned, total: items.length, pct };
+            };
+            const easyMas = countModeMastery('easy');
+            const medMas  = countModeMastery('medium');
+            const hardMas = countModeMastery('hard');
+
             const allModesData = [
-              { key: 'easy', cls: 'easy-card', label: '🟢 Easy Mode', score: easyBest, subLeft: `Avg: ${calcAvg(easyM)} pts`, subRight: `${easyM.runs} Flights` },
-              { key: 'medium', cls: 'med-card', label: '🟡 Medium Mode', score: medBest, subLeft: `Avg: ${calcAvg(medM)} pts`, subRight: `${medM.runs} Flights` },
-              { key: 'hard', cls: 'hard-card', label: '🔴 Hard Mode', score: hardBest, subLeft: `Avg: ${calcAvg(hardM)} pts`, subRight: `${hardM.runs} Flights` },
-              { key: 'any', cls: 'peak-card', label: '👑 Overall Peak', score: anyBest, subLeft: `Avg: ${overallAvg} pts`, subRight: `${this.careerStats.totalRuns} Total Runs` }
+              { key: 'easy', cls: 'easy-card', label: '🟢 Easy Mode', score: easyBest, subLeft: `Avg: ${calcAvg(easyM)} pts`, subRight: `${easyM.runs} Flights`, mastery: `${easyMas.owned}/${easyMas.total} Mode Skins (${easyMas.pct}%)`, pct: easyMas.pct },
+              { key: 'medium', cls: 'med-card', label: '🟡 Medium Mode', score: medBest, subLeft: `Avg: ${calcAvg(medM)} pts`, subRight: `${medM.runs} Flights`, mastery: `${medMas.owned}/${medMas.total} Mode Skins (${medMas.pct}%)`, pct: medMas.pct },
+              { key: 'hard', cls: 'hard-card', label: '🔴 Hard Mode', score: hardBest, subLeft: `Avg: ${calcAvg(hardM)} pts`, subRight: `${hardM.runs} Flights`, mastery: `${hardMas.owned}/${hardMas.total} Mode Skins (${hardMas.pct}%)`, pct: hardMas.pct },
+              { key: 'any', cls: 'peak-card', label: '👑 Overall Peak', score: anyBest, subLeft: `Avg: ${overallAvg} pts`, subRight: `${overallRuns} Total Runs`, mastery: `${totalUnlocked}/${totalCosmetics} Total Skins (${totalPct}%)`, pct: totalPct }
             ];
             const modesData = isModeFilter
               ? allModesData.filter(m => m.key === sfilter || m.key === 'any')
@@ -1087,12 +1313,21 @@ class FlappyBirdUIAndProgression {
               card.innerHTML = `
                 <div class="stat-mode-top">
                   <span>${m.label}</span>
-                  <span>Best Score</span>
+                  <span>Best Record</span>
                 </div>
                 <div class="stat-mode-val">${m.score} <small class="stat-pts-unit" style="font-size:0.68rem;">PTS</small></div>
                 <div class="stat-mode-sub">
                   <span>${m.subLeft}</span>
                   <strong>${m.subRight}</strong>
+                </div>
+                <div class="stat-mode-mastery">
+                  <div class="stat-mode-mastery-row">
+                    <span>🎨 ${m.mastery}</span>
+                    <span>Leaderboard →</span>
+                  </div>
+                  <div class="skin-progress-track" style="height: 5px;">
+                    <div class="skin-progress-fill" style="width: ${m.pct}%;"></div>
+                  </div>
                 </div>
               `;
               card.addEventListener('click', () => {
@@ -1104,19 +1339,19 @@ class FlappyBirdUIAndProgression {
             });
             container.appendChild(recGrid);
 
-            // PER-GAMEMODE DETAILED TELEMETRY BREAKDOWN (Average Score, Runs, Pipes, Flaps, Flaps/Pipe, Last Score)
+            // PER-GAMEMODE DETAILED TELEMETRY BREAKDOWN (3-Column Grid across full width)
             const modeTeleHeader = document.createElement('div');
             modeTeleHeader.className = 'stats-block-header';
-            modeTeleHeader.innerHTML = `<span>📊 Per-Gamemode Stats & Average Score Breakdown</span><span>${isModeFilter ? sfilter.toUpperCase() : 'Easy • Medium • Hard'}</span>`;
+            modeTeleHeader.innerHTML = `<span>📊 Per-Gamemode Telemetry & Flight Physics Breakdown</span><span>${isModeFilter ? sfilter.toUpperCase() : 'Easy • Medium • Hard Side-by-Side'}</span>`;
             container.appendChild(modeTeleHeader);
 
             const modeTeleList = document.createElement('div');
-            modeTeleList.className = 'mode-telemetry-list';
+            modeTeleList.className = 'mode-telemetry-list' + (isModeFilter ? ' single-mode-grid' : '');
 
             const allDetailedModes = [
-              { key: 'easy', cls: 'easy-tele', title: '🟢 Easy Mode Stats', best: easyBest, data: easyM },
-              { key: 'medium', cls: 'med-tele', title: '🟡 Medium Mode Stats', best: medBest, data: medM },
-              { key: 'hard', cls: 'hard-tele', title: '🔴 Hard Mode Stats', best: hardBest, data: hardM }
+              { key: 'easy', cls: 'easy-tele', title: '🟢 Easy Mode Telemetry', best: easyBest, data: easyM, spec: 'Gap: 4.9m • Base Speed: 8.6m/s • Ramp: +1.2%/pipe' },
+              { key: 'medium', cls: 'med-tele', title: '🟡 Medium Mode Telemetry', best: medBest, data: medM, spec: 'Gap: 3.9m • Base Speed: 10.6m/s • Standard Competitive' },
+              { key: 'hard', cls: 'hard-tele', title: '🔴 Hard Mode Telemetry', best: hardBest, data: hardM, spec: 'Gap: 3.35m • Base Speed: 12.8m/s • Moving Pipes' }
             ];
             const detailedModes = isModeFilter
               ? allDetailedModes.filter(dm => dm.key === sfilter)
@@ -1127,12 +1362,15 @@ class FlappyBirdUIAndProgression {
               tCard.className = `mode-telemetry-card ${dm.cls}`;
               tCard.innerHTML = `
                 <div class="mode-tele-header">
-                  <span class="mode-tele-title">${dm.title}</span>
-                  <span class="mode-tele-badge">Last Run: ${dm.data.lastScore} PTS • Wing Flaps: ${dm.data.totalFlaps}</span>
+                  <div>
+                    <span class="mode-tele-title">${dm.title}</span>
+                    <div class="mode-tele-spec">${dm.spec}</div>
+                  </div>
+                  <span class="mode-tele-badge">Last: ${dm.data.lastScore} PTS</span>
                 </div>
                 <div class="mode-tele-metrics">
                   <div class="mode-tele-pill">
-                    <small>🏆 Best</small>
+                    <small>🏆 Best Score</small>
                     <strong>${dm.best}</strong>
                   </div>
                   <div class="mode-tele-pill">
@@ -1140,15 +1378,19 @@ class FlappyBirdUIAndProgression {
                     <strong>${calcAvg(dm.data)}</strong>
                   </div>
                   <div class="mode-tele-pill">
-                    <small>🎮 Runs</small>
+                    <small>🎮 Flights</small>
                     <strong>${dm.data.runs}</strong>
                   </div>
                   <div class="mode-tele-pill">
-                    <small>🧱 Pipes</small>
+                    <small>🧱 Pipes Passed</small>
                     <strong>${dm.data.totalScore}</strong>
                   </div>
                   <div class="mode-tele-pill">
-                    <small>⚡ Flaps/Pipe</small>
+                    <small>🪶 Total Flaps</small>
+                    <strong>${dm.data.totalFlaps}</strong>
+                  </div>
+                  <div class="mode-tele-pill">
+                    <small>⚡ Flaps / Pipe</small>
                     <strong>${calcFlapsPerPipe(dm.data)}</strong>
                   </div>
                 </div>
@@ -1157,40 +1399,48 @@ class FlappyBirdUIAndProgression {
             });
             container.appendChild(modeTeleList);
 
-            // Lifetime Career Flight Telemetry
+            // Lifetime Career Flight Telemetry (6-Column Strip)
             const careerHeader = document.createElement('div');
             careerHeader.className = 'stats-block-header';
-            careerHeader.innerHTML = `<span>✈️ All-Mode Lifetime Career Totals</span><span>Last Run: ${this.careerStats.lastScore} pts (${this.careerStats.lastMode.toUpperCase()})</span>`;
+            careerHeader.innerHTML = `<span>✈️ All-Mode Lifetime Career & Quest Totals</span><span>Last Flight: ${this.careerStats.lastScore} pts (${this.careerStats.lastMode.toUpperCase()})</span>`;
             container.appendChild(careerHeader);
 
             const careerGrid = document.createElement('div');
             careerGrid.className = 'stats-career-grid';
             careerGrid.innerHTML = `
               <div class="career-mini-card">
-                <small>🎮 Total Runs</small>
-                <strong>${this.careerStats.totalRuns}</strong>
+                <small>🎮 Total Flights</small>
+                <strong>${overallRuns}</strong>
               </div>
               <div class="career-mini-card">
                 <small>🧱 Total Pipes</small>
-                <strong>${this.careerStats.totalScore}</strong>
+                <strong>${overallScore}</strong>
               </div>
               <div class="career-mini-card">
                 <small>🪶 Total Flaps</small>
-                <strong>${this.careerStats.totalFlaps}</strong>
+                <strong>${overallFlaps}</strong>
               </div>
               <div class="career-mini-card">
-                <small>📈 Overall Avg</small>
+                <small>📈 Career Avg</small>
                 <strong>${overallAvg}</strong>
+              </div>
+              <div class="career-mini-card">
+                <small>⚡ Flaps / Pipe</small>
+                <strong>${overallFlapsPerPipe}</strong>
+              </div>
+              <div class="career-mini-card">
+                <small>🔴/😂 Quests Done</small>
+                <strong>${pokeOwnedCount + memeOwnedCount} / ${pokeItems.length + memeItems.length}</strong>
               </div>
             `;
             container.appendChild(careerGrid);
           }
 
-          // SECTION 2: INTERACTIVE COLLECTION & MODE MASTERY BREAKDOWN
+          // SECTION 2: INTERACTIVE COLLECTION & MODE MASTERY BREAKDOWN (4x2 Grid)
           if (sfilter === 'all' || sfilter === 'collection' || isModeFilter) {
             const colHeader = document.createElement('div');
             colHeader.className = 'stats-block-header';
-            colHeader.innerHTML = `<span>🎨 Collection Breakdown</span><span class="stats-header-link">Click Category to Open Locker →</span>`;
+            colHeader.innerHTML = `<span>🎨 3D Cosmetic Collection Breakdown</span><span class="stats-header-link">Click Any Category Card to Open Locker →</span>`;
             container.appendChild(colHeader);
 
             const countHelper = (arr, pred) => {
@@ -1199,7 +1449,7 @@ class FlappyBirdUIAndProgression {
               return { owned, total: filtered.length, pct: filtered.length ? Math.round((owned / filtered.length) * 100) : 100 };
             };
 
-            const allItems = [...BIRD_SKINS, ...PIPE_SKINS];
+            const totalStat = countHelper(allItems, () => true);
             const birdStat = countHelper(BIRD_SKINS, () => true);
             const pipeStat = countHelper(PIPE_SKINS, () => true);
             const pokeStat = countHelper(allItems, i => i.reqMode === 'pokemon');
@@ -1209,13 +1459,14 @@ class FlappyBirdUIAndProgression {
             const hardStat = countHelper(allItems, i => i.reqMode === 'hard');
 
             const categories = [
-              { title: '🐦 3D Bird Skins', stat: birdStat, action: () => this.openLockerWithFilter('birds', 'all') },
-              { title: '🏗️ 3D Pipe Skins', stat: pipeStat, action: () => this.openLockerWithFilter('pipes', 'all') },
-              { title: '🔴 Pokémon Base Quests', stat: pokeStat, action: () => this.openLockerWithFilter('birds', 'pokemon') },
-              { title: '😂 Meme Quests', stat: memeStat, action: () => this.openLockerWithFilter('birds', 'meme') },
-              { title: '🟢 Easy Exclusives (Up to 150)', stat: easyStat, action: () => this.openLockerWithFilter('birds', 'easy') },
-              { title: '🟡 Medium Exclusives', stat: medStat, action: () => this.openLockerWithFilter('birds', 'medium') },
-              { title: '🔴 Hard Exclusives', stat: hardStat, action: () => this.openLockerWithFilter('birds', 'hard') }
+              { title: '✨ All 3D Cosmetics', stat: totalStat, sub: 'Complete Collection', action: () => this.openLockerWithFilter('birds', 'all') },
+              { title: '🐦 3D Bird Skins', stat: birdStat, sub: '0.60m Uniform Hitbox', action: () => this.openLockerWithFilter('birds', 'all') },
+              { title: '🏗️ 3D Pipe Skins', stat: pipeStat, sub: '1.05m Uniform Shaft', action: () => this.openLockerWithFilter('pipes', 'all') },
+              { title: '🔴 Pokémon Quests', stat: pokeStat, sub: '17 Birds + 8 Pipes', action: () => this.openLockerWithFilter('birds', 'pokemon') },
+              { title: '😂 Meme Quests', stat: memeStat, sub: '16 Viral Challenges', action: () => this.openLockerWithFilter('birds', 'meme') },
+              { title: '🟢 Easy Exclusives', stat: easyStat, sub: 'Score Milestones', action: () => this.openLockerWithFilter('birds', 'easy') },
+              { title: '🟡 Medium Exclusives', stat: medStat, sub: 'Competitive Tiers', action: () => this.openLockerWithFilter('birds', 'medium') },
+              { title: '🔴 Hard Exclusives', stat: hardStat, sub: 'Grandmaster Tiers', action: () => this.openLockerWithFilter('birds', 'hard') }
             ];
 
             const colGrid = document.createElement('div');
@@ -1232,9 +1483,9 @@ class FlappyBirdUIAndProgression {
                 <div class="skin-progress-track">
                   <div class="skin-progress-fill" style="width: ${cat.stat.pct}%;"></div>
                 </div>
-                <div class="collection-cat-sub" style="font-size: 0.6rem; font-weight: 800; display: flex; justify-content: space-between;">
-                  <span>${cat.stat.pct}% Complete</span>
-                  <span class="stats-header-link">View →</span>
+                <div class="collection-cat-sub" style="font-size: 0.66rem; font-weight: 800; display: flex; justify-content: space-between;">
+                  <span>${cat.stat.pct}% • ${cat.sub}</span>
+                  <span class="stats-header-link">Open →</span>
                 </div>
               `;
               cCard.addEventListener('click', cat.action);
@@ -1243,11 +1494,11 @@ class FlappyBirdUIAndProgression {
             container.appendChild(colGrid);
           }
 
-          // SECTION 3: NEXT CLOSEST UNLOCKS ROADMAP (WITH 1-CLICK 3D PREVIEW)
+          // SECTION 3: NEXT CLOSEST UNLOCKS ROADMAP (2-Column Grid with 1-Click 3D Preview)
           if (sfilter === 'all' || sfilter === 'roadmap' || isModeFilter) {
             const roadHeader = document.createElement('div');
             roadHeader.className = 'stats-block-header';
-            roadHeader.innerHTML = `<span>🎯 Closest Next Unlocks Roadmap</span><span class="stats-header-link">Click to 3D Preview →</span>`;
+            roadHeader.innerHTML = `<span>🎯 Closest Next Unlocks Roadmap</span><span class="stats-header-link">Click Any Item to Inspect in 3D Locker →</span>`;
             container.appendChild(roadHeader);
 
             const lockedAll = [
@@ -1258,28 +1509,28 @@ class FlappyBirdUIAndProgression {
             lockedAll.sort((a, b) => {
               const pA = this.getCosmeticProgress(a.item);
               const pB = this.getCosmeticProgress(b.item);
-              return (pA.target - pA.current) - (pB.target - pB.current);
+              return (pB.percent - pA.percent) || ((pA.target - pA.current) - (pB.target - pB.current));
             });
 
             const roadList = document.createElement('div');
             roadList.className = 'stats-roadmap-list';
 
             if (lockedAll.length === 0) {
-              roadList.innerHTML = `<div class="lb-empty">🎉 Incredible! You have unlocked all ${BIRD_SKINS.length + PIPE_SKINS.length} Bird & Pipe Cosmetics!</div>`;
+              roadList.innerHTML = `<div class="lb-empty" style="grid-column: 1 / -1;">🎉 Incredible! You have unlocked all ${BIRD_SKINS.length + PIPE_SKINS.length} Bird & Pipe Cosmetics!</div>`;
             } else {
-              lockedAll.slice(0, 6).forEach(({ item, isPipe }) => {
+              lockedAll.slice(0, 8).forEach(({ item, isPipe }) => {
                 const prog = this.getCosmeticProgress(item);
                 const ptsLeft = Math.max(1, prog.target - prog.current);
                 const isQuest = item.reqMode === 'meme' || item.reqMode === 'pokemon';
                 const row = document.createElement('div');
                 row.className = 'roadmap-row';
                 row.innerHTML = `
-                  <div class="skin-swatch ${isPipe ? 'pipe-swatch' : ''}" style="width:36px; height:36px; font-size:1.05rem; background:${isPipe ? item.colors[0] : '#' + item.body.toString(16).padStart(6, '0')};">
+                  <div class="skin-swatch ${isPipe ? 'pipe-swatch' : ''}" style="width:42px; height:42px; font-size:1.15rem; background:${isPipe ? item.colors[0] : '#' + item.body.toString(16).padStart(6, '0')};">
                     ${item.emoji}
                   </div>
                   <div class="skin-info">
                     <div class="skin-header-row">
-                      <span class="skin-name" style="font-size:0.82rem;">${item.name}</span>
+                      <span class="skin-name" style="font-size:0.86rem;">${item.name}</span>
                       <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span>
                       <span class="req-badge-inline">${isPipe ? '🏗️ Pipe' : '🐦 Bird'}</span>
                     </div>
@@ -1287,7 +1538,7 @@ class FlappyBirdUIAndProgression {
                       <div class="skin-progress-track">
                         <div class="skin-progress-fill" style="width:${prog.percent}%;"></div>
                       </div>
-                      <span class="skin-req">${item.reqText} • ${isQuest ? `Progress: ${prog.current}/${prog.target}` : `Need ${ptsLeft} more pts (${prog.current}/${prog.target})`}</span>
+                      <span class="skin-req">${item.reqText} • ${isQuest ? `Progress: ${prog.current}/${prog.target} (${prog.percent}%)` : `Need ${ptsLeft} more pts (${prog.current}/${prog.target})`}</span>
                     </div>
                   </div>
                   <button type="button" class="skin-cta-btn preview-btn">👁️ 3D View</button>
@@ -1377,6 +1628,9 @@ class FlappyBirdUIAndProgression {
               : `<span class="ownership-pill locked">🔒 NOT OWNED (${prog.current}/${prog.target} ${unitLabel})</span>`);
 
           const canvasId = isPipe ? 'pipe-spotlight-canvas' : 'bird-spotlight-canvas';
+          const hitboxBadgeHtml = isPipe
+            ? `<span class="hitbox-fairness-tag" title="Every pipe skin uses the exact same 1.05m shaft / 1.24m cap collision bounds">🎯 1.05m Uniform Hitbox</span>`
+            : `<span class="hitbox-fairness-tag" title="Every bird & Pokémon skin uses the exact same 0.60m spherical hitbox">🎯 0.60m Uniform Hitbox</span>`;
 
           spotEl.innerHTML = `
             <div class="spotlight-3d-wrap">
@@ -1388,6 +1642,7 @@ class FlappyBirdUIAndProgression {
                 <span class="spotlight-title">${item.emoji} ${item.name}</span>
                 <div class="spotlight-badges">
                   <span class="rarity-tag rarity-${item.rarity}">${item.rarity}</span>
+                  ${hitboxBadgeHtml}
                   ${modeBadgeHtml}
                   ${statusHtml}
                 </div>
@@ -1951,13 +2206,15 @@ class FlappyBirdUIAndProgression {
             }
           }
 
-          // Toggle bespoke 3D model preset groups and reset any dynamic scale/hop offsets
+          // Toggle bespoke 3D model preset groups and restore calibrated hitbox-centered baseScale & basePos
           if (this.skinModelGroups) {
             Object.keys(this.skinModelGroups).forEach(k => {
               const grp = this.skinModelGroups[k];
               grp.visible = (k === skin.modelPreset);
-              grp.scale.set(1, 1, 1);
-              grp.position.set(0, 0, 0);
+              const bs = (grp.userData && grp.userData.baseScale) || 1;
+              const bp = (grp.userData && grp.userData.basePos) || { x: 0, y: 0, z: 0 };
+              grp.scale.set(bs, bs, bs);
+              grp.position.set(bp.x, bp.y, bp.z);
             });
           }
 
@@ -1970,6 +2227,8 @@ class FlappyBirdUIAndProgression {
               pair.right.visible = isMatch;
             });
           }
+
+          this.updateProfileRecordPills();
         }
 
         getOrCreatePipeSkinAssets(pipeSkin) {
@@ -2050,10 +2309,16 @@ class FlappyBirdUIAndProgression {
           this.activePipeAssets = this.getOrCreatePipeSkinAssets(pipeSkin);
 
           // Rebuild existing visible pipes in place so 3D Pipe Skin changes appear immediately!
-          for (let i = 0; i < this.pipes.length; i++) {
-            const p = this.pipes[i];
-            this.rebuildPipePairVisuals(p);
+          if (this.pipes.length === 0 && typeof this.spawnLobbyPreviewPipes === 'function') {
+            this.spawnLobbyPreviewPipes();
+          } else {
+            for (let i = 0; i < this.pipes.length; i++) {
+              const p = this.pipes[i];
+              this.rebuildPipePairVisuals(p);
+            }
           }
+
+          this.updateProfileRecordPills();
         }
 
         initSettings() {
@@ -2064,7 +2329,8 @@ class FlappyBirdUIAndProgression {
             screenShake: 'full',
             particles: true,
             cameraTilt: true,
-            showFPS: true
+            showFPS: true,
+            showHitbox: false
           };
           this.settings = { ...DEFAULT_SETTINGS };
           try {
@@ -2089,6 +2355,11 @@ class FlappyBirdUIAndProgression {
           if (fpsCb) fpsCb.checked = Boolean(this.settings.showFPS);
           const fpsBadge = document.getElementById('header-fps-badge');
           if (fpsBadge) fpsBadge.style.display = this.settings.showFPS ? 'inline-block' : 'none';
+          const hitboxCb = document.getElementById('setting-show-hitbox');
+          if (hitboxCb) hitboxCb.checked = Boolean(this.settings.showHitbox);
+          if (this.hitboxRingMesh) {
+            this.hitboxRingMesh.visible = Boolean(this.settings.showHitbox);
+          }
         }
 
         saveSettings() {

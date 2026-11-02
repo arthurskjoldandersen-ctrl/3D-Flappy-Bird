@@ -222,6 +222,32 @@
             });
           }
 
+          const btnAccountGotoLb = document.getElementById('btn-account-goto-lb');
+          if (btnAccountGotoLb) {
+            btnAccountGotoLb.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.switchView('leaderboard');
+            });
+          }
+
+          const profBirdCard = document.getElementById('profile-equipped-bird-card');
+          if (profBirdCard) {
+            profBirdCard.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (this.switchRightPanelFn) this.switchRightPanelFn('birds');
+              else this.switchView('skins');
+            });
+          }
+
+          const profPipeCard = document.getElementById('profile-equipped-pipe-card');
+          if (profPipeCard) {
+            profPipeCard.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (this.switchRightPanelFn) this.switchRightPanelFn('pipes');
+              else this.switchView('skins');
+            });
+          }
+
           document.querySelectorAll('.btn-logout').forEach(btn => {
             btn.addEventListener('click', (e) => {
               e.stopPropagation();
@@ -409,6 +435,18 @@
             });
           }
 
+          // Settings Controls: Show 0.60m Hitbox Ring Checkbox
+          const cbHitbox = document.getElementById('setting-show-hitbox');
+          if (cbHitbox) {
+            cbHitbox.addEventListener('change', (e) => {
+              this.settings.showHitbox = e.target.checked;
+              this.saveSettings();
+              if (this.hitboxRingMesh) {
+                this.hitboxRingMesh.visible = Boolean(e.target.checked);
+              }
+            });
+          }
+
           // Settings Controls: Reset to Defaults
           const btnResetSettings = document.getElementById('btn-settings-reset');
           if (btnResetSettings) {
@@ -424,6 +462,8 @@
           const tabPipes = document.getElementById('tab-btn-pipe-skins');
           const viewBirds = document.getElementById('panel-view-bird-skins');
           const viewPipes = document.getElementById('panel-view-pipe-skins');
+          const spotBirds = document.getElementById('bird-skin-spotlight');
+          const spotPipes = document.getElementById('pipe-skin-spotlight');
 
           const switchLockerTab = (tab) => {
             this.currentLockerTab = tab;
@@ -431,8 +471,15 @@
             if (tabPipes) tabPipes.classList.toggle('active', tab === 'pipes');
             if (viewBirds) viewBirds.style.display = tab === 'birds' ? 'flex' : 'none';
             if (viewPipes) viewPipes.style.display = tab === 'pipes' ? 'flex' : 'none';
+            if (spotBirds) spotBirds.style.display = tab === 'birds' ? 'flex' : 'none';
+            if (spotPipes) spotPipes.style.display = tab === 'pipes' ? 'flex' : 'none';
             if (tab === 'birds') this.renderBirdSkinsGrid();
-            if (tab === 'pipes') this.renderPipeSkinsGrid();
+            if (tab === 'pipes') {
+              if (this.pipes.length === 0 && typeof this.spawnLobbyPreviewPipes === 'function') {
+                this.spawnLobbyPreviewPipes();
+              }
+              this.renderPipeSkinsGrid();
+            }
           };
 
           if (tabBirds) tabBirds.addEventListener('click', () => switchLockerTab('birds'));
@@ -567,12 +614,20 @@
             });
           });
 
-          // Leaderboard tab buttons
+          // Leaderboard tab buttons & live search bar
           document.querySelectorAll('#lb-tabs .lb-tab').forEach(tabBtn => {
             tabBtn.addEventListener('click', () => {
               this.setLeaderboardTab(tabBtn.getAttribute('data-tab'));
             });
           });
+
+          const lbSearchInput = document.getElementById('lb-search-input');
+          if (lbSearchInput) {
+            lbSearchInput.addEventListener('input', (e) => {
+              this.lbSearchQuery = (e.target.value || '').trim().toLowerCase();
+              this.renderLeaderboard();
+            });
+          }
 
           window.addEventListener('resize', () => {
             const width = window.innerWidth;

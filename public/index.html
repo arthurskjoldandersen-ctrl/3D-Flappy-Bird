@@ -37,7 +37,7 @@
       <button type="button" class="dock-tab" data-view="skins" id="dock-btn-skins">
         <span class="tab-icon">🎨</span>
         <span class="tab-label">Locker</span>
-        <span class="tab-badge" id="dock-skins-badge">96</span>
+        <span class="tab-badge" id="dock-skins-badge">2/103</span>
       </button>
       <button type="button" class="dock-tab" data-view="leaderboard" id="dock-btn-leaderboard">
         <span class="tab-icon">🏆</span>
@@ -62,7 +62,7 @@
       <button type="button" class="profile-capsule-btn" id="open-profile-btn" title="Player Account & Cloud Sync">
         <span class="capsule-avatar">👤</span>
         <span class="capsule-name" id="capsule-username">Guest Player</span>
-        <span class="capsule-count" id="capsule-owned-count">🎨 2/96</span>
+        <span class="capsule-count" id="capsule-owned-count">🎨 2/103</span>
       </button>
 
       <a href="/database" target="_blank" class="icon-tool-btn" id="btn-open-database" title="MeDonut Admin Only: Open Live Player & Leaderboard Database Manager (/database)" style="display:none; text-decoration:none;"><span>🗄️</span></a>
@@ -244,7 +244,7 @@
           <div class="locker-top-nav">
             <div class="locker-tab-switch">
               <button type="button" class="locker-tab-btn active" id="tab-btn-bird-skins">
-                <span>🐦</span> Bird Skins (53)
+                <span>🐦</span> Bird Skins (60)
               </button>
               <button type="button" class="locker-tab-btn" id="tab-btn-pipe-skins">
                 <span>🏗️</span> Pipe Skins (43)
@@ -320,10 +320,16 @@
               <h2 style="font-size: 1.45rem; font-family:'Fredoka',sans-serif; color:var(--text-primary); margin:0;">🏆 Global Leaderboards</h2>
               <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Multi-entry verified rankings across all 100 spots • Real-time anti-cheat protected</p>
             </div>
-            <div class="lb-tabs" id="lb-tabs">
-              <button type="button" class="lb-tab" data-tab="easy" id="tab-btn-lb-easy">🟢 Easy</button>
-              <button type="button" class="lb-tab active" data-tab="medium" id="tab-btn-lb-med">🟡 Medium</button>
-              <button type="button" class="lb-tab" data-tab="hard" id="tab-btn-lb-hard">🔴 Hard</button>
+            <div class="lb-controls-wrap">
+              <div class="lb-search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="lb-search-input" placeholder="Search player, rank (#1), or score..." autocomplete="off" />
+              </div>
+              <div class="lb-tabs" id="lb-tabs">
+                <button type="button" class="lb-tab" data-tab="easy" id="tab-btn-lb-easy">🟢 Easy</button>
+                <button type="button" class="lb-tab active" data-tab="medium" id="tab-btn-lb-med">🟡 Medium</button>
+                <button type="button" class="lb-tab" data-tab="hard" id="tab-btn-lb-hard">🔴 Hard</button>
+              </div>
             </div>
             <button type="button" class="btn-small" id="tab-btn-lb" style="display:none;">LB</button>
           </div>
@@ -342,13 +348,16 @@
           <div class="stats-header-row">
             <div>
               <h2 style="font-size: 1.45rem; font-family:'Fredoka',sans-serif; color:var(--text-primary); margin:0;">📊 Career Statistics & Records</h2>
-              <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Track games played, average scores, high scores & unlock completions</p>
+              <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Full-screen telemetry across all modes, flight physics efficiency, collection mastery & next unlocks</p>
             </div>
             <div class="stats-subfilter-bar" id="stats-subfilter-bar">
-              <button type="button" class="stats-subfilter-btn active" data-mode="all">🌐 All Modes</button>
+              <button type="button" class="stats-subfilter-btn active" data-mode="all">🌐 Overview</button>
               <button type="button" class="stats-subfilter-btn" data-mode="easy">🟢 Easy</button>
               <button type="button" class="stats-subfilter-btn" data-mode="medium">🟡 Medium</button>
               <button type="button" class="stats-subfilter-btn" data-mode="hard">🔴 Hard</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="records">🏆 Records</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="collection">🎨 Collection</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="roadmap">🎯 Unlocks</button>
             </div>
             <button type="button" class="btn-small" id="tab-btn-stats" style="display:none;">Stats</button>
           </div>
@@ -453,6 +462,17 @@
             </label>
           </div>
 
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">🎯 Show Exact 0.60m Hitbox Ring</span>
+              <span class="setting-desc">Display the exact spherical collision boundary (identical across all 53 bird & Pokémon skins)</span>
+            </div>
+            <label class="setting-switch" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="setting-show-hitbox" style="width:18px; height:18px; cursor:pointer;" />
+              <span style="font-size:0.82rem; font-weight:800; color:var(--text-primary);">Show Ring</span>
+            </label>
+          </div>
+
           <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; border-top:1px solid var(--border-subtle); padding-top:14px;">
             <button type="button" class="btn-small" id="btn-settings-reset" style="background:var(--pill-bg); color:var(--text-secondary); border:1px solid var(--border-subtle);">
               ↻ Reset to Defaults
@@ -467,107 +487,219 @@
         <div class="account-panel-card card">
           <div class="account-card-header">
             <div class="account-header-text">
-              <h2 class="account-title">👤 Player Account & Cloud Save</h2>
-              <p class="account-subtitle">Sign in or register to sync your unlocked Pokémon & meme skins, save career records, and climb the live Top 100 Leaderboards!</p>
+              <h2 class="account-title">👤 Pilot Command Center & Cloud Profile</h2>
+              <p class="account-subtitle">Manage your cloud account, inspect your active 3D loadout, review personal best records, and track career flight telemetry!</p>
             </div>
-            <span class="security-tag">🛡️ Anti-Cheat Protected</span>
-          </div>
-
-          <!-- Auth Box (Visible when logged out) -->
-          <div class="auth-box" id="auth-form-box">
-            <div class="auth-inputs-grid">
-              <div class="auth-field">
-                <label for="auth-username" class="auth-label">Player Username</label>
-                <div class="auth-input-wrap">
-                  <span class="auth-input-icon">👤</span>
-                  <input type="text" id="auth-username" class="account-input" placeholder="Enter username (3-16 chars)" maxlength="16" autocomplete="username" />
-                </div>
-              </div>
-              <div class="auth-field">
-                <label for="auth-password" class="auth-label">Secret Password</label>
-                <div class="auth-input-wrap">
-                  <span class="auth-input-icon">🔒</span>
-                  <input type="password" id="auth-password" class="account-input" placeholder="Enter password (4+ chars)" maxlength="64" autocomplete="current-password" />
-                </div>
-              </div>
-            </div>
-
-            <div class="auth-actions-row">
-              <button type="button" id="btn-login" class="btn-action-primary btn-login">
-                <span>🔑</span> Log In
-              </button>
-              <button type="button" id="btn-register" class="btn-action-secondary btn-register">
-                <span>✨</span> Create New Account
-              </button>
-            </div>
-
-            <div class="auth-msg" id="auth-message">Sign in to sync skins & post scores to the online leaderboard!</div>
-
-            <div class="auth-perks-row">
-              <div class="auth-perk-item">
-                <span class="perk-icon">☁️</span>
-                <span class="perk-text">Cross-device cloud skin syncing</span>
-              </div>
-              <div class="auth-perk-item">
-                <span class="perk-icon">🏆</span>
-                <span class="perk-text">Verified Top 100 leaderboard rankings</span>
-              </div>
-              <div class="auth-perk-item">
-                <span class="perk-icon">🛡️</span>
-                <span class="perk-text">Deterministic 60Hz anti-cheat verification</span>
-              </div>
+            <div class="account-header-badges">
+              <span class="hitbox-fairness-tag">🎯 0.60m Uniform Hitbox</span>
+              <span class="security-tag">🛡️ 60Hz Anti-Cheat Verified</span>
             </div>
           </div>
 
-          <!-- Profile Summary Box (Visible when logged in) -->
-          <div class="profile-summary" id="profile-summary-box" style="display: none;">
-            <div class="profile-hero-card">
-              <div class="profile-avatar-circle">🐤</div>
-              <div class="profile-hero-info">
-                <div class="profile-status-pill">🟢 Online & Authenticated</div>
-                <h3 class="profile-hero-name" id="profile-name-text">Guest Player</h3>
-                <span class="profile-hero-badge" id="unlocked-count-badge">🎨 2 / 96 Skins Unlocked</span>
+          <div class="account-body-layout is-guest-split" id="account-body-layout">
+            <!-- Auth Box (Visible when logged out) -->
+            <div class="auth-box" id="auth-form-box">
+              <div class="auth-box-header">
+                <h3 class="auth-box-title">🔑 Cloud Sign In / Register</h3>
+                <p class="auth-box-sub">Log in or create a free account to sync your unlocked skins across devices and post verified scores to the global Top 100!</p>
               </div>
-              <div class="profile-hero-actions">
-                <button type="button" class="btn-logout" id="hud-logout-btn">
-                  🚪 Log Out
+
+              <div class="auth-inputs-grid">
+                <div class="auth-field">
+                  <label for="auth-username" class="auth-label">Player Username</label>
+                  <div class="auth-input-wrap">
+                    <span class="auth-input-icon">👤</span>
+                    <input type="text" id="auth-username" class="account-input" placeholder="Enter username (3-16 chars)" maxlength="16" autocomplete="username" />
+                  </div>
+                </div>
+                <div class="auth-field">
+                  <label for="auth-password" class="auth-label">Secret Password</label>
+                  <div class="auth-input-wrap">
+                    <span class="auth-input-icon">🔒</span>
+                    <input type="password" id="auth-password" class="account-input" placeholder="Enter password (4+ chars)" maxlength="64" autocomplete="current-password" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="auth-actions-row">
+                <button type="button" id="btn-login" class="btn-action-primary btn-login">
+                  <span>🔑</span> Log In
+                </button>
+                <button type="button" id="btn-register" class="btn-action-secondary btn-register">
+                  <span>✨</span> Create New Account
                 </button>
               </div>
-            </div>
 
-            <div class="profile-records-grid">
-              <div class="profile-rec-card rec-easy-card">
-                <span class="rec-title">🟢 Easy Mode Best</span>
-                <strong class="rec-score" id="rec-easy">0</strong>
-                <span class="rec-sub">Wide Gap • Speed Up</span>
-              </div>
-              <div class="profile-rec-card rec-med-card">
-                <span class="rec-title">🟡 Medium Mode Best</span>
-                <strong class="rec-score" id="rec-medium">0</strong>
-                <span class="rec-sub">Standard Competitive</span>
-              </div>
-              <div class="profile-rec-card rec-hard-card">
-                <span class="rec-title">🔴 Hard Mode Best</span>
-                <strong class="rec-score" id="rec-hard">0</strong>
-                <span class="rec-sub">Tight Gaps • Fast</span>
-              </div>
-              <div class="profile-rec-card rec-any-card">
-                <span class="rec-title">⭐ All-Time Record</span>
-                <strong class="rec-score" id="rec-any">0</strong>
-                <span class="rec-sub">Highest Across All Modes</span>
+              <div class="auth-msg" id="auth-message">Sign in to sync skins & post scores to the online leaderboard!</div>
+
+              <div class="auth-perks-row">
+                <div class="auth-perk-item">
+                  <span class="perk-icon">☁️</span>
+                  <span class="perk-text">Cross-device cloud skin & record syncing</span>
+                </div>
+                <div class="auth-perk-item">
+                  <span class="perk-icon">🏆</span>
+                  <span class="perk-text">Verified Top 100 leaderboard rankings</span>
+                </div>
+                <div class="auth-perk-item">
+                  <span class="perk-icon">🛡️</span>
+                  <span class="perk-text">Deterministic 60Hz anti-cheat verification</span>
+                </div>
               </div>
             </div>
 
-            <div class="profile-quick-nav">
-              <button type="button" class="btn-quick-nav" id="btn-account-goto-lobby">
-                🎮 Play Game
-              </button>
-              <button type="button" class="btn-quick-nav" id="btn-account-goto-locker">
-                🎨 Locker (96 Skins)
-              </button>
-              <button type="button" class="btn-quick-nav" id="open-stats-btn">
-                📊 Detailed Stats
-              </button>
+            <!-- Profile Summary Dashboard (Always fills remaining space; full width when logged in) -->
+            <div class="profile-summary" id="profile-summary-box">
+              <!-- Top Pilot Identity & Mastery Hero -->
+              <div class="profile-hero-card">
+                <div class="profile-avatar-circle" id="profile-avatar-emoji">🐤</div>
+                <div class="profile-hero-info">
+                  <div class="profile-hero-top-row">
+                    <div class="profile-status-pill">🟢 Online & Authenticated</div>
+                    <span class="profile-rank-pill" id="profile-rank-pill">🌱 Rookie Flyer</span>
+                    <span class="profile-hero-badge" id="unlocked-count-badge">🎨 2 / 96 Owned (2%)</span>
+                  </div>
+                  <h3 class="profile-hero-name" id="profile-name-text">Guest Player</h3>
+                  <div class="profile-mastery-wrap">
+                    <div class="profile-mastery-labels">
+                      <span>🎨 Overall 3D Cosmetic Mastery</span>
+                      <strong id="profile-mastery-pct">2 / 96 Skins (2%)</strong>
+                    </div>
+                    <div class="profile-mastery-track">
+                      <div class="profile-mastery-fill" id="profile-mastery-bar-fill" style="width: 2%;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="profile-hero-actions">
+                  <button type="button" class="btn-logout" id="hud-logout-btn">
+                    🚪 Log Out
+                  </button>
+                </div>
+              </div>
+
+              <!-- 4-Column Personal Best Mode Cards -->
+              <div class="profile-records-grid">
+                <div class="profile-rec-card rec-easy-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">🟢 Easy Mode Best</span>
+                    <span class="rec-mode-tag">GAP 4.9M</span>
+                  </div>
+                  <strong class="rec-score" id="rec-easy">0</strong>
+                  <span class="rec-sub" id="rec-easy-meta">Avg: 0.0 pts • 0 Flights</span>
+                </div>
+                <div class="profile-rec-card rec-med-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">🟡 Medium Mode Best</span>
+                    <span class="rec-mode-tag">GAP 3.9M</span>
+                  </div>
+                  <strong class="rec-score" id="rec-medium">0</strong>
+                  <span class="rec-sub" id="rec-med-meta">Avg: 0.0 pts • 0 Flights</span>
+                </div>
+                <div class="profile-rec-card rec-hard-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">🔴 Hard Mode Best</span>
+                    <span class="rec-mode-tag">GAP 3.35M</span>
+                  </div>
+                  <strong class="rec-score" id="rec-hard">0</strong>
+                  <span class="rec-sub" id="rec-hard-meta">Avg: 0.0 pts • 0 Flights</span>
+                </div>
+                <div class="profile-rec-card rec-any-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">⭐ All-Time Peak</span>
+                    <span class="rec-mode-tag">ALL MODES</span>
+                  </div>
+                  <strong class="rec-score" id="rec-any">0</strong>
+                  <span class="rec-sub" id="rec-any-meta">Avg: 0.0 pts • 0 Total Runs</span>
+                </div>
+              </div>
+
+              <!-- Lower 2-Column Dashboard Split: Active 3D Loadout Showcase + Lifetime Career Telemetry -->
+              <div class="profile-dashboard-split">
+                <!-- Left Column: Active 3D Loadout Showcase -->
+                <div class="profile-loadout-box">
+                  <div class="profile-subbox-header">
+                    <span>⚡ Active 3D Flight Loadout</span>
+                    <span class="profile-subbox-hint">Click to Customize →</span>
+                  </div>
+                  <div class="profile-loadout-cards">
+                    <div class="profile-equip-card" id="profile-equipped-bird-card">
+                      <div class="profile-equip-swatch" id="profile-eq-bird-icon">🐤</div>
+                      <div class="profile-equip-info">
+                        <div class="profile-equip-top">
+                          <span class="profile-equip-label">Equipped 3D Bird</span>
+                          <span class="rarity-tag rarity-COMMON" id="profile-eq-bird-tier">COMMON</span>
+                        </div>
+                        <strong class="profile-equip-name" id="profile-eq-bird-name">Classic Gold Finch</strong>
+                        <span class="profile-equip-hitbox">🎯 0.60m Spherical Hitbox (Centered)</span>
+                      </div>
+                      <span class="profile-equip-cta">🐦 Swap</span>
+                    </div>
+
+                    <div class="profile-equip-card" id="profile-equipped-pipe-card">
+                      <div class="profile-equip-swatch" id="profile-eq-pipe-icon">🟢</div>
+                      <div class="profile-equip-info">
+                        <div class="profile-equip-top">
+                          <span class="profile-equip-label">Equipped 3D Pipe</span>
+                          <span class="rarity-tag rarity-COMMON" id="profile-eq-pipe-tier">COMMON</span>
+                        </div>
+                        <strong class="profile-equip-name" id="profile-eq-pipe-name">Classic Emerald Warp</strong>
+                        <span class="profile-equip-hitbox">🎯 1.05m Shaft / 1.24m Cap Hitbox</span>
+                      </div>
+                      <span class="profile-equip-cta">🏗️ Swap</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right Column: Lifetime Career & Quest Telemetry -->
+                <div class="profile-telemetry-box">
+                  <div class="profile-subbox-header">
+                    <span>📈 Lifetime Career & Quest Telemetry</span>
+                    <span class="profile-subbox-hint">All Modes Combined</span>
+                  </div>
+                  <div class="profile-telemetry-grid">
+                    <div class="profile-tele-pill">
+                      <small>🎮 Total Flights</small>
+                      <strong id="prof-stat-runs">0</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>🧱 Pipes Cleared</small>
+                      <strong id="prof-stat-pipes">0</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>🪶 Total Flaps</small>
+                      <strong id="prof-stat-flaps">0</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>⚡ Flaps / Pipe</small>
+                      <strong id="prof-stat-efficiency">—</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>🔴 Pokémon Quests</small>
+                      <strong id="prof-stat-pokemon">0 / 10</strong>
+                    </div>
+                    <div class="profile-tele-pill">
+                      <small>😂 Meme Quests</small>
+                      <strong id="prof-stat-meme">0 / 16</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom 4-Button Quick Navigation Bar -->
+              <div class="profile-quick-nav">
+                <button type="button" class="btn-quick-nav" id="btn-account-goto-lobby">
+                  🎮 Play Game
+                </button>
+                <button type="button" class="btn-quick-nav" id="btn-account-goto-locker">
+                  🎨 3D Locker (96 Skins)
+                </button>
+                <button type="button" class="btn-quick-nav" id="open-stats-btn">
+                  📊 Detailed Stats
+                </button>
+                <button type="button" class="btn-quick-nav" id="btn-account-goto-lb">
+                  🏆 Top 100 Ranks
+                </button>
+              </div>
             </div>
           </div>
         </div>

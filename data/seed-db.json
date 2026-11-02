@@ -1,8 +1,8 @@
 {
   "databaseStatus": {
-    "lastUpdatedISO": "2026-11-02T09:24:15.137Z",
-    "lastUpdatedReadable": "2026-11-02 10:24:15",
-    "latestEventBanner": "[2026-11-02 10:23:10] 🚀 3D Flappy Bird Live Database initialized with all player accounts & Top 100 leaderboard records.",
+    "lastUpdatedISO": "2026-11-02T10:55:07.029Z",
+    "lastUpdatedReadable": "2026-11-02 11:55:07",
+    "latestEventBanner": "[2026-11-02 11:55:07] 🚀 3D Flappy Bird Live Database initialized with all player accounts & Top 100 leaderboard records.",
     "lastEventType": "DATABASE_READY",
     "lastEventPlayer": "System",
     "currentChampions": {
@@ -23,7 +23,7 @@
     "MeDonut": {
       "username": "MeDonut",
       "summary": "🏆 Best: 109 pts (Easy: 109 | Medium: 40 | Hard: 27)",
-      "loginStatus": "⚪ Registered 2026-10-19 13:51:29 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 3 time(s) • Last login: 2026-10-30 13:21:07",
       "newBestStatus": "🔥 Personal Bests — Easy: 109, Medium: 40, Hard: 27 (Updated: 2026-10-29 09:04:55)",
       "records": {
         "easy": 109,
@@ -39,15 +39,15 @@
       },
       "selectedSkin": "sakura",
       "selectedPipeSkin": "glacier_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 3,
+      "lastLoginAtReadable": "2026-10-30 13:21:07",
       "lastNewBestAtReadable": "2026-10-29 09:04:55",
       "createdAtReadable": "2026-10-19 13:51:29"
     },
     "joslor11": {
       "username": "joslor11",
       "summary": "🏆 Best: 60 pts (Easy: 60 | Medium: 42 | Hard: 25)",
-      "loginStatus": "⚪ Registered 2026-10-21 08:31:30 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-10-30 12:09:24",
       "newBestStatus": "🔥 Personal Bests — Easy: 60, Medium: 42, Hard: 25 (Updated: 2026-10-23 13:10:55)",
       "records": {
         "easy": 60,
@@ -56,70 +56,70 @@
       },
       "allTimeBest": 60,
       "leaderboardPlacements": {
-        "total": 69,
+        "total": 71,
         "easy": 35,
         "medium": 4,
-        "hard": 30
+        "hard": 32
       },
-      "selectedSkin": "penguin",
+      "selectedSkin": "poke_pikachu",
       "selectedPipeSkin": "hellfire_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 2,
+      "lastLoginAtReadable": "2026-10-30 12:09:24",
       "lastNewBestAtReadable": "2026-10-23 13:10:55",
       "createdAtReadable": "2026-10-21 08:31:30"
     },
+    "BlueViceee": {
+      "username": "BlueViceee",
+      "summary": "🏆 Best: 58 pts (Easy: 58 | Medium: 36 | Hard: 21)",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-28 13:19:28",
+      "newBestStatus": "🔥 Personal Bests — Easy: 58, Medium: 36, Hard: 21 (Updated: 2026-11-02 11:00:59)",
+      "records": {
+        "easy": 58,
+        "medium": 36,
+        "hard": 21
+      },
+      "allTimeBest": 58,
+      "leaderboardPlacements": {
+        "total": 35,
+        "easy": 9,
+        "medium": 9,
+        "hard": 17
+      },
+      "selectedSkin": "nine_plus_ten_21",
+      "selectedPipeSkin": "pipe_windows_bsod",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-28 13:19:28",
+      "lastNewBestAtReadable": "2026-11-02 11:00:59",
+      "createdAtReadable": "2026-10-28 13:19:28"
+    },
     "ejstrup": {
       "username": "ejstrup",
-      "summary": "🏆 Best: 45 pts (Easy: 45 | Medium: 34 | Hard: 27)",
-      "loginStatus": "⚪ Registered 2026-10-19 13:54:11 • Logins tracked: 0",
-      "newBestStatus": "🔥 Personal Bests — Easy: 45, Medium: 34, Hard: 27 (Updated: 2026-10-30 12:16:59)",
+      "summary": "🏆 Best: 45 pts (Easy: 45 | Medium: 38 | Hard: 27)",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-21 08:30:08",
+      "newBestStatus": "🔥 Personal Bests — Easy: 45, Medium: 38, Hard: 27 (Updated: 2026-11-02 10:47:56)",
       "records": {
         "easy": 45,
-        "medium": 34,
+        "medium": 38,
         "hard": 27
       },
       "allTimeBest": 45,
       "leaderboardPlacements": {
         "total": 60,
         "easy": 26,
-        "medium": 8,
-        "hard": 26
+        "medium": 9,
+        "hard": 25
       },
-      "selectedSkin": "nine_plus_ten_21",
-      "selectedPipeSkin": "atlantis_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
-      "lastNewBestAtReadable": "2026-10-30 12:16:59",
+      "selectedSkin": "inferno_hard",
+      "selectedPipeSkin": "steel_pipe",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-21 08:30:08",
+      "lastNewBestAtReadable": "2026-11-02 10:47:56",
       "createdAtReadable": "2026-10-19 13:54:11"
-    },
-    "BlueViceee": {
-      "username": "BlueViceee",
-      "summary": "🏆 Best: 37 pts (Easy: 37 | Medium: 30 | Hard: 21)",
-      "loginStatus": "⚪ Registered 2026-10-28 13:19:28 • Logins tracked: 0",
-      "newBestStatus": "🔥 Personal Bests — Easy: 37, Medium: 30, Hard: 21 (Updated: 2026-10-30 13:33:20)",
-      "records": {
-        "easy": 37,
-        "medium": 30,
-        "hard": 21
-      },
-      "allTimeBest": 37,
-      "leaderboardPlacements": {
-        "total": 24,
-        "easy": 6,
-        "medium": 2,
-        "hard": 16
-      },
-      "selectedSkin": "choke_artist_99",
-      "selectedPipeSkin": "pipe_windows_bsod",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
-      "lastNewBestAtReadable": "2026-10-30 13:33:20",
-      "createdAtReadable": "2026-10-28 13:19:28"
     },
     "supermand": {
       "username": "supermand",
       "summary": "🏆 Best: 35 pts (Easy: 0 | Medium: 35 | Hard: 16)",
-      "loginStatus": "⚪ Registered 2026-10-29 10:54:54 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 10:54:54",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 35, Hard: 16 (Updated: 2026-10-30 13:09:37)",
       "records": {
         "easy": 0,
@@ -128,22 +128,22 @@
       },
       "allTimeBest": 35,
       "leaderboardPlacements": {
-        "total": 29,
+        "total": 24,
         "easy": 0,
-        "medium": 28,
+        "medium": 23,
         "hard": 1
       },
       "selectedSkin": "frost_medium",
       "selectedPipeSkin": "steel_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-29 10:54:54",
       "lastNewBestAtReadable": "2026-10-30 13:09:37",
       "createdAtReadable": "2026-10-29 10:54:54"
     },
     "superwoman": {
       "username": "superwoman",
       "summary": "🏆 Best: 35 pts (Easy: 18 | Medium: 35 | Hard: 11)",
-      "loginStatus": "⚪ Registered 2026-10-29 10:55:11 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 10:55:11",
       "newBestStatus": "🔥 Personal Bests — Easy: 18, Medium: 35, Hard: 11 (Updated: 2026-10-30 13:09:53)",
       "records": {
         "easy": 18,
@@ -152,22 +152,22 @@
       },
       "allTimeBest": 35,
       "leaderboardPlacements": {
-        "total": 21,
-        "easy": 1,
-        "medium": 20,
+        "total": 19,
+        "easy": 0,
+        "medium": 19,
         "hard": 0
       },
       "selectedSkin": "cardinal",
       "selectedPipeSkin": "candy_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-29 10:55:11",
       "lastNewBestAtReadable": "2026-10-30 13:09:53",
       "createdAtReadable": "2026-10-29 10:55:11"
     },
     "Zander": {
       "username": "Zander",
       "summary": "🏆 Best: 34 pts (Easy: 34 | Medium: 4 | Hard: 27)",
-      "loginStatus": "⚪ Registered 2026-10-26 08:48:42 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-26 08:48:42",
       "newBestStatus": "🔥 Personal Bests — Easy: 34, Medium: 4, Hard: 27 (Updated: 2026-10-30 13:07:19)",
       "records": {
         "easy": 34,
@@ -176,22 +176,22 @@
       },
       "allTimeBest": 34,
       "leaderboardPlacements": {
-        "total": 11,
+        "total": 10,
         "easy": 2,
         "medium": 0,
-        "hard": 9
+        "hard": 8
       },
       "selectedSkin": "sakura",
       "selectedPipeSkin": "pipe_bidoof_dam",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-26 08:48:42",
       "lastNewBestAtReadable": "2026-10-30 13:07:19",
       "createdAtReadable": "2026-10-26 08:48:42"
     },
     "P0lsehorn": {
       "username": "P0lsehorn",
       "summary": "🏆 Best: 34 pts (Easy: 0 | Medium: 34 | Hard: 17)",
-      "loginStatus": "⚪ Registered 2026-10-29 10:55:06 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 10:55:06",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 34, Hard: 17 (Updated: 2026-10-30 13:20:54)",
       "records": {
         "easy": 0,
@@ -200,22 +200,22 @@
       },
       "allTimeBest": 34,
       "leaderboardPlacements": {
-        "total": 22,
+        "total": 21,
         "easy": 0,
-        "medium": 21,
+        "medium": 20,
         "hard": 1
       },
       "selectedSkin": "emerald",
       "selectedPipeSkin": "temple_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-29 10:55:06",
       "lastNewBestAtReadable": "2026-10-30 13:20:54",
       "createdAtReadable": "2026-10-29 10:55:06"
     },
     "bennersgoat": {
       "username": "bennersgoat",
       "summary": "🏆 Best: 32 pts (Easy: 0 | Medium: 32 | Hard: 8)",
-      "loginStatus": "⚪ Registered 2026-10-29 13:42:32 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 10:51:04",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 32, Hard: 8 (Updated: 2026-10-30 12:12:06)",
       "records": {
         "easy": 0,
@@ -224,22 +224,22 @@
       },
       "allTimeBest": 32,
       "leaderboardPlacements": {
-        "total": 6,
+        "total": 5,
         "easy": 0,
-        "medium": 6,
+        "medium": 5,
         "hard": 0
       },
       "selectedSkin": "poke_magikarp",
-      "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "selectedPipeSkin": "pipe_bidoof_dam",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-30 10:51:04",
       "lastNewBestAtReadable": "2026-10-30 12:12:06",
       "createdAtReadable": "2026-10-29 13:42:32"
     },
     "Allan": {
       "username": "Allan",
       "summary": "🏆 Best: 31 pts (Easy: 15 | Medium: 31 | Hard: 24)",
-      "loginStatus": "⚪ Registered 2026-10-26 08:48:53 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 4 time(s) • Last login: 2026-10-30 13:19:30",
       "newBestStatus": "🔥 Personal Bests — Easy: 15, Medium: 31, Hard: 24 (Updated: 2026-10-29 08:44:52)",
       "records": {
         "easy": 15,
@@ -255,15 +255,15 @@
       },
       "selectedSkin": "poke_meowth",
       "selectedPipeSkin": "pipe_bidoof_dam",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 4,
+      "lastLoginAtReadable": "2026-10-30 13:19:30",
       "lastNewBestAtReadable": "2026-10-29 08:44:52",
       "createdAtReadable": "2026-10-26 08:48:53"
     },
     "vik": {
       "username": "vik",
       "summary": "🏆 Best: 30 pts (Easy: 30 | Medium: 19 | Hard: 12)",
-      "loginStatus": "⚪ Registered 2026-10-26 08:49:23 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-26 08:49:23",
       "newBestStatus": "🔥 Personal Bests — Easy: 30, Medium: 19, Hard: 12 (Updated: 2026-10-28 09:49:40)",
       "records": {
         "easy": 30,
@@ -279,15 +279,15 @@
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "temple_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-26 08:49:23",
       "lastNewBestAtReadable": "2026-10-28 09:49:40",
       "createdAtReadable": "2026-10-26 08:49:23"
     },
     "Dumlegomand": {
       "username": "Dumlegomand",
       "summary": "🏆 Best: 30 pts (Easy: 30 | Medium: 27 | Hard: 18)",
-      "loginStatus": "⚪ Registered 2026-10-29 10:54:35 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 10:54:35",
       "newBestStatus": "🔥 Personal Bests — Easy: 30, Medium: 27, Hard: 18 (Updated: 2026-10-30 11:09:37)",
       "records": {
         "easy": 30,
@@ -301,17 +301,17 @@
         "medium": 2,
         "hard": 2
       },
-      "selectedSkin": "poke_magikarp",
-      "selectedPipeSkin": "pipe_bulbasaur_vine",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "selectedSkin": "ninja",
+      "selectedPipeSkin": "pipe_pikachu_volt",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-29 10:54:35",
       "lastNewBestAtReadable": "2026-10-30 11:09:37",
       "createdAtReadable": "2026-10-29 10:54:35"
     },
     "vik11": {
       "username": "vik11",
       "summary": "🏆 Best: 29 pts (Easy: 0 | Medium: 29 | Hard: 14)",
-      "loginStatus": "⚪ Registered 2026-10-30 12:14:12 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 12:14:12",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 29, Hard: 14 (Updated: 2026-10-30 13:13:50)",
       "records": {
         "easy": 0,
@@ -327,39 +327,39 @@
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-30 12:14:12",
       "lastNewBestAtReadable": "2026-10-30 13:13:50",
       "createdAtReadable": "2026-10-30 12:14:12"
     },
     "Hadi": {
       "username": "Hadi",
-      "summary": "🏆 Best: 27 pts (Easy: 5 | Medium: 27 | Hard: 16)",
-      "loginStatus": "⚪ Registered 2026-10-27 08:34:06 • Logins tracked: 0",
-      "newBestStatus": "🔥 Personal Bests — Easy: 5, Medium: 27, Hard: 16 (Updated: 2026-10-30 13:45:02)",
+      "summary": "🏆 Best: 27 pts (Easy: 5 | Medium: 27 | Hard: 20)",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-10-29 10:46:25",
+      "newBestStatus": "🔥 Personal Bests — Easy: 5, Medium: 27, Hard: 20 (Updated: 2026-11-02 11:05:37)",
       "records": {
         "easy": 5,
         "medium": 27,
-        "hard": 16
+        "hard": 20
       },
       "allTimeBest": 27,
       "leaderboardPlacements": {
-        "total": 3,
+        "total": 4,
         "easy": 0,
         "medium": 1,
-        "hard": 2
+        "hard": 3
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "shogun_pipe_med",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
-      "lastNewBestAtReadable": "2026-10-30 13:45:02",
+      "loginCount": 2,
+      "lastLoginAtReadable": "2026-10-29 10:46:25",
+      "lastNewBestAtReadable": "2026-11-02 11:05:37",
       "createdAtReadable": "2026-10-27 08:34:06"
     },
     "Thomsen": {
       "username": "Thomsen",
       "summary": "🏆 Best: 26 pts (Easy: 1 | Medium: 26 | Hard: 20)",
-      "loginStatus": "⚪ Registered 2026-10-21 08:27:54 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-10-30 13:20:58",
       "newBestStatus": "🔥 Personal Bests — Easy: 1, Medium: 26, Hard: 20 (Updated: 2026-10-30 13:11:42)",
       "records": {
         "easy": 1,
@@ -375,15 +375,15 @@
       },
       "selectedSkin": "poke_pikachu",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 2,
+      "lastLoginAtReadable": "2026-10-30 13:20:58",
       "lastNewBestAtReadable": "2026-10-30 13:11:42",
       "createdAtReadable": "2026-10-21 08:27:54"
     },
     "Mort": {
       "username": "Mort",
       "summary": "🏆 Best: 23 pts (Easy: 1 | Medium: 16 | Hard: 23)",
-      "loginStatus": "⚪ Registered 2026-10-29 11:06:38 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 11:06:38",
       "newBestStatus": "🔥 Personal Bests — Easy: 1, Medium: 16, Hard: 23 (Updated: 2026-10-30 13:48:20)",
       "records": {
         "easy": 1,
@@ -392,22 +392,22 @@
       },
       "allTimeBest": 23,
       "leaderboardPlacements": {
-        "total": 5,
+        "total": 3,
         "easy": 0,
         "medium": 0,
-        "hard": 5
+        "hard": 3
       },
       "selectedSkin": "poke_bidoof",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-29 11:06:38",
       "lastNewBestAtReadable": "2026-10-30 13:48:20",
       "createdAtReadable": "2026-10-29 11:06:38"
     },
     "ostehaps": {
       "username": "ostehaps",
       "summary": "🏆 Best: 21 pts (Easy: 17 | Medium: 21 | Hard: 5)",
-      "loginStatus": "⚪ Registered 2026-10-29 09:09:58 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 09:09:58",
       "newBestStatus": "🔥 Personal Bests — Easy: 17, Medium: 21, Hard: 5 (Updated: 2026-10-29 10:59:41)",
       "records": {
         "easy": 17,
@@ -416,22 +416,22 @@
       },
       "allTimeBest": 21,
       "leaderboardPlacements": {
-        "total": 1,
-        "easy": 1,
+        "total": 0,
+        "easy": 0,
         "medium": 0,
         "hard": 0
       },
       "selectedSkin": "frost_medium",
       "selectedPipeSkin": "shogun_pipe_med",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-29 09:09:58",
       "lastNewBestAtReadable": "2026-10-29 10:59:41",
       "createdAtReadable": "2026-10-29 09:09:58"
     },
     "Ella332340": {
       "username": "Ella332340",
       "summary": "🏆 Best: 17 pts (Easy: 0 | Medium: 17 | Hard: 0)",
-      "loginStatus": "⚪ Registered 2026-10-30 13:33:18 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 13:33:18",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 17, Hard: 0 (Updated: 2026-10-30 13:37:06)",
       "records": {
         "easy": 0,
@@ -447,15 +447,15 @@
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-30 13:33:18",
       "lastNewBestAtReadable": "2026-10-30 13:37:06",
       "createdAtReadable": "2026-10-30 13:33:18"
     },
     "kani": {
       "username": "kani",
       "summary": "🏆 Best: 16 pts (Easy: 16 | Medium: 16 | Hard: 8)",
-      "loginStatus": "⚪ Registered 2026-10-30 10:47:48 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 10:47:48",
       "newBestStatus": "🔥 Personal Bests — Easy: 16, Medium: 16, Hard: 8 (Updated: 2026-10-30 12:16:14)",
       "records": {
         "easy": 16,
@@ -464,22 +464,22 @@
       },
       "allTimeBest": 16,
       "leaderboardPlacements": {
-        "total": 1,
-        "easy": 1,
+        "total": 0,
+        "easy": 0,
         "medium": 0,
         "hard": 0
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-30 10:47:48",
       "lastNewBestAtReadable": "2026-10-30 12:16:14",
       "createdAtReadable": "2026-10-30 10:47:48"
     },
     "puhbigmack": {
       "username": "puhbigmack",
       "summary": "🏆 Best: 16 pts (Easy: 0 | Medium: 16 | Hard: 0)",
-      "loginStatus": "⚪ Registered 2026-10-30 13:30:16 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 13:30:16",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 16, Hard: 0 (Updated: 2026-10-30 13:36:19)",
       "records": {
         "easy": 0,
@@ -495,15 +495,15 @@
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-30 13:30:16",
       "lastNewBestAtReadable": "2026-10-30 13:36:19",
       "createdAtReadable": "2026-10-30 13:30:16"
     },
     "Sejesara": {
       "username": "Sejesara",
       "summary": "🏆 Best: 15 pts (Easy: 0 | Medium: 15 | Hard: 0)",
-      "loginStatus": "⚪ Registered 2026-10-30 13:31:25 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 13:31:25",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 15, Hard: 0 (Updated: 2026-10-30 13:36:43)",
       "records": {
         "easy": 0,
@@ -519,15 +519,15 @@
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-30 13:31:25",
       "lastNewBestAtReadable": "2026-10-30 13:36:43",
       "createdAtReadable": "2026-10-30 13:31:25"
     },
     "Bassemand": {
       "username": "Bassemand",
       "summary": "🏆 Best: 12 pts (Easy: 0 | Medium: 0 | Hard: 12)",
-      "loginStatus": "⚪ Registered 2026-10-29 11:07:27 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 11:07:27",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 0, Hard: 12 (Updated: 2026-10-30 13:24:49)",
       "records": {
         "easy": 0,
@@ -543,15 +543,15 @@
       },
       "selectedSkin": "poke_meowth",
       "selectedPipeSkin": "pipe_banana_slip",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-29 11:07:27",
       "lastNewBestAtReadable": "2026-10-30 13:24:49",
       "createdAtReadable": "2026-10-29 11:07:27"
     },
     "Hej123": {
       "username": "Hej123",
       "summary": "🏆 Best: 10 pts (Easy: 0 | Medium: 10 | Hard: 0)",
-      "loginStatus": "⚪ Registered 2026-10-30 13:35:25 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 13:35:25",
       "newBestStatus": "🔥 Personal Bests — Easy: 0, Medium: 10, Hard: 0 (Updated: 2026-10-30 13:36:11)",
       "records": {
         "easy": 0,
@@ -567,15 +567,15 @@
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-30 13:35:25",
       "lastNewBestAtReadable": "2026-10-30 13:36:11",
       "createdAtReadable": "2026-10-30 13:35:25"
     },
     "SkyAce": {
       "username": "SkyAce",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "⚪ Registered 2026-10-19 13:40:30 • Logins tracked: 0",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-19 13:40:30",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -591,17 +591,17 @@
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
-      "lastLoginAtReadable": "Never",
+      "loginCount": 1,
+      "lastLoginAtReadable": "2026-10-19 13:40:30",
       "lastNewBestAtReadable": "Never",
       "createdAtReadable": "2026-10-19 13:40:30"
     }
   },
   "activityFeed": [
     {
-      "id": "d2c63a91ae69",
-      "timestampMs": 1793611390455,
-      "time": "2026-11-02 10:23:10",
+      "id": "c1635c39ad73",
+      "timestampMs": 1793616907014,
+      "time": "2026-11-02 11:55:07",
       "type": "DATABASE_READY",
       "username": "System",
       "message": "🚀 3D Flappy Bird Live Database initialized with all player accounts & Top 100 leaderboard records."
@@ -625,7 +625,9 @@
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1792410030191,
+      "lastLoginReadable": "2026-10-19 13:40:30",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -649,7 +651,9 @@
       },
       "selectedSkin": "sakura",
       "selectedPipeSkin": "glacier_pipe",
-      "loginCount": 0,
+      "loginCount": 3,
+      "lastLoginAt": 1793362867052,
+      "lastLoginReadable": "2026-10-30 13:21:07",
       "_lastSyncedRecords": {
         "easy": 109,
         "medium": 40,
@@ -663,20 +667,22 @@
       "createdAt": 1792410851341,
       "records": {
         "easy": 45,
-        "medium": 34,
+        "medium": 38,
         "hard": 27
       },
       "recordTimestamps": {
         "easy": 1793268102689,
-        "medium": 1793267583676,
+        "medium": 1793612876445,
         "hard": 1793359019927
       },
-      "selectedSkin": "nine_plus_ten_21",
-      "selectedPipeSkin": "atlantis_pipe",
-      "loginCount": 0,
+      "selectedSkin": "inferno_hard",
+      "selectedPipeSkin": "steel_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1792564208492,
+      "lastLoginReadable": "2026-10-21 08:30:08",
       "_lastSyncedRecords": {
         "easy": 45,
-        "medium": 34,
+        "medium": 38,
         "hard": 27
       }
     },
@@ -697,7 +703,9 @@
       },
       "selectedSkin": "poke_pikachu",
       "selectedPipeSkin": "classic_pipe",
-      "loginCount": 0,
+      "loginCount": 2,
+      "lastLoginAt": 1793362858951,
+      "lastLoginReadable": "2026-10-30 13:20:58",
       "_lastSyncedRecords": {
         "easy": 1,
         "medium": 26,
@@ -719,9 +727,11 @@
         "medium": 1792753855485,
         "hard": 1792753126477
       },
-      "selectedSkin": "penguin",
+      "selectedSkin": "poke_pikachu",
       "selectedPipeSkin": "hellfire_pipe",
-      "loginCount": 0,
+      "loginCount": 2,
+      "lastLoginAt": 1793358564302,
+      "lastLoginReadable": "2026-10-30 12:09:24",
       "_lastSyncedRecords": {
         "easy": 60,
         "medium": 42,
@@ -745,7 +755,9 @@
         "medium": 1793091473451,
         "hard": 1793362039653
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793000922826,
+      "lastLoginReadable": "2026-10-26 08:48:42",
       "_lastSyncedRecords": {
         "easy": 34,
         "medium": 4,
@@ -769,7 +781,9 @@
         "medium": 1793092272412,
         "hard": 1793259892775
       },
-      "loginCount": 0,
+      "loginCount": 4,
+      "lastLoginAt": 1793362770397,
+      "lastLoginReadable": "2026-10-30 13:19:30",
       "_lastSyncedRecords": {
         "easy": 15,
         "medium": 31,
@@ -793,7 +807,9 @@
         "medium": 1793175030075,
         "hard": 1793002277936
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793000963767,
+      "lastLoginReadable": "2026-10-26 08:49:23",
       "_lastSyncedRecords": {
         "easy": 30,
         "medium": 19,
@@ -810,18 +826,20 @@
       "records": {
         "easy": 5,
         "medium": 27,
-        "hard": 16
+        "hard": 20
       },
       "recordTimestamps": {
         "easy": 1793364302298,
         "medium": 1793362931497,
-        "hard": 1793363403153
+        "hard": 1793613937078
       },
-      "loginCount": 0,
+      "loginCount": 2,
+      "lastLoginAt": 1793267185100,
+      "lastLoginReadable": "2026-10-29 10:46:25",
       "_lastSyncedRecords": {
         "easy": 5,
         "medium": 27,
-        "hard": 16
+        "hard": 20
       }
     },
     "blueviceee": {
@@ -829,22 +847,24 @@
       "salt": "844706bb41a1fa697a63ce32a5c98116",
       "passwordHash": "9ec8b930d012a10e4629e62d6faf8d500733a3193d582a6234d43b159e9dd5cdeb8f4dfe18abb901d81b717ddaec964d2d93a3838d3736c334e84882d267d434",
       "createdAt": 1793189968493,
-      "selectedSkin": "choke_artist_99",
+      "selectedSkin": "nine_plus_ten_21",
       "selectedPipeSkin": "pipe_windows_bsod",
       "records": {
-        "easy": 37,
-        "medium": 30,
+        "easy": 58,
+        "medium": 36,
         "hard": 21
       },
       "recordTimestamps": {
-        "easy": 1793363600368,
-        "medium": 1793362930182,
+        "easy": 1793613490155,
+        "medium": 1793613659409,
         "hard": 1793363104741
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793189968493,
+      "lastLoginReadable": "2026-10-28 13:19:28",
       "_lastSyncedRecords": {
-        "easy": 37,
-        "medium": 30,
+        "easy": 58,
+        "medium": 36,
         "hard": 21
       }
     },
@@ -865,7 +885,9 @@
         "medium": 1793267697204,
         "hard": 1793267907595
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793261398300,
+      "lastLoginReadable": "2026-10-29 09:09:58",
       "_lastSyncedRecords": {
         "easy": 17,
         "medium": 21,
@@ -877,8 +899,8 @@
       "salt": "743dd445b83550be8025ffd59bfb9d34",
       "passwordHash": "879331cef8a75cd19b4317ef36894956e433d0626e5c4938727ec641a22ce0917c588676ed3c21bc2285705c87b84b05f796a4be9b1af74fcf7d33277659a457",
       "createdAt": 1793267675885,
-      "selectedSkin": "poke_magikarp",
-      "selectedPipeSkin": "pipe_bulbasaur_vine",
+      "selectedSkin": "ninja",
+      "selectedPipeSkin": "pipe_pikachu_volt",
       "records": {
         "easy": 30,
         "medium": 27,
@@ -889,7 +911,9 @@
         "medium": 1793354373100,
         "hard": 1793353939054
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793267675885,
+      "lastLoginReadable": "2026-10-29 10:54:35",
       "_lastSyncedRecords": {
         "easy": 30,
         "medium": 27,
@@ -913,7 +937,9 @@
         "medium": 1793362177683,
         "hard": 1793268043859
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793267694906,
+      "lastLoginReadable": "2026-10-29 10:54:54",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 35,
@@ -937,7 +963,9 @@
         "medium": 1793362854082,
         "hard": 1793268037088
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793267706449,
+      "lastLoginReadable": "2026-10-29 10:55:06",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 34,
@@ -961,7 +989,9 @@
         "medium": 1793362193695,
         "hard": 1793267921148
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793267711079,
+      "lastLoginReadable": "2026-10-29 10:55:11",
       "_lastSyncedRecords": {
         "easy": 18,
         "medium": 35,
@@ -985,7 +1015,9 @@
         "medium": 1793362928505,
         "hard": 1793363143838
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793268398207,
+      "lastLoginReadable": "2026-10-29 11:06:38",
       "_lastSyncedRecords": {
         "easy": 1,
         "medium": 16,
@@ -1009,7 +1041,9 @@
         "medium": 1793268447996,
         "hard": 1793363089130
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793268447996,
+      "lastLoginReadable": "2026-10-29 11:07:27",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -1022,7 +1056,7 @@
       "passwordHash": "a02abbf1de0692c0366178724e799f625fec993ccc3364218540da9bc04986dd9a8106ff7611385c89d4ae0c4cbfc3d8749126165639540287cee9cae52665b0",
       "createdAt": 1793277752053,
       "selectedSkin": "poke_magikarp",
-      "selectedPipeSkin": "classic_pipe",
+      "selectedPipeSkin": "pipe_bidoof_dam",
       "records": {
         "easy": 0,
         "medium": 32,
@@ -1033,7 +1067,9 @@
         "medium": 1793358726537,
         "hard": 1793357701474
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793353864774,
+      "lastLoginReadable": "2026-10-30 10:51:04",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 32,
@@ -1057,7 +1093,9 @@
         "medium": 1793354994703,
         "hard": 1793358974601
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793353668156,
+      "lastLoginReadable": "2026-10-30 10:47:48",
       "_lastSyncedRecords": {
         "easy": 16,
         "medium": 16,
@@ -1081,7 +1119,9 @@
         "medium": 1793359976003,
         "hard": 1793362430492
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793358852274,
+      "lastLoginReadable": "2026-10-30 12:14:12",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 29,
@@ -1105,7 +1145,9 @@
         "medium": 1793363779329,
         "hard": 1793363416958
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793363416958,
+      "lastLoginReadable": "2026-10-30 13:30:16",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 16,
@@ -1129,7 +1171,9 @@
         "medium": 1793363803453,
         "hard": 1793363485099
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793363485099,
+      "lastLoginReadable": "2026-10-30 13:31:25",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 15,
@@ -1153,7 +1197,9 @@
         "medium": 1793363826380,
         "hard": 1793363598121
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793363598121,
+      "lastLoginReadable": "2026-10-30 13:33:18",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 17,
@@ -1177,7 +1223,9 @@
         "medium": 1793363771004,
         "hard": 1793363725301
       },
-      "loginCount": 0,
+      "loginCount": 1,
+      "lastLoginAt": 1793363725301,
+      "lastLoginReadable": "2026-10-30 13:35:25",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 10,
@@ -1228,6 +1276,18 @@
         "username": "joslor11",
         "score": 58,
         "createdAt": 1793266407407
+      },
+      {
+        "id": "60a1bc5940caf046",
+        "username": "BlueViceee",
+        "score": 58,
+        "createdAt": 1793613490155
+      },
+      {
+        "id": "0239e3d85edbca66",
+        "username": "BlueViceee",
+        "score": 53,
+        "createdAt": 1793614048253
       },
       {
         "id": "fdc5c99733bc1c9f",
@@ -1392,6 +1452,12 @@
         "createdAt": 1793002231328
       },
       {
+        "id": "bc3b1f3ae30858b6",
+        "username": "BlueViceee",
+        "score": 35,
+        "createdAt": 1793614085754
+      },
+      {
         "id": "61d8fbb01829ce05",
         "username": "ejstrup",
         "score": 34,
@@ -1510,6 +1576,12 @@
         "username": "joslor11",
         "score": 31,
         "createdAt": 1793001086726
+      },
+      {
+        "id": "367abae6c2d2d114",
+        "username": "BlueViceee",
+        "score": 31,
+        "createdAt": 1793614271242
       },
       {
         "id": "7a7e8248a64b2718",
@@ -1710,6 +1782,12 @@
         "createdAt": 1793261552104
       },
       {
+        "id": "3f9293364d58e65e",
+        "username": "BlueViceee",
+        "score": 28,
+        "createdAt": 1793614128197
+      },
+      {
         "id": "f27f5dfa7a342d9c",
         "username": "Dumlegomand",
         "score": 27,
@@ -1734,6 +1812,12 @@
         "createdAt": 1793268790406
       },
       {
+        "id": "13e02f200e697d28",
+        "username": "BlueViceee",
+        "score": 22,
+        "createdAt": 1793614158672
+      },
+      {
         "id": "a7b2e4b792406feb",
         "username": "joslor11",
         "score": 21,
@@ -1750,42 +1834,6 @@
         "username": "joslor11",
         "score": 21,
         "createdAt": 1793354474995
-      },
-      {
-        "id": "a75a269ed104c2d8",
-        "username": "BlueViceee",
-        "score": 21,
-        "createdAt": 1793358804408
-      },
-      {
-        "id": "2236b6056b7d30cd",
-        "username": "BlueViceee",
-        "score": 21,
-        "createdAt": 1793363531136
-      },
-      {
-        "id": "3e270f32bb5cc308",
-        "username": "BlueViceee",
-        "score": 20,
-        "createdAt": 1793358740329
-      },
-      {
-        "id": "181f99c7d3c9c8e6",
-        "username": "superwoman",
-        "score": 18,
-        "createdAt": 1793268016553
-      },
-      {
-        "id": "84929e5eb26604d5",
-        "username": "ostehaps",
-        "score": 17,
-        "createdAt": 1793267981430
-      },
-      {
-        "id": "0400afce6356543e",
-        "username": "kani",
-        "score": 16,
-        "createdAt": 1793354392876
       }
     ],
     "medium": [
@@ -1800,6 +1848,18 @@
         "username": "MeDonut",
         "score": 40,
         "createdAt": 1792999736014
+      },
+      {
+        "id": "3c5fb1fbf99898e8",
+        "username": "ejstrup",
+        "score": 38,
+        "createdAt": 1793612876445
+      },
+      {
+        "id": "cca29934df6e3cc9",
+        "username": "BlueViceee",
+        "score": 36,
+        "createdAt": 1793613659409
       },
       {
         "id": "a94cceec5deddd60",
@@ -1830,6 +1890,12 @@
         "username": "P0lsehorn",
         "score": 34,
         "createdAt": 1793362854082
+      },
+      {
+        "id": "cbc4655821aa0861",
+        "username": "BlueViceee",
+        "score": 34,
+        "createdAt": 1793613907725
       },
       {
         "id": "28b2d2b3d832542b",
@@ -1922,6 +1988,18 @@
         "createdAt": 1793364452577
       },
       {
+        "id": "7bed906f9ac09d71",
+        "username": "BlueViceee",
+        "score": 32,
+        "createdAt": 1793613598406
+      },
+      {
+        "id": "19fec309c3230d2c",
+        "username": "BlueViceee",
+        "score": 32,
+        "createdAt": 1793613729402
+      },
+      {
         "id": "2220f905dfcbdd08",
         "username": "Allan",
         "score": 31,
@@ -1962,6 +2040,12 @@
         "username": "superwoman",
         "score": 31,
         "createdAt": 1793363880956
+      },
+      {
+        "id": "f864b156483ea1f1",
+        "username": "BlueViceee",
+        "score": 31,
+        "createdAt": 1793613870892
       },
       {
         "id": "08e4478585473753",
@@ -2016,6 +2100,12 @@
         "username": "superwoman",
         "score": 30,
         "createdAt": 1793363800230
+      },
+      {
+        "id": "9c37960c55535edb",
+        "username": "BlueViceee",
+        "score": 30,
+        "createdAt": 1793613834768
       },
       {
         "id": "a2397785375e16a3",
@@ -2144,6 +2234,12 @@
         "createdAt": 1793364690398
       },
       {
+        "id": "28128c688d1ea13e",
+        "username": "ejstrup",
+        "score": 28,
+        "createdAt": 1793611980178
+      },
+      {
         "id": "b06895cf98782430",
         "username": "Dumlegomand",
         "score": 27,
@@ -2202,6 +2298,12 @@
         "username": "P0lsehorn",
         "score": 27,
         "createdAt": 1793364358778
+      },
+      {
+        "id": "c9661cffb2315086",
+        "username": "BlueViceee",
+        "score": 27,
+        "createdAt": 1793613982092
       },
       {
         "id": "4163e36f4489ffbb",
@@ -2334,60 +2436,6 @@
         "username": "supermand",
         "score": 25,
         "createdAt": 1793363206603
-      },
-      {
-        "id": "9d92a07b090076d1",
-        "username": "supermand",
-        "score": 25,
-        "createdAt": 1793363994128
-      },
-      {
-        "id": "c0d9f7aa0e56738f",
-        "username": "supermand",
-        "score": 25,
-        "createdAt": 1793364061329
-      },
-      {
-        "id": "5f7d31363986bea8",
-        "username": "supermand",
-        "score": 25,
-        "createdAt": 1793364093452
-      },
-      {
-        "id": "79f724ed642fe176",
-        "username": "ejstrup",
-        "score": 24,
-        "createdAt": 1793353487405
-      },
-      {
-        "id": "0957a3583ee1a7f0",
-        "username": "bennersgoat",
-        "score": 24,
-        "createdAt": 1793359201338
-      },
-      {
-        "id": "d1d70f158c36255f",
-        "username": "superwoman",
-        "score": 24,
-        "createdAt": 1793361952884
-      },
-      {
-        "id": "b6917ab75ee401ac",
-        "username": "supermand",
-        "score": 24,
-        "createdAt": 1793362496067
-      },
-      {
-        "id": "f5eb3706641f87ff",
-        "username": "supermand",
-        "score": 24,
-        "createdAt": 1793362877078
-      },
-      {
-        "id": "884e0fcb8dbe95f9",
-        "username": "P0lsehorn",
-        "score": 24,
-        "createdAt": 1793363907310
       }
     ],
     "hard": [
@@ -2548,6 +2596,12 @@
         "createdAt": 1793363260246
       },
       {
+        "id": "2e909d06e8bf7187",
+        "username": "Hadi",
+        "score": 20,
+        "createdAt": 1793613937078
+      },
+      {
         "id": "7b4c1bfa66d675c2",
         "username": "joslor11",
         "score": 19,
@@ -2588,6 +2642,12 @@
         "username": "BlueViceee",
         "score": 19,
         "createdAt": 1793363880952
+      },
+      {
+        "id": "77617eda2d20003a",
+        "username": "joslor11",
+        "score": 19,
+        "createdAt": 1793613143957
       },
       {
         "id": "7022d5a7a1b915f2",
@@ -2648,6 +2708,18 @@
         "username": "BlueViceee",
         "score": 18,
         "createdAt": 1793364674875
+      },
+      {
+        "id": "b27949dc93f6d703",
+        "username": "BlueViceee",
+        "score": 18,
+        "createdAt": 1793611967150
+      },
+      {
+        "id": "5a56daafc234f46c",
+        "username": "joslor11",
+        "score": 18,
+        "createdAt": 1793612990547
       },
       {
         "id": "c830cee298753548",
@@ -2738,6 +2810,18 @@
         "username": "BlueViceee",
         "score": 17,
         "createdAt": 1793364218333
+      },
+      {
+        "id": "0a26841808898063",
+        "username": "BlueViceee",
+        "score": 17,
+        "createdAt": 1793611795384
+      },
+      {
+        "id": "e3b4da039d8d020a",
+        "username": "BlueViceee",
+        "score": 17,
+        "createdAt": 1793611943362
       },
       {
         "id": "c2aa863dbdce1373",
@@ -2866,6 +2950,18 @@
         "createdAt": 1793364766855
       },
       {
+        "id": "c6a42bd12329eecd",
+        "username": "joslor11",
+        "score": 16,
+        "createdAt": 1793613025587
+      },
+      {
+        "id": "7183edf58b514f02",
+        "username": "joslor11",
+        "score": 16,
+        "createdAt": 1793613325441
+      },
+      {
         "id": "27df057b62cdbda9",
         "username": "joslor11",
         "score": 15,
@@ -2942,54 +3038,6 @@
         "username": "joslor11",
         "score": 15,
         "createdAt": 1793362442496
-      },
-      {
-        "id": "f71f2f15d53616c8",
-        "username": "Mort",
-        "score": 15,
-        "createdAt": 1793362610894
-      },
-      {
-        "id": "8f6542abb4d465ba",
-        "username": "joslor11",
-        "score": 15,
-        "createdAt": 1793362629147
-      },
-      {
-        "id": "6ee72d677b122d8b",
-        "username": "BlueViceee",
-        "score": 15,
-        "createdAt": 1793362654354
-      },
-      {
-        "id": "4e2374f9d738d295",
-        "username": "Zander",
-        "score": 15,
-        "createdAt": 1793362678754
-      },
-      {
-        "id": "194e16ad3310552d",
-        "username": "ejstrup",
-        "score": 15,
-        "createdAt": 1793362725165
-      },
-      {
-        "id": "1b8ae7ac53637d3f",
-        "username": "joslor11",
-        "score": 15,
-        "createdAt": 1793362756380
-      },
-      {
-        "id": "9b946a05ace3a9f6",
-        "username": "Mort",
-        "score": 15,
-        "createdAt": 1793363176616
-      },
-      {
-        "id": "33f84a2c6b860a63",
-        "username": "BlueViceee",
-        "score": 15,
-        "createdAt": 1793364014784
       }
     ]
   },

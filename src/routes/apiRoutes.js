@@ -18,6 +18,10 @@ const {
   recordUserLogin,
   recordVerifiedRun,
   updatePlayerRecordsAdmin,
+  updateLeaderboardRunAdmin,
+  addLeaderboardRunAdmin,
+  toggleUserRunsVisibilityAdmin,
+  getAllRunsAdmin,
   deleteLeaderboardEntryAdmin,
   formatReadableTimestamp
 } = require('../services/database');
@@ -390,7 +394,8 @@ async function handleApiRequest(req, res, pathname, port) {
       databaseStatus: db.databaseStatus,
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: (db.activityFeed || []).slice(0, 100),
-      leaderboards: buildLeaderboards()
+      leaderboards: buildLeaderboards(),
+      allRuns: getAllRunsAdmin()
     });
   }
 
@@ -422,7 +427,59 @@ async function handleApiRequest(req, res, pathname, port) {
       databaseStatus: db.databaseStatus,
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: (db.activityFeed || []).slice(0, 100),
-      leaderboards: buildLeaderboards()
+      leaderboards: buildLeaderboards(),
+      allRuns: getAllRunsAdmin()
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/database/update-run') {
+    const { difficulty, entryId, score, hidden } = await readJsonBody(req);
+    if (!difficulty || !entryId) {
+      return sendJSON(res, 400, { error: 'difficulty and entryId are required.' });
+    }
+    const result = updateLeaderboardRunAdmin(difficulty, entryId, { score, hidden });
+    return sendJSON(res, 200, {
+      ok: true,
+      ...result,
+      databaseStatus: db.databaseStatus,
+      playerRecordsOverview: db.playerRecordsOverview,
+      activityFeed: (db.activityFeed || []).slice(0, 100),
+      leaderboards: buildLeaderboards(),
+      allRuns: getAllRunsAdmin()
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/database/add-run') {
+    const { username, difficulty, score, hidden } = await readJsonBody(req);
+    if (!username || !difficulty || score === undefined) {
+      return sendJSON(res, 400, { error: 'username, difficulty, and score are required.' });
+    }
+    const newRun = addLeaderboardRunAdmin(username, difficulty, score, hidden);
+    return sendJSON(res, 200, {
+      ok: true,
+      run: newRun,
+      databaseStatus: db.databaseStatus,
+      playerRecordsOverview: db.playerRecordsOverview,
+      activityFeed: (db.activityFeed || []).slice(0, 100),
+      leaderboards: buildLeaderboards(),
+      allRuns: getAllRunsAdmin()
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/database/toggle-user-visibility') {
+    const { username, difficulty, hidden } = await readJsonBody(req);
+    if (!username || hidden === undefined) {
+      return sendJSON(res, 400, { error: 'username and hidden boolean are required.' });
+    }
+    const result = toggleUserRunsVisibilityAdmin(username, difficulty, hidden);
+    return sendJSON(res, 200, {
+      ok: true,
+      ...result,
+      databaseStatus: db.databaseStatus,
+      playerRecordsOverview: db.playerRecordsOverview,
+      activityFeed: (db.activityFeed || []).slice(0, 100),
+      leaderboards: buildLeaderboards(),
+      allRuns: getAllRunsAdmin()
     });
   }
 
@@ -435,7 +492,8 @@ async function handleApiRequest(req, res, pathname, port) {
       databaseStatus: db.databaseStatus,
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: (db.activityFeed || []).slice(0, 100),
-      leaderboards: buildLeaderboards()
+      leaderboards: buildLeaderboards(),
+      allRuns: getAllRunsAdmin()
     });
   }
 
