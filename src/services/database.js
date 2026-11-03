@@ -24,10 +24,15 @@ const crypto = require('crypto');
 const ROOT_DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : ROOT_DATA_DIR;
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
+const TEMPLATE_FILE = path.join(__dirname, '..', 'config', 'default-db-template.json');
 const SEED_FILE = path.join(ROOT_DATA_DIR, 'seed-db.json');
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+if (!fs.existsSync(BACKUPS_DIR)) {
+  fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 }
 
 function formatReadableTimestamp(ms) {
@@ -47,6 +52,8 @@ let db = {
   databaseStatus: {},
   playerRecordsOverview: {},
   activityFeed: [],
+  loginHistory: [],
+  adminSettings: {},
   users: {},
   runs: { easy: [], medium: [], hard: [] },
   sessions: {}
@@ -422,23 +429,58 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
 
 function loadDatabase(fromWatcher = false) {
   try {
-    if (!fs.existsSync(DB_FILE) && fs.existsSync(SEED_FILE)) {
-      fs.copyFileSync(SEED_FILE, DB_FILE);
-    }
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, 'utf8');
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.users === 'object') {
-        db = {
-          databaseStatus: parsed.databaseStatus || {},
-          playerRecordsOverview: parsed.playerRecordsOverview || {},
-          activityFeed: Array.isArray(parsed.activityFeed) ? parsed.activityFeed : [],
-          users: parsed.users || {},
-          runs: parsed.runs || { easy: [], medium: [], hard: [] },
-          sessions: parsed.sessions || {}
-        };
+    // 1. If runtime DB does not exist, initialize from template or seed
+    if (!fs.existsSync(DB_FILE)) {
+      if (fs.existsSync(TEMPLATE_FILE)) {
+        fs.copyFileSync(TEMPLATE_FILE, DB_FILE);
+        console.log('📦 Initialized fresh database from template: ' + TEMPLATE_FILE);
+      } else if (fs.existsSync(SEED_FILE)) {
+        fs.copyFileSync(SEED_FILE, DB_FILE);
+        console.log('📦 Initialized fresh database from seed: ' + SEED_FILE);
       }
     }
+
+    let parsed = null;
+    if (fs.existsSync(DB_FILE)) {
+      try {
+        const raw = fs.readFileSync(DB_FILE, 'utf8');
+        parsed = JSON.parse(raw);
+      } catch (parseErr) {
+        console.error('⚠️ Warning: db.json was corrupted or unreadable:', parseErr.message);
+        // Try recovering from backup snapshot
+        const backupFile = path.join(BACKUPS_DIR, 'db-backup-last.json');
+        if (fs.existsSync(backupFile)) {
+          try {
+            parsed = JSON.parse(fs.readFileSync(backupFile, 'utf8'));
+            console.log('🛡️ Successfully recovered database from backup: ' + backupFile);
+          } catch (bkErr) {
+            console.error('Failed to parse backup:', bkErr.message);
+          }
+        }
+      }
+    }
+
+    // 2. Safe schema migration and default field enforcement
+    if (parsed && typeof parsed.users === 'object') {
+      db = {
+        databaseStatus: parsed.databaseStatus || {},
+        playerRecordsOverview: parsed.playerRecordsOverview || {},
+        activityFeed: Array.isArray(parsed.activityFeed) ? parsed.activityFeed : [],
+        loginHistory: Array.isArray(parsed.loginHistory) ? parsed.loginHistory : [],
+        adminSettings: (parsed.adminSettings && typeof parsed.adminSettings === 'object') ? parsed.adminSettings : {},
+        users: parsed.users || {},
+        runs: parsed.runs || { easy: [], medium: [], hard: [] },
+        sessions: parsed.sessions || {}
+      };
+    }
+
+    // Guarantee runs structure exists
+    if (!db.runs || typeof db.runs !== 'object') {
+      db.runs = { easy: [], medium: [], hard: [] };
+    }
+    ['easy', 'medium', 'hard'].forEach(diff => {
+      if (!Array.isArray(db.runs[diff])) db.runs[diff] = [];
+    });
 
     if (db.activityFeed.length === 0) {
       logDatabaseEvent(
@@ -449,13 +491,15 @@ function loadDatabase(fromWatcher = false) {
     }
 
     syncAndRebuildOverview(fromWatcher);
-    saveDatabase();
+    saveDatabase(true);
   } catch (err) {
     console.error('Error loading database:', err.message);
   }
 }
 
-function saveDatabase() {
+let lastBackupTimestamp = 0;
+
+function saveDatabase(forceBackup = false) {
   try {
     syncAndRebuildOverview(false);
     isInternalWrite = true;
@@ -463,18 +507,91 @@ function saveDatabase() {
       databaseStatus: db.databaseStatus,
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: db.activityFeed,
+      loginHistory: db.loginHistory || [],
+      adminSettings: db.adminSettings || {},
       users: db.users,
       runs: db.runs,
       sessions: db.sessions
     };
     const tmpFile = DB_FILE + '.tmp';
     fs.writeFileSync(tmpFile, JSON.stringify(orderedDb, null, 2), 'utf8');
-    fs.renameSync(tmpFile, DB_FILE);
+    try {
+      fs.renameSync(tmpFile, DB_FILE);
+    } catch (renameErr) {
+      // Fallback on Windows if file handle is held open by file watchers
+      fs.copyFileSync(tmpFile, DB_FILE);
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+    }
+
+    // Maintain a rolling backup every 15 minutes or when forced
+    const now = Date.now();
+    if (forceBackup || now - lastBackupTimestamp > 15 * 60 * 1000) {
+      lastBackupTimestamp = now;
+      try {
+        const backupTarget = path.join(BACKUPS_DIR, 'db-backup-last.json');
+        fs.writeFileSync(backupTarget, JSON.stringify(orderedDb, null, 2), 'utf8');
+      } catch (backupErr) {
+        console.error('Backup write error:', backupErr.message);
+      }
+    }
+
     setTimeout(() => { isInternalWrite = false; }, 250);
   } catch (err) {
     isInternalWrite = false;
     console.error('Error saving database:', err.message);
   }
+}
+
+/**
+ * Resets all scores, runs, and career records for all players for Season 2.
+ * Preserves user accounts, passwords, and cosmetics.
+ */
+function resetAllRecordsAdmin(adminUsername = 'MeDonut') {
+  const now = Date.now();
+  const readable = formatReadableTimestamp(now);
+
+  // Clear all runs
+  db.runs = { easy: [], medium: [], hard: [] };
+
+  // Clear all user scores
+  if (db.users && typeof db.users === 'object') {
+    for (const user of Object.values(db.users)) {
+      if (!user) continue;
+      user.records = { easy: 0, medium: 0, hard: 0 };
+      user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
+      user._lastSyncedRecords = { easy: 0, medium: 0, hard: 0 };
+      delete user.lastNewBestAt;
+      delete user.lastNewBestReadable;
+      delete user.lastNewBestMode;
+      delete user.lastNewBestScore;
+      delete user.lastNewBestPrevious;
+      user.lastNewBestText = 'No personal best set yet';
+    }
+  }
+
+  // Clear active sessions
+  db.sessions = {};
+
+  // Log Season Reset Event
+  logDatabaseEvent(
+    'SEASON_RESET',
+    adminUsername,
+    `🚀 Season 2 Reset: All player records and leaderboard runs have been reset by ${adminUsername}!`,
+    { admin: adminUsername, timestamp: now }
+  );
+
+  if (!db.databaseStatus || typeof db.databaseStatus !== 'object') db.databaseStatus = {};
+  db.databaseStatus.latestEventBanner = '🟢 Database Active — Season 2 Reset (0 Runs Recorded)';
+  db.databaseStatus.currentChampions = { easy: 'None', medium: 'None', hard: 'None' };
+  db.databaseStatus.totalLeaderboardRuns = { easy: 0, medium: 0, hard: 0, total: 0 };
+
+  saveDatabase(true);
+  return {
+    ok: true,
+    message: 'All player records and leaderboard entries have been successfully reset for Season 2.',
+    timestamp: now,
+    readable
+  };
 }
 
 // Watch `data/db.json` so if the owner edits & saves `db.json` in a text editor, changes apply live!
@@ -977,5 +1094,8 @@ module.exports = {
   getAllRunsAdmin,
   deleteLeaderboardEntryAdmin,
   adminUpdateUserSkins,
+  resetAllRecordsAdmin,
+  BACKUPS_DIR,
+  TEMPLATE_FILE,
   formatReadableTimestamp
 };

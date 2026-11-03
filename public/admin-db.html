@@ -834,6 +834,7 @@
           Auto-Refresh (4s)
         </label>
         <button type="button" class="btn" id="btn-refresh">↻ Refresh Now</button>
+        <button type="button" class="btn btn-danger" id="btn-reset-season" style="background:linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); border-color:#f87171; color:#fff;" title="Reset all verified runs and high scores for all players">⚠️ Reset All Records</button>
         <a href="/api/database/export" id="btn-export-db" class="btn btn-primary">⬇️ Download db.json</a>
         <a href="/" class="btn btn-success">🎮 Back to 3D Game</a>
       </div>
@@ -1830,6 +1831,30 @@
       isEditingInput = false;
       fetchDatabase();
     });
+
+    const resetSeasonBtn = document.getElementById('btn-reset-season');
+    if (resetSeasonBtn) {
+      resetSeasonBtn.addEventListener('click', async () => {
+        const confirmed = confirm('⚠️ ARE YOU SURE?\n\nThis will reset ALL high scores and verified runs across Easy, Medium, and Hard for all players (Season 2 Clean Slate).\n\nUser accounts and cosmetics will be kept, but all records will become 0.');
+        if (!confirmed) return;
+        try {
+          const res = await fetch('/api/database/reset-records', {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({})
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showToast('🚀 Season 2 Reset Successful! All records cleared.');
+            fetchDatabase();
+          } else {
+            alert('Error resetting records: ' + (data.error || 'Request failed'));
+          }
+        } catch (err) {
+          alert('Network error resetting records: ' + err.message);
+        }
+      });
+    }
 
     document.querySelectorAll('.lb-mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {

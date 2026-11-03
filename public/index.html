@@ -62,7 +62,7 @@
 
       <a href="/database" target="_blank" class="icon-tool-btn" id="btn-open-database" title="MeDonut Admin Only: Open Live Player & Leaderboard Database Manager (/database)" style="display:none; text-decoration:none;"><span>🗄️</span></a>
 
-      <button type="button" class="icon-tool-btn" id="btn-open-changelog" title="Update Log & Patch Notes (v2.4.0)">
+      <button type="button" class="icon-tool-btn" id="btn-open-changelog" title="Update Log & Patch Notes (v2.5.0)">
         <span>📜</span>
       </button>
 
@@ -217,9 +217,9 @@
           </div>
 
           <!-- Update Log Announcement Pill -->
-          <button type="button" class="lobby-changelog-btn" id="lobby-changelog-btn" title="View Update Log & What's New in v2.4">
+          <button type="button" class="lobby-changelog-btn" id="lobby-changelog-btn" title="View Update Log & What's New in v2.5">
             <span class="changelog-pill-icon">📜</span>
-            <span class="changelog-pill-text"><strong>v2.4 Update:</strong> Rayquaza Rework, 1-Run LB & Patch Notes</span>
+            <span class="changelog-pill-text"><strong>v2.5 Update:</strong> Season 2 Reset, New Persistent DB & Patch Notes</span>
             <span class="changelog-pill-arrow">→</span>
           </button>
 
@@ -509,7 +509,7 @@
           <div class="setting-row">
             <div class="setting-info">
               <span class="setting-name">Update Log & Patch Notes</span>
-              <span class="setting-desc">Currently running Version 2.4.0 (Latest) • Click to inspect all patch notes</span>
+              <span class="setting-desc">Currently running Version 2.5.0 (Latest) • Click to inspect all patch notes</span>
             </div>
             <button type="button" class="btn-small" id="btn-settings-open-changelog" style="padding: 7px 16px; border-radius: 999px;">View Log</button>
           </div>
@@ -928,16 +928,16 @@
       <div class="changelog-modal-header">
         <div class="changelog-header-left">
           <span class="changelog-header-icon">📜</span>
-          <div>
+          <div class="changelog-header-text">
             <h2 class="changelog-modal-title" id="changelog-modal-title">Game Update Log & Patch Notes</h2>
             <p class="changelog-modal-sub">Click on any update version below to see what got added, changed, and fixed</p>
           </div>
         </div>
-        <button type="button" class="guest-modal-close" id="changelog-close-btn" title="Close Update Log (Esc)">✕</button>
+        <button type="button" class="changelog-header-close-btn" id="changelog-close-btn" title="Close Update Log (Esc)">✕</button>
       </div>
 
       <div class="changelog-tools-bar">
-        <div class="changelog-badge-latest">Current Build: <strong>v2.4.0 (Latest)</strong></div>
+        <div class="changelog-badge-latest">Current Build: <strong>v2.5.0 (Latest Patch)</strong></div>
         <div class="changelog-quick-actions">
           <button type="button" class="btn-changelog-action" id="btn-changelog-expand-all">➕ Expand All</button>
           <button type="button" class="btn-changelog-action" id="btn-changelog-collapse-all">➖ Collapse All</button>
@@ -945,19 +945,68 @@
       </div>
 
       <div class="changelog-versions-scroll" id="changelog-versions-list">
-        <!-- UPDATE 2.4.0 (LATEST) -->
-        <div class="changelog-version-card expanded" data-version="2.4.0">
-          <button type="button" class="changelog-card-header" aria-expanded="true">
+        <!-- UPDATE 2.5.0 (LATEST) -->
+        <div class="changelog-version-card expanded" data-version="2.5.0">
+          <div class="changelog-card-header" role="button" tabindex="0" aria-expanded="true">
+            <div class="changelog-card-title-group">
+              <div class="changelog-version-pills">
+                <span class="version-tag">v2.5.0</span>
+                <span class="version-latest-badge">✨ LATEST</span>
+                <span class="version-date">📅 Nov 2026</span>
+              </div>
+              <div class="version-name">Season 2 Reset & Persistent Database Engine</div>
+            </div>
+            <div class="changelog-toggle-pill">
+              <span class="toggle-pill-text">Hide Changes</span>
+              <span class="changelog-chevron">▼</span>
+            </div>
+          </div>
+          <div class="changelog-card-body">
+            <p class="changelog-summary">Full competitive leaderboard reset for Season 2, decoupled runtime database storage from game code for zero-risk updates, and automatic git deployment protection so active scores are never erased during releases.</p>
+
+            <div class="changelog-category category-added">
+              <div class="category-title"><span class="cat-pill cat-pill-added">✨ WHAT GOT ADDED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>🚀 Season 2 Competitive Reset:</strong> Complete fresh start for the Top 100 leaderboards across Easy, Medium, and Hard modes. All players start on an even playing field with clean 0-score slates while accounts and cosmetics remain intact.</li>
+                <li><strong>🛡️ Isolated Persistent Database Architecture:</strong> Completely decoupled all runtime game state into the dedicated <code>data/</code> directory. Code updates and asset changes can now be deployed without touching player data.</li>
+                <li><strong>💾 Self-Healing Schema Migrations & Atomic Backups:</strong> The server automatically performs non-destructive schema migrations and creates rolling safety snapshots in <code>data/backups/</code> upon saves.</li>
+                <li><strong>⚠️ Admin Season Reset Control:</strong> Added one-click Season Reset capability in the MeDonut Live Database Hub (<code>/database</code>) with double-confirmation protection.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-changed">
+              <div class="category-title"><span class="cat-pill cat-pill-changed">🛠️ WHAT GOT CHANGED / IMPROVED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>📦 Seamless Release Workflow:</strong> Game updates can now be deployed simply by replacing all files and folders except the <code>data/</code> folder—no manual backups, merges, or database restores needed.</li>
+                <li><strong>🔒 Enhanced Git Deployment Protection:</strong> Updated <code>.gitignore</code> to protect <code>data/db.json</code>, preventing git pushes from overwriting scores that active players earned while an update was being made.</li>
+                <li><strong>🏛️ Dedicated Clean Seed Template:</strong> Moved default starter database to <code>src/config/default-db-template.json</code> so template definitions never interfere with runtime files.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-fixed">
+              <div class="category-title"><span class="cat-pill cat-pill-fixed">🐞 WHAT GOT FIXED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>Fixed Mid-Update Record Erasure:</strong> Eliminated the issue where pushing a new GitHub commit or redeploying the server overwritten active player high scores with older local database files.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- UPDATE 2.4.0 -->
+        <div class="changelog-version-card" data-version="2.4.0">
+          <div class="changelog-card-header" role="button" tabindex="0" aria-expanded="false">
             <div class="changelog-card-title-group">
               <div class="changelog-version-pills">
                 <span class="version-tag">v2.4.0</span>
-                <span class="version-latest-badge">✨ LATEST</span>
+                <span class="version-date">📅 Nov 2026</span>
               </div>
-              <h3 class="version-name">The Sky Dragon & Leaderboard Overhaul</h3>
-              <span class="version-date">📅 November 2026</span>
+              <div class="version-name">The Sky Dragon & Leaderboard Overhaul</div>
             </div>
-            <div class="changelog-chevron">▼</div>
-          </button>
+            <div class="changelog-toggle-pill">
+              <span class="toggle-pill-text">View Changes</span>
+              <span class="changelog-chevron">▼</span>
+            </div>
+          </div>
           <div class="changelog-card-body">
             <p class="changelog-summary">Complete 3D visual rework of Rayquaza, default competitive 1-run-per-player leaderboard toggle, perfect profile icon centering, interactive update log, and responsive locker styling.</p>
 
@@ -990,16 +1039,19 @@
 
         <!-- UPDATE 2.3.0 -->
         <div class="changelog-version-card" data-version="2.3.0">
-          <button type="button" class="changelog-card-header" aria-expanded="false">
+          <div class="changelog-card-header" role="button" tabindex="0" aria-expanded="false">
             <div class="changelog-card-title-group">
               <div class="changelog-version-pills">
                 <span class="version-tag">v2.3.0</span>
+                <span class="version-date">📅 Nov 2026</span>
               </div>
-              <h3 class="version-name">Smart Registration & International Player Support</h3>
-              <span class="version-date">📅 November 2026</span>
+              <div class="version-name">Smart Registration & International Player Support</div>
             </div>
-            <div class="changelog-chevron">▼</div>
-          </button>
+            <div class="changelog-toggle-pill">
+              <span class="toggle-pill-text">View Changes</span>
+              <span class="changelog-chevron">▼</span>
+            </div>
+          </div>
           <div class="changelog-card-body">
             <p class="changelog-summary">Introduced seamless smart authentication for instantaneous account creation and full Danish character support.</p>
 
@@ -1031,16 +1083,19 @@
 
         <!-- UPDATE 2.2.0 -->
         <div class="changelog-version-card" data-version="2.2.0">
-          <button type="button" class="changelog-card-header" aria-expanded="false">
+          <div class="changelog-card-header" role="button" tabindex="0" aria-expanded="false">
             <div class="changelog-card-title-group">
               <div class="changelog-version-pills">
                 <span class="version-tag">v2.2.0</span>
+                <span class="version-date">📅 Oct 2026</span>
               </div>
-              <h3 class="version-name">MeDonut Live Admin Database & Death Screen Flow</h3>
-              <span class="version-date">📅 October 2026</span>
+              <div class="version-name">MeDonut Live Admin Database & Death Screen Flow</div>
             </div>
-            <div class="changelog-chevron">▼</div>
-          </button>
+            <div class="changelog-toggle-pill">
+              <span class="toggle-pill-text">View Changes</span>
+              <span class="changelog-chevron">▼</span>
+            </div>
+          </div>
           <div class="changelog-card-body">
             <p class="changelog-summary">Empowered server administrators with live database management tools and added streamlined death screen navigation.</p>
 
@@ -1073,16 +1128,19 @@
 
         <!-- UPDATE 2.1.0 -->
         <div class="changelog-version-card" data-version="2.1.0">
-          <button type="button" class="changelog-card-header" aria-expanded="false">
+          <div class="changelog-card-header" role="button" tabindex="0" aria-expanded="false">
             <div class="changelog-card-title-group">
               <div class="changelog-version-pills">
                 <span class="version-tag">v2.1.0</span>
+                <span class="version-date">📅 Oct 2026</span>
               </div>
-              <h3 class="version-name">3D Pokémon Legends & 10 Meme Quests</h3>
-              <span class="version-date">📅 October 2026</span>
+              <div class="version-name">3D Pokémon Legends & 10 Meme Quests</div>
             </div>
-            <div class="changelog-chevron">▼</div>
-          </button>
+            <div class="changelog-toggle-pill">
+              <span class="toggle-pill-text">View Changes</span>
+              <span class="changelog-chevron">▼</span>
+            </div>
+          </div>
           <div class="changelog-card-body">
             <p class="changelog-summary">Introduced 10 bespoke Pokémon 3D characters, 8 animated Pokémon gym pipe pillars, and 10 meme challenge quests.</p>
 
@@ -1114,16 +1172,19 @@
 
         <!-- UPDATE 2.0.0 -->
         <div class="changelog-version-card" data-version="2.0.0">
-          <button type="button" class="changelog-card-header" aria-expanded="false">
+          <div class="changelog-card-header" role="button" tabindex="0" aria-expanded="false">
             <div class="changelog-card-title-group">
               <div class="changelog-version-pills">
                 <span class="version-tag">v2.0.0</span>
+                <span class="version-date">📅 Sep 2026</span>
               </div>
-              <h3 class="version-name">Flappy Bird 3D Major Engine Overhaul</h3>
-              <span class="version-date">📅 September 2026</span>
+              <div class="version-name">Flappy Bird 3D Major Engine Overhaul</div>
             </div>
-            <div class="changelog-chevron">▼</div>
-          </button>
+            <div class="changelog-toggle-pill">
+              <span class="toggle-pill-text">View Changes</span>
+              <span class="changelog-chevron">▼</span>
+            </div>
+          </div>
           <div class="changelog-card-body">
             <p class="changelog-summary">Complete architecture refactoring, dynamic theme engine, 2048 PCFSoft shadow mapping, and 60Hz anti-cheat verification.</p>
 
@@ -1155,8 +1216,8 @@
       </div>
 
       <div class="changelog-modal-footer">
-        <span class="changelog-footer-note">Flappy Bird 3D • Crafted with ❤️ by MeDonut</span>
-        <button type="button" class="btn-changelog-close-footer" id="changelog-footer-close-btn">Close</button>
+        <span class="changelog-footer-note">🎮 Flappy Bird 3D • Created with ❤️ by MeDonut</span>
+        <button type="button" class="btn-changelog-close-footer" id="changelog-footer-close-btn">✕ Close Update Log</button>
       </div>
     </div>
   </div>

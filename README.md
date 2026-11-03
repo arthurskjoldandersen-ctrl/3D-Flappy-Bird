@@ -13,18 +13,20 @@ Flappy-Bird-3D(Github-repo)/
 ├── server.js                      # Main HTTP server entry point (Render-ready)
 ├── package.json                   # Node.js package config (`npm start`)
 ├── render.yaml                    # Render.com 1-click deployment blueprint
-├── .gitignore                     # Git ignore rules
-├── data/
-│   ├── db.json                    # Live auto-updating database (logins, new bests, accounts, runs)
-│   └── seed-db.json               # Backup seed database with all existing accounts & records
+├── .gitignore                     # Git rules (protects data/db.json from git overwrites)
+├── data/                          # PERSISTENT RUNTIME DATABASE (Do NOT overwrite on updates!)
+│   ├── .gitkeep                   # Ensures data directory exists in git
+│   ├── db.json                    # Active persistent database (scores, accounts, runs)
+│   └── backups/                   # Automatic rolling safety backups (db-backup-last.json)
 ├── src/
 │   ├── config/
-│   │   └── physicsConfig.js       # Shared 60Hz deterministic physics constants & Mulberry32 PRNG
+│   │   ├── default-db-template.json # Clean starter template (used ONLY on fresh first boot)
+│   │   └── physicsConfig.js       # Shared 60Hz deterministic physics constants & PRNG
 │   ├── services/
 │   │   ├── antiCheat.js           # Authoritative 60Hz server-side replay verification
-│   │   └── database.js            # Auto-updating JSON database manager + live file watcher
+│   │   └── database.js            # Persistent database service with auto-healing & backup
 │   └── routes/
-│       └── apiRoutes.js           # All REST API routes (/api/login, /api/run/*, /api/database/*)
+│       └── apiRoutes.js           # All REST API routes & admin database endpoints
 └── public/
     ├── index.html                 # Main 3D game page
     ├── admin-db.html              # Live Database Viewer & Record Editor (/database)
@@ -40,6 +42,26 @@ Flappy-Bird-3D(Github-repo)/
         ├── ui-views.js            # Locker, Stats, Leaderboard, Auth & Theme UI controller
         └── game.js                # Main FlappyBirdOnline game loop & bootstrap
 ```
+
+---
+
+## ⚡ How to Release New Updates Without Losing Player Scores
+
+Previously, committing `data/db.json` to GitHub could overwrite active player high scores with older local files. With the **new persistent database engine**:
+
+1. **The `data/` folder is now strictly isolated** from game code and ignored by Git.
+2. **When releasing a new update to your server**:
+   - Simply copy and replace everything in the project (`public/`, `src/`, `server.js`, `package.json`, etc.) **EXCEPT the `data/` folder**.
+   - Your active players, high scores, verified runs, and unlocked cosmetics inside `data/db.json` stay 100% untouched!
+3. **If using Git / GitHub**:
+   - `.gitignore` prevents `data/db.json` and `data/backups/` from being committed to GitHub.
+   - Pushing code updates will never overwrite live player high scores achieved while coding.
+   - *Note:* If `data/db.json` was already tracked in your GitHub repository, remove it from git tracking once by running:
+     ```bash
+     git rm --cached data/db.json
+     git commit -m "Protect live database from git overwrites"
+     git push
+     ```
 
 ---
 

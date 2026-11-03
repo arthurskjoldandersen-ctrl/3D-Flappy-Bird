@@ -3127,14 +3127,19 @@ class FlappyBirdUIAndProgression {
           const target = typeof forceOpen === 'boolean' ? forceOpen : !isAct;
 
           if (target) {
-            modal.style.display = 'flex';
             modal.classList.add('active');
+            modal.style.setProperty('display', 'flex', 'important');
+            document.body.style.overflow = 'hidden';
             if (this.sound && typeof this.sound.playClick === 'function') {
               this.sound.playClick();
             }
           } else {
             modal.classList.remove('active');
-            modal.style.display = 'none';
+            modal.style.setProperty('display', 'none', 'important');
+            document.body.style.overflow = '';
+            if (this.sound && typeof this.sound.playClick === 'function') {
+              this.sound.playClick();
+            }
           }
         }
 
@@ -3153,11 +3158,17 @@ class FlappyBirdUIAndProgression {
           const collapseAllBtn = document.getElementById('btn-changelog-collapse-all');
 
           const openHandler = (e) => {
-            if (e) e.preventDefault();
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
             this.toggleChangelogModal(true);
           };
           const closeHandler = (e) => {
-            if (e) e.preventDefault();
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
             this.toggleChangelogModal(false);
           };
 
@@ -3171,44 +3182,66 @@ class FlappyBirdUIAndProgression {
           if (modal) {
             modal.addEventListener('click', (e) => {
               if (e.target === modal) {
-                this.toggleChangelogModal(false);
+                closeHandler(e);
               }
             });
           }
 
+          // Function to set card expansion state cleanly
+          const setCardExpanded = (card, expanded) => {
+            if (!card) return;
+            card.classList.toggle('expanded', expanded);
+            const header = card.querySelector('.changelog-card-header');
+            if (header) {
+              header.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+              const pillText = header.querySelector('.toggle-pill-text');
+              if (pillText) {
+                pillText.textContent = expanded ? 'Hide Changes' : 'View Changes';
+              }
+            }
+          };
+
           // Interactive accordion toggle for each version card
           const cardHeaders = document.querySelectorAll('.changelog-card-header');
           cardHeaders.forEach(header => {
-            header.addEventListener('click', (e) => {
-              e.preventDefault();
+            const toggleAction = (e) => {
+              if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
               const card = header.closest('.changelog-version-card');
               if (!card) return;
-              const isExpanded = card.classList.toggle('expanded');
-              header.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+              const willBeExpanded = !card.classList.contains('expanded');
+              setCardExpanded(card, willBeExpanded);
               if (this.sound && typeof this.sound.playClick === 'function') {
                 this.sound.playClick();
+              }
+            };
+
+            header.addEventListener('click', toggleAction);
+            header.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                toggleAction(e);
               }
             });
           });
 
           // Expand / Collapse all actions
           if (expandAllBtn) {
-            expandAllBtn.addEventListener('click', () => {
+            expandAllBtn.addEventListener('click', (e) => {
+              if (e) e.preventDefault();
               document.querySelectorAll('.changelog-version-card').forEach(card => {
-                card.classList.add('expanded');
-                const btn = card.querySelector('.changelog-card-header');
-                if (btn) btn.setAttribute('aria-expanded', 'true');
+                setCardExpanded(card, true);
               });
               if (this.sound && typeof this.sound.playClick === 'function') this.sound.playClick();
             });
           }
 
           if (collapseAllBtn) {
-            collapseAllBtn.addEventListener('click', () => {
+            collapseAllBtn.addEventListener('click', (e) => {
+              if (e) e.preventDefault();
               document.querySelectorAll('.changelog-version-card').forEach(card => {
-                card.classList.remove('expanded');
-                const btn = card.querySelector('.changelog-card-header');
-                if (btn) btn.setAttribute('aria-expanded', 'false');
+                setCardExpanded(card, false);
               });
               if (this.sound && typeof this.sound.playClick === 'function') this.sound.playClick();
             });

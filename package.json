@@ -1,6 +1,6 @@
 {
   "name": "flappy-bird-3d-online",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "description": "3D Flappy Bird Online — Modular WebGL Game with 96 3D Skins (Pokémon, Meme & Endgame), 60Hz Deterministic Anti-Cheat Server, Top 100 Multi-Entry Leaderboards & Live Auto-Updating Player Database",
   "main": "server.js",
   "scripts": {

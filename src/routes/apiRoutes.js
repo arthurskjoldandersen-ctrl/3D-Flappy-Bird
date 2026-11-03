@@ -24,6 +24,7 @@ const {
   getAllRunsAdmin,
   deleteLeaderboardEntryAdmin,
   adminUpdateUserSkins,
+  resetAllRecordsAdmin,
   formatReadableTimestamp
 } = require('../services/database');
 
@@ -504,6 +505,8 @@ async function handleApiRequest(req, res, pathname, port) {
       databaseStatus: db.databaseStatus,
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: db.activityFeed,
+      loginHistory: db.loginHistory || [],
+      adminSettings: db.adminSettings || {},
       users: db.users,
       runs: db.runs
     };
@@ -589,6 +592,25 @@ async function handleApiRequest(req, res, pathname, port) {
     return sendJSON(res, 200, {
       ok: true,
       removed,
+      databaseStatus: db.databaseStatus,
+      playerRecordsOverview: db.playerRecordsOverview,
+      activityFeed: (db.activityFeed || []).slice(0, 100),
+      leaderboards: buildLeaderboards(),
+      allRuns: getAllRunsAdmin(),
+      loginHistory: (db.loginHistory || []).slice(0, 300)
+    });
+  }
+
+  // 11b. Season Reset All Records Admin Endpoint (MeDonut Only)
+  if (req.method === 'POST' && pathname === '/api/database/reset-records') {
+    const adminAuth = isMeDonutAdmin(req);
+    if (!adminAuth) {
+      return sendJSON(res, 403, { error: 'Access Denied: Only MeDonut can reset records.' });
+    }
+    const adminName = adminAuth.user ? adminAuth.user.username : 'MeDonut';
+    const result = resetAllRecordsAdmin(adminName);
+    return sendJSON(res, 200, {
+      ...result,
       databaseStatus: db.databaseStatus,
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: (db.activityFeed || []).slice(0, 100),

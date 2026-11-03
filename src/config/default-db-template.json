@@ -1,0 +1,741 @@
+{
+  "databaseStatus": {
+    "lastUpdatedISO": "2026-11-03T11:11:27.385Z",
+    "lastUpdatedReadable": "2026-11-03 12:11:27",
+    "latestEventBanner": "🟢 Database Active — Season 2 Reset (All Records Reset to 0)",
+    "lastEventType": "SEASON_RESET",
+    "lastEventPlayer": "MeDonut",
+    "currentChampions": {
+      "easy": "None",
+      "medium": "None",
+      "hard": "None"
+    },
+    "totalRegisteredPlayers": 24,
+    "totalLeaderboardRuns": {
+      "easy": 0,
+      "medium": 0,
+      "hard": 0,
+      "total": 0
+    },
+    "howToViewOrEdit": "Open /database in your browser OR edit records directly in playerRecordsOverview / users below and save this file!"
+  },
+  "playerRecordsOverview": {},
+  "activityFeed": [
+    {
+      "id": "season_2_inaugural",
+      "timestampMs": 1793704287385,
+      "time": "2026-11-03 12:11:27",
+      "type": "SEASON_RESET",
+      "username": "MeDonut",
+      "message": "🚀 Season 2 Launch & New Persistent Database initialized! All previous run records have been reset for the new competitive season."
+    }
+  ],
+  "users": {
+    "skyace": {
+      "username": "SkyAce",
+      "salt": "366b35bc653bbe00ad30e8b38c71c8ec",
+      "passwordHash": "2940507283f288b3a67a8d8c8f136eb9f8b6e0431e9d3fd43cb830612145d1c49fcb5f9b1fce6f56d8969c41e10bd9e0fb4192d2cb92f620395b31c0d74ab68e",
+      "createdAt": 1792410030191,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "shadow_gengar",
+      "selectedPipeSkin": "rainbow_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1792410030191,
+      "lastLoginReadable": "2026-10-19 13:40:30",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [
+        "shadow_gengar"
+      ],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "medonut": {
+      "username": "MeDonut",
+      "salt": "b316680658a22498f518273c73724006",
+      "passwordHash": "28f14c21a0eb2c9e98212762373e84caaed9ff69e06a4c4d2a045d0a9cdafd4fd28403c29336bd2bd2ee357171dd73234e786a925ccbf12c179ebc8704bbc2aa",
+      "createdAt": 1792410689757,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "sakura",
+      "selectedPipeSkin": "glacier_pipe",
+      "loginCount": 3,
+      "lastLoginAt": 1793362867052,
+      "lastLoginReadable": "2026-10-30 13:21:07",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "ejstrup": {
+      "username": "ejstrup",
+      "salt": "7d27ad44100677bd0afb633612f2bdb9",
+      "passwordHash": "fc8da1d83f5d614aa6d6303efe23982e047e3a06c9d8f0c40808fb05ba34c1d11e6659d9cc9a2272b41a52c14e11bb2bb1ff04f59169f0a3e59fdbde387e2620",
+      "createdAt": 1792410851341,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "inferno_hard",
+      "selectedPipeSkin": "steel_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1792564208492,
+      "lastLoginReadable": "2026-10-21 08:30:08",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "thomsen": {
+      "username": "Thomsen",
+      "salt": "ec6d0e95b19ecb6bf7a68ef163947454",
+      "passwordHash": "a03de8dd126fbef925d59078b8a39702b25c4fa044bf4c9dc598e7a08befedf3d248d0bccf1ddcbcb306593d5b01c310282ef647b9f460e22ed25ae54124f7f8",
+      "createdAt": 1792564074421,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "poke_pikachu",
+      "selectedPipeSkin": "classic_pipe",
+      "loginCount": 2,
+      "lastLoginAt": 1793362858951,
+      "lastLoginReadable": "2026-10-30 13:20:58",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "joslor11": {
+      "username": "joslor11",
+      "salt": "20f6f02e1c23f9211083a7a46a0c920f",
+      "passwordHash": "e2ba485630e71184aa31205ffed2ff67d79ef53dbfd3e7dab32d98dfb848d9008c93a6a6024aa451aa396a7283009e234bccc375294105fd85ac9260395cf050",
+      "createdAt": 1792564290266,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "poke_pikachu",
+      "selectedPipeSkin": "hellfire_pipe",
+      "loginCount": 2,
+      "lastLoginAt": 1793358564302,
+      "lastLoginReadable": "2026-10-30 12:09:24",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "zander": {
+      "username": "Zander",
+      "salt": "71319e22abac9fe22d1a6d6b4c4c7a80",
+      "passwordHash": "04489646654252c327b23edb7c25d92446ad1e96d594b8b74577713a1634a7948b121fff8c733ccf69a430874edf768528368ee8d125b0f0e9c3952d3e899dc4",
+      "createdAt": 1793000922826,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "sakura",
+      "selectedPipeSkin": "pipe_bidoof_dam",
+      "loginCount": 1,
+      "lastLoginAt": 1793000922826,
+      "lastLoginReadable": "2026-10-26 08:48:42",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "allan": {
+      "username": "Allan",
+      "salt": "a7138dcc301b86ef8a6d0dae22a8682f",
+      "passwordHash": "f89892c52daa886b295c412fee7b4a75398e3beae59d73c6212981b66be75be48b9b7c2eb45c550305dc4329790e8e6309557014e3f968b1e9c120c71356ed22",
+      "createdAt": 1793000933391,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "poke_meowth",
+      "selectedPipeSkin": "pipe_bidoof_dam",
+      "loginCount": 4,
+      "lastLoginAt": 1793362770397,
+      "lastLoginReadable": "2026-10-30 13:19:30",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "vik": {
+      "username": "vik",
+      "salt": "a28570d214d6244482b6ad280f2b7122",
+      "passwordHash": "03673be334e1246ed39155384ac847e5e56415b657c9e172c6915e1fe519f6c0efa86470ac8d914660ab01be8d9477798d17cdf341e3bb743b76f23eadb8509f",
+      "createdAt": 1793000963767,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "temple_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793000963767,
+      "lastLoginReadable": "2026-10-26 08:49:23",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "hadi": {
+      "username": "Hadi",
+      "salt": "3fd491312c25863d7308c0fb6f68442e",
+      "passwordHash": "f71d14d34c5a04839c7f2488ab9cb0dd172b36f02f2582b47b22f6787599e37b6d65d834bfbceb1031850d5d9c5e8609bdfb7a70a9590ede6efd98e7cc8bf72c",
+      "createdAt": 1793086446232,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "shogun_pipe_med",
+      "loginCount": 2,
+      "lastLoginAt": 1793267185100,
+      "lastLoginReadable": "2026-10-29 10:46:25",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "blueviceee": {
+      "username": "BlueViceee",
+      "salt": "844706bb41a1fa697a63ce32a5c98116",
+      "passwordHash": "9ec8b930d012a10e4629e62d6faf8d500733a3193d582a6234d43b159e9dd5cdeb8f4dfe18abb901d81b717ddaec964d2d93a3838d3736c334e84882d267d434",
+      "createdAt": 1793189968493,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "nine_plus_ten_21",
+      "selectedPipeSkin": "pipe_windows_bsod",
+      "loginCount": 1,
+      "lastLoginAt": 1793189968493,
+      "lastLoginReadable": "2026-10-28 13:19:28",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "ostehaps": {
+      "username": "ostehaps",
+      "salt": "5e8691b4f98e251ed055572042025b7b",
+      "passwordHash": "bffc6fb12c6ec01730f93b1f9bcc665546ca5a2fca31ae3d4931f25e292eac1ce9c16964985aa0c82054b0242284e00664d07f9b93b5b109a331ddcd95d04671",
+      "createdAt": 1793261398300,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "frost_medium",
+      "selectedPipeSkin": "shogun_pipe_med",
+      "loginCount": 1,
+      "lastLoginAt": 1793261398300,
+      "lastLoginReadable": "2026-10-29 09:09:58",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "dumlegomand": {
+      "username": "Dumlegomand",
+      "salt": "743dd445b83550be8025ffd59bfb9d34",
+      "passwordHash": "879331cef8a75cd19b4317ef36894956e433d0626e5c4938727ec641a22ce0917c588676ed3c21bc2285705c87b84b05f796a4be9b1af74fcf7d33277659a457",
+      "createdAt": 1793267675885,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "ninja",
+      "selectedPipeSkin": "pipe_pikachu_volt",
+      "loginCount": 1,
+      "lastLoginAt": 1793267675885,
+      "lastLoginReadable": "2026-10-29 10:54:35",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "supermand": {
+      "username": "supermand",
+      "salt": "1b691abcf4e65ed48bdf58be8ae13fcb",
+      "passwordHash": "599a300b02cda47d2cc2e45d8b7cefcaef881d483aef482d51b30a0925fbf5f9382d84f4aa7b8cbea0624be803bf4f2143c3a9c2ff63b9bcd57d61c2a5d06964",
+      "createdAt": 1793267694906,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "frost_medium",
+      "selectedPipeSkin": "steel_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793267694906,
+      "lastLoginReadable": "2026-10-29 10:54:54",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "p0lsehorn": {
+      "username": "P0lsehorn",
+      "salt": "e63991c3e29bd5201c0f5fb5e4ad33bc",
+      "passwordHash": "7fc9f8417cfd1f5833fceed8dbd48dfb0564db3770f6d3ab51ba428804eb69f75c751d03b0b64740e3f2ab8a2f2b591e2c5a5d4984021a6f0a374b299184acdc",
+      "createdAt": 1793267706449,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "emerald",
+      "selectedPipeSkin": "temple_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793267706449,
+      "lastLoginReadable": "2026-10-29 10:55:06",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "superwoman": {
+      "username": "superwoman",
+      "salt": "95780451c536fbad2b10d2b42baa7d86",
+      "passwordHash": "cec0b4941372959ad8cfe47855c95dc9e467d67d23497d98754810b0b6d57f04ef4e67dde37e64dd7fd9a3486c2b4a0e0b2f923291970f08084d21bc44c6c97f",
+      "createdAt": 1793267711079,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "cardinal",
+      "selectedPipeSkin": "candy_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793267711079,
+      "lastLoginReadable": "2026-10-29 10:55:11",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "mort": {
+      "username": "Mort",
+      "salt": "1035cd4eda13e1cff330d0c753ed663f",
+      "passwordHash": "d08d5d47efebe20a60a96bd832941be6eb73eeadf4773b167d40e7378b08ea8a754f8145e1ecacd3266a5609376ed727a7bafbeae6c54990d725fb0830a52e75",
+      "createdAt": 1793268398207,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "poke_bidoof",
+      "selectedPipeSkin": "classic_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793268398207,
+      "lastLoginReadable": "2026-10-29 11:06:38",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "bassemand": {
+      "username": "Bassemand",
+      "salt": "1a8af5caeda71fabf087391782175f9f",
+      "passwordHash": "94ba9ffc6b87572d96bceb9bef482f64aec077befe6ab9a40085f4a089b9fb64584a0db193506a160a5fce51716da829ba59d500f10b756c1b1b6fbbe2cf4ac3",
+      "createdAt": 1793268447996,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "poke_meowth",
+      "selectedPipeSkin": "pipe_banana_slip",
+      "loginCount": 1,
+      "lastLoginAt": 1793268447996,
+      "lastLoginReadable": "2026-10-29 11:07:27",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "bennersgoat": {
+      "username": "bennersgoat",
+      "salt": "c48764c63ff4a4eac010717b0b3e3ee7",
+      "passwordHash": "a02abbf1de0692c0366178724e799f625fec993ccc3364218540da9bc04986dd9a8106ff7611385c89d4ae0c4cbfc3d8749126165639540287cee9cae52665b0",
+      "createdAt": 1793277752053,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "poke_magikarp",
+      "selectedPipeSkin": "pipe_bidoof_dam",
+      "loginCount": 1,
+      "lastLoginAt": 1793353864774,
+      "lastLoginReadable": "2026-10-30 10:51:04",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "kani": {
+      "username": "kani",
+      "salt": "2283f79e453dfbed9518227303afa319",
+      "passwordHash": "191829173bb6b70f42b83e5b928e767596eb02f2cb8a61ac7daa65d4c230f1d44e8b8a63e7a23f7b878fa70da9b1bba6c3c0beb2bacb51628c5142771b81a2d7",
+      "createdAt": 1793353668156,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793353668156,
+      "lastLoginReadable": "2026-10-30 10:47:48",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "vik11": {
+      "username": "vik11",
+      "salt": "6c02afe8f281b3d6497413fb218b7ee7",
+      "passwordHash": "4e34ce8666cbb4044824142e54473796437210a3c3c4ed220242a7f29d1ac73b50d24d029f45e0f8b23e306183732124e631a72d93ac297a3d65806ca81950de",
+      "createdAt": 1793358852274,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793358852274,
+      "lastLoginReadable": "2026-10-30 12:14:12",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "puhbigmack": {
+      "username": "puhbigmack",
+      "salt": "f9b43cf036b667fe0f3a5a1281138e17",
+      "passwordHash": "cd530679f23249e140f9ba4efb55d837cd4191fd44f045099e4123ff367f223380b86c4ceb1b05430ece430871d660f046957a831b936d324420c0d161471b1f",
+      "createdAt": 1793363416958,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793363416958,
+      "lastLoginReadable": "2026-10-30 13:30:16",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "sejesara": {
+      "username": "Sejesara",
+      "salt": "77119d7489ef9a728a30f7ec3ee595d2",
+      "passwordHash": "6fa9c727e850304a7436d6b614c1ecf444e31e319caa505782ceda4646d18951972d52dc99cedd29d256a98aec5c75831783ee7b5d252f67db2e449aa445bb40",
+      "createdAt": 1793363485099,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793363485099,
+      "lastLoginReadable": "2026-10-30 13:31:25",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "ella332340": {
+      "username": "Ella332340",
+      "salt": "5cb60864038d2fdc89701ede40d037bb",
+      "passwordHash": "5ce7f53be4d4189fa39de83ccd350a5d36e84d86b3f0b96a9a816c0613e916cf6ca3cb2a917459b0f050475c9866754a11942fd9a358965646d83098e8ed765e",
+      "createdAt": 1793363598121,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793363598121,
+      "lastLoginReadable": "2026-10-30 13:33:18",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    },
+    "hej123": {
+      "username": "Hej123",
+      "salt": "88dc3333da8c2acd2933d002863fc610",
+      "passwordHash": "023d7cd1e9a954fc36a2e83a2359722a24cbb0d23d2e9ff3ea08b37412446ead32037d5a59fed55d4720bd7cad72947cda5928238c37dff4d034541456b2d4be",
+      "createdAt": 1793363725301,
+      "records": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "recordTimestamps": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
+      "loginCount": 1,
+      "lastLoginAt": 1793363725301,
+      "lastLoginReadable": "2026-10-30 13:35:25",
+      "_lastSyncedRecords": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0
+      },
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": []
+    }
+  },
+  "runs": {
+    "easy": [],
+    "medium": [],
+    "hard": []
+  },
+  "sessions": {},
+  "loginHistory": [],
+  "adminSettings": {}
+}
