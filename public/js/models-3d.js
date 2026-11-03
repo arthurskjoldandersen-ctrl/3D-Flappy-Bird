@@ -1044,9 +1044,12 @@ class FlappyBird3DModels {
               if (key === 'poke_jigglypuff' || key === 'poke_magikarp' || key === 'poke_gengar' || key === 'poke_snorlax') {
                 baseScale = 0.78;
                 basePos = { x: 0, y: 0, z: 0 };
-              } else if (key === 'poke_charizard' || key === 'poke_rayquaza' || key === 'poke_mewtwo') {
-                baseScale = 0.72;
+              } else if (key === 'poke_charizard' || key === 'poke_mewtwo') {
+                baseScale = 0.74;
                 basePos = { x: -0.06, y: -0.08, z: 0 };
+              } else if (key === 'poke_rayquaza') {
+                baseScale = 1.08;
+                basePos = { x: 0.02, y: -0.04, z: 0 };
               } else {
                 baseScale = 0.78;
                 basePos = { x: -0.08, y: -0.10, z: 0 };
@@ -3832,80 +3835,212 @@ class FlappyBird3DModels {
           mewtwoGroup.add(psystrikeRings);
           addPreset('poke_mewtwo', mewtwoGroup);
 
-          // P17. Rayquaza ('poke_rayquaza': Coiled Emerald Sky Dragon + Golden Ring Markings + Crimson-Edged Rudder Fins + Delta-Stream Wind Vortex)
+          // P17. Rayquaza ('poke_rayquaza': Majestic Legendary Emerald Sky Dragon)
           const rayquazaGroup = new THREE.Group();
-          const rayEmerald = new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x065f46, emissiveIntensity: 0.35, roughness: 0.24, metalness: 0.32 });
-          const rayGold = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xd97706, emissiveIntensity: 0.75, roughness: 0.16, metalness: 0.85 });
-          const rayCrimson = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0x991b1b, emissiveIntensity: 0.45, roughness: 0.25 });
+          const rayEmerald = new THREE.MeshStandardMaterial({ color: 0x059669, emissive: 0x044d37, emissiveIntensity: 0.42, roughness: 0.22, metalness: 0.45 });
+          const rayGold = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xb45309, emissiveIntensity: 0.85, roughness: 0.14, metalness: 0.88 });
+          const rayCrimson = new THREE.MeshStandardMaterial({ color: 0xdc2626, emissive: 0x7f1d1d, emissiveIntensity: 0.55, roughness: 0.24, metalness: 0.35 });
+          const rayDark = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.7 });
+          const rayFangs = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.18, metalness: 0.2 });
 
-          // Segmented Coiled Serpentine Dragon Body
-          const rayCoils = new THREE.Group();
-          const coilPositions = [
-            { x: 0.16, y: 0.18, z: 0, r: 0.32 },
-            { x: -0.14, y: -0.08, z: 0.18, r: 0.30 },
-            { x: -0.44, y: 0.12, z: -0.16, r: 0.27 },
-            { x: -0.74, y: -0.12, z: 0.10, r: 0.23 },
-            { x: -1.02, y: 0.06, z: 0, r: 0.18 }
-          ];
-          coilPositions.forEach((cp, idx) => {
-            const seg = new THREE.Mesh(new THREE.SphereGeometry(cp.r, 18, 18), rayEmerald);
-            seg.scale.set(1.35, 0.95, 0.95);
-            seg.position.set(cp.x, cp.y, cp.z);
-            const goldRing = new THREE.Mesh(new THREE.TorusGeometry(cp.r * 0.98, 0.035, 8, 20), rayGold);
-            goldRing.rotation.y = Math.PI / 2;
-            goldRing.position.copy(seg.position);
-            rayCoils.add(seg, goldRing);
+          // 1. Dragon Head Assembly (Streamlined Snout, Menacing Jaw, Fangs & Swept Horns)
+          const rayHeadGroup = new THREE.Group();
+          rayHeadGroup.position.set(0.52, 0.16, 0);
 
-            if (idx % 2 === 0) {
-              const fin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.42, 4), rayEmerald);
-              fin.position.set(cp.x, cp.y + cp.r + 0.14, cp.z);
-              const finTrim = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.14, 4), rayCrimson);
-              finTrim.position.set(cp.x, cp.y + cp.r + 0.30, cp.z);
-              rayCoils.add(fin, finTrim);
-            }
-          });
-          this.animatedSkinParts.rayquazaCoils = rayCoils;
-          rayquazaGroup.add(rayCoils);
+          // Upper Snout & Cranial Helmet
+          const snoutMesh = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.78, 8), rayEmerald);
+          snoutMesh.rotation.z = -Math.PI / 2;
+          snoutMesh.position.set(0.18, 0.04, 0);
 
-          // Armored Dragon Head + 4 Swept Golden/Emerald Horns + Blazing Yellow Eyes
-          const rayHead = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.78, 8), rayEmerald);
-          rayHead.rotation.z = -Math.PI / 2;
-          rayHead.position.set(0.56, 0.32, 0);
-          const rayJaw = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.62, 8), rayCrimson);
-          rayJaw.rotation.z = -Math.PI / 2 + 0.18;
-          rayJaw.position.set(0.54, 0.18, 0);
-          rayquazaGroup.add(rayHead, rayJaw);
+          const craniumCap = new THREE.Mesh(new THREE.SphereGeometry(0.30, 16, 16), rayEmerald);
+          craniumCap.scale.set(1.2, 0.85, 0.95);
+          craniumCap.position.set(-0.06, 0.08, 0);
 
+          // Forehead Ancient Delta Crest
+          const foreheadCrest = new THREE.Mesh(new THREE.OctahedronGeometry(0.10, 0), rayGold);
+          foreheadCrest.scale.set(1.4, 0.6, 0.8);
+          foreheadCrest.position.set(0.12, 0.18, 0);
+
+          // Articulated Lower Jaw with Crimson Mouth Lining
+          const jawMesh = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.64, 8), rayEmerald);
+          jawMesh.rotation.z = -Math.PI / 2 + 0.14;
+          jawMesh.position.set(0.16, -0.10, 0);
+
+          const mouthLining = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.42, 6), rayCrimson);
+          mouthLining.rotation.z = -Math.PI / 2;
+          mouthLining.position.set(0.14, -0.04, 0);
+
+          // Sharp White Dragon Fangs (3 on each side)
           [-1, 1].forEach(side => {
-            const upperHorn = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.62, 8), rayEmerald);
-            upperHorn.position.set(0.18, 0.64, side * 0.28);
-            upperHorn.rotation.z = 0.82;
+            for (let f = 0; f < 3; f++) {
+              const fang = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.11, 4), rayFangs);
+              fang.position.set(0.12 + f * 0.10, -0.02, side * 0.13);
+              fang.rotation.z = Math.PI;
+              rayHeadGroup.add(fang);
+            }
+
+            // Piercing Yellow Dragon Eyes with Black Ocular Sockets
+            const eyeSocket = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.05), rayDark);
+            eyeSocket.position.set(0.08, 0.12, side * 0.22);
+            eyeSocket.rotation.y = side * 0.28;
+
+            const eyeIris = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), rayGold);
+            eyeIris.position.set(0.09, 0.12, side * 0.23);
+
+            const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.07, 0.03), rayDark);
+            pupil.position.set(0.11, 0.12, side * 0.24);
+
+            // Upper Swept Cranial Horns (Majestic Emerald Horns with Golden Runic Ring Bands)
+            const upperHorn = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.82, 8), rayEmerald);
+            upperHorn.position.set(-0.18, 0.45, side * 0.24);
+            upperHorn.rotation.z = 0.96;
             upperHorn.rotation.x = side * 0.32;
-            const lowerHorn = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.48, 8), rayGold);
-            lowerHorn.position.set(0.20, 0.38, side * 0.34);
-            lowerHorn.rotation.z = 0.95;
-            lowerHorn.rotation.x = side * 0.45;
-            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), rayGold);
-            eye.position.set(0.62, 0.40, side * 0.24);
-            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.38, 8), rayEmerald);
-            arm.position.set(0.28, -0.06, side * 0.38);
-            arm.rotation.z = -Math.PI / 3;
-            rayquazaGroup.add(upperHorn, lowerHorn, eye, arm);
+
+            const hornRing1 = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.024, 6, 16), rayGold);
+            hornRing1.position.copy(upperHorn.position);
+            hornRing1.rotation.copy(upperHorn.rotation);
+
+            const hornRing2 = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.020, 6, 16), rayGold);
+            hornRing2.position.set(-0.28, 0.60, side * 0.32);
+            hornRing2.rotation.copy(upperHorn.rotation);
+
+            // Lower Cheek Horns with Crimson Aerodynamic Trim
+            const cheekHorn = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.52, 8), rayEmerald);
+            cheekHorn.position.set(-0.16, -0.06, side * 0.28);
+            cheekHorn.rotation.z = 1.15;
+            cheekHorn.rotation.x = side * 0.45;
+
+            const cheekFinTrim = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.16, 4), rayCrimson);
+            cheekFinTrim.position.set(-0.28, -0.12, side * 0.38);
+            cheekFinTrim.rotation.copy(cheekHorn.rotation);
+
+            rayHeadGroup.add(eyeSocket, eyeIris, pupil, upperHorn, hornRing1, hornRing2, cheekHorn, cheekFinTrim);
           });
 
-          // Delta-Stream Wind Vortex & Emerald Meteor Shards
+          rayHeadGroup.add(snoutMesh, craniumCap, foreheadCrest, jawMesh, mouthLining);
+          this.animatedSkinParts.rayquazaHead = rayHeadGroup;
+          rayquazaGroup.add(rayHeadGroup);
+
+          // 2. Articulated Serpentine Dragon Spine (7 Interlocking Smooth Undulating Segments)
+          const rayquazaSegments = [];
+          const segConfigs = [
+            { x: 0.26, y: 0.12, z: 0, r: 0.32, hasFin: false },
+            { x: -0.02, y: 0.04, z: 0.06, r: 0.35, hasFin: true, finDorsal: true },
+            { x: -0.30, y: -0.02, z: -0.05, r: 0.33, hasFin: true, finLateral: true },
+            { x: -0.58, y: 0.03, z: 0.04, r: 0.29, hasFin: true, finDorsal: true },
+            { x: -0.84, y: -0.04, z: -0.04, r: 0.25, hasFin: true, finLateral: true },
+            { x: -1.08, y: 0.02, z: 0.02, r: 0.20, hasFin: false },
+            { x: -1.30, y: -0.02, z: 0, r: 0.15, isTailTip: true }
+          ];
+
+          segConfigs.forEach((sc, idx) => {
+            const segGroup = new THREE.Group();
+            segGroup.position.set(sc.x, sc.y, sc.z);
+            segGroup.userData = { origX: sc.x, origY: sc.y, origZ: sc.z, idx };
+
+            // Segmented Torso Shell
+            const bodyMesh = new THREE.Mesh(new THREE.SphereGeometry(sc.r, 16, 16), rayEmerald);
+            bodyMesh.scale.set(1.35, 0.95, 0.95);
+            segGroup.add(bodyMesh);
+
+            // Ancient Glowing Golden Runic Ring
+            const goldRing = new THREE.Mesh(new THREE.TorusGeometry(sc.r * 0.96, 0.036, 8, 24), rayGold);
+            goldRing.rotation.y = Math.PI / 2;
+            segGroup.add(goldRing);
+
+            // Dorsal Fin with Crimson Red Border
+            if (sc.finDorsal) {
+              const fin = new THREE.Mesh(new THREE.ConeGeometry(sc.r * 0.45, sc.r * 1.25, 4), rayEmerald);
+              fin.position.set(0, sc.r + sc.r * 0.4, 0);
+              fin.rotation.z = -0.35;
+
+              const finTrim = new THREE.Mesh(new THREE.ConeGeometry(sc.r * 0.48, sc.r * 0.45, 4), rayCrimson);
+              finTrim.position.set(0, sc.r + sc.r * 0.85, 0);
+              finTrim.rotation.z = -0.35;
+
+              segGroup.add(fin, finTrim);
+            }
+
+            // Lateral Aerodynamic Rudder Fins
+            if (sc.finLateral) {
+              [-1, 1].forEach(side => {
+                const latFin = new THREE.Mesh(new THREE.ConeGeometry(sc.r * 0.35, sc.r * 1.05, 4), rayEmerald);
+                latFin.position.set(0, 0, side * (sc.r + sc.r * 0.35));
+                latFin.rotation.x = side * Math.PI / 2.3;
+                latFin.rotation.z = -0.4;
+
+                const latTrim = new THREE.Mesh(new THREE.ConeGeometry(sc.r * 0.38, sc.r * 0.35, 4), rayCrimson);
+                latTrim.position.set(0, 0, side * (sc.r + sc.r * 0.72));
+                latTrim.rotation.copy(latFin.rotation);
+
+                segGroup.add(latFin, latTrim);
+              });
+            }
+
+            // Tail Delta Double Rudder Fins
+            if (sc.isTailTip) {
+              [-1, 1].forEach(side => {
+                const tailFin = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.55, 4), rayEmerald);
+                tailFin.position.set(-0.14, side * 0.16, 0);
+                tailFin.rotation.z = Math.PI / 2 + side * 0.45;
+
+                const tailTrim = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.20, 4), rayCrimson);
+                tailTrim.position.set(-0.32, side * 0.26, 0);
+                tailTrim.rotation.copy(tailFin.rotation);
+
+                segGroup.add(tailFin, tailTrim);
+              });
+            }
+
+            rayquazaSegments.push(segGroup);
+            rayquazaGroup.add(segGroup);
+          });
+          this.animatedSkinParts.rayquazaSegments = rayquazaSegments;
+
+          // 3. Articulated Dragon Arms & Triple Ivory Claws
+          [-1, 1].forEach(side => {
+            const armGroup = new THREE.Group();
+            armGroup.position.set(0.15, -0.06, side * 0.32);
+
+            const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.08, 0.36, 8), rayEmerald);
+            upperArm.rotation.z = -Math.PI / 3.2;
+            upperArm.rotation.x = side * 0.35;
+
+            const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 8), rayGold);
+            elbowJoint.position.set(0.15, -0.16, side * 0.08);
+
+            // Three White Dragon Claws
+            for (let c = -1; c <= 1; c++) {
+              const claw = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.14, 4), rayFangs);
+              claw.position.set(0.24, -0.22, side * 0.08 + c * 0.05);
+              claw.rotation.z = -Math.PI / 2 + c * 0.25;
+              armGroup.add(claw);
+            }
+
+            armGroup.add(upperArm, elbowJoint);
+            rayquazaGroup.add(armGroup);
+          });
+
+          // 4. Delta-Stream / Dragon Ascent Celestial Halo Rings & Star Shards
           const rayDelta = new THREE.Group();
-          const deltaRing = new THREE.Mesh(new THREE.TorusGeometry(1.06, 0.036, 8, 28), rayGold);
-          deltaRing.rotation.x = Math.PI / 2.4;
-          rayDelta.add(deltaRing);
-          for (let m = 0; m < 4; m++) {
-            const ma = (m / 4) * Math.PI * 2;
-            const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), m % 2 === 0 ? rayEmerald : rayGold);
-            shard.position.set(Math.cos(ma) * 1.06, 0, Math.sin(ma) * 1.06);
+          const outerDeltaRing = new THREE.Mesh(new THREE.TorusGeometry(1.22, 0.040, 8, 32), rayGold);
+          outerDeltaRing.rotation.x = Math.PI / 2.3;
+
+          const innerDeltaRing = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.026, 8, 28), rayCrimson);
+          innerDeltaRing.rotation.x = -Math.PI / 2.6;
+          innerDeltaRing.rotation.y = 0.25;
+
+          rayDelta.add(outerDeltaRing, innerDeltaRing);
+
+          for (let m = 0; m < 6; m++) {
+            const ma = (m / 6) * Math.PI * 2;
+            const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), m % 2 === 0 ? rayEmerald : rayGold);
+            shard.position.set(Math.cos(ma) * 1.22, Math.sin(ma * 2) * 0.15, Math.sin(ma) * 1.22);
             rayDelta.add(shard);
           }
           this.animatedSkinParts.rayquazaDelta = rayDelta;
           rayquazaGroup.add(rayDelta);
+
           addPreset('poke_rayquaza', rayquazaGroup);
         }
 
@@ -4678,11 +4813,22 @@ class FlappyBird3DModels {
               parts.mewtwoPsystrike.children[0].rotation.z += frameDt * 3.5;
               parts.mewtwoPsystrike.children[1].rotation.x -= frameDt * 4.2;
             }
-            if (parts.rayquazaCoils) {
-              parts.rayquazaCoils.rotation.z = Math.sin(t * 6.0) * 0.12;
+            if (parts.rayquazaSegments && Array.isArray(parts.rayquazaSegments)) {
+              parts.rayquazaSegments.forEach((seg, sIdx) => {
+                const origY = (seg.userData && seg.userData.origY) || 0;
+                const origZ = (seg.userData && seg.userData.origZ) || 0;
+                seg.position.y = origY + Math.sin(t * 6.5 - sIdx * 0.48) * 0.08;
+                seg.position.z = origZ + Math.cos(t * 5.5 - sIdx * 0.42) * 0.06;
+                seg.rotation.z = Math.cos(t * 6.5 - sIdx * 0.48) * 0.14;
+                seg.rotation.y = Math.sin(t * 4.5 - sIdx * 0.35) * 0.08;
+              });
+            }
+            if (parts.rayquazaHead) {
+              parts.rayquazaHead.rotation.z = Math.sin(t * 6.5) * 0.08 - (this.wingFlapBoost || 0) * 0.18;
+              parts.rayquazaHead.position.y = 0.16 + Math.sin(t * 6.5) * 0.05;
             }
             if (parts.rayquazaDelta) {
-              parts.rayquazaDelta.rotation.y += frameDt * 4.8;
+              parts.rayquazaDelta.rotation.y += frameDt * 4.5;
               parts.rayquazaDelta.rotation.z = Math.sin(t * 3.5) * 0.22;
             }
           }

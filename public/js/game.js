@@ -33,6 +33,7 @@
           this.lbShowAllPlayers = false;
           this.selectedDifficulty = 'medium';
           this.activeLbTab = 'medium';
+          this.lbUniqueRecordsOnly = true;
           this.isStartingRun = false;
 
           // Anti-Cheat & Sub-Tick Interpolation State
@@ -112,9 +113,9 @@
             if (tag === 'INPUT' || tag === 'TEXTAREA') {
               if (e.key === 'Enter') {
                 if (activeEl && (activeEl.id === 'guest-modal-username' || activeEl.id === 'guest-modal-password')) {
-                  this.handleGuestModalAuth('login');
-                } else {
-                  this.handleAuth('login');
+                  this.handleGuestModalAuth('smart');
+                } else if (activeEl && (activeEl.id === 'auth-username' || activeEl.id === 'auth-password')) {
+                  this.handleAuth('smart');
                 }
               }
               return;
@@ -739,6 +740,17 @@
             });
           }
 
+          const lbUniqueToggleBtn = document.getElementById('btn-toggle-lb-unique');
+          if (lbUniqueToggleBtn) {
+            lbUniqueToggleBtn.addEventListener('click', () => {
+              this.toggleLeaderboardUniqueRecords();
+            });
+          }
+
+          if (typeof this.initChangelog === 'function') {
+            this.initChangelog();
+          }
+
           window.addEventListener('resize', () => {
             const width = window.innerWidth;
             const height = window.innerHeight;
@@ -757,6 +769,24 @@
             b.classList.toggle('active', b.getAttribute('data-tab') === tabKey);
           });
           this.renderLeaderboard();
+        }
+
+        toggleLeaderboardUniqueRecords() {
+          this.lbUniqueRecordsOnly = !this.lbUniqueRecordsOnly;
+          this.updateLeaderboardUniqueToggleUI();
+          this.renderLeaderboard();
+        }
+
+        updateLeaderboardUniqueToggleUI() {
+          const btn = document.getElementById('btn-toggle-lb-unique');
+          const pill = document.getElementById('lb-unique-pill');
+          if (btn) {
+            btn.classList.toggle('active', Boolean(this.lbUniqueRecordsOnly));
+            btn.setAttribute('aria-pressed', this.lbUniqueRecordsOnly ? 'true' : 'false');
+          }
+          if (pill) {
+            pill.textContent = this.lbUniqueRecordsOnly ? 'ON' : 'OFF';
+          }
         }
 
         showLobbyScreen() {

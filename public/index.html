@@ -62,6 +62,10 @@
 
       <a href="/database" target="_blank" class="icon-tool-btn" id="btn-open-database" title="MeDonut Admin Only: Open Live Player & Leaderboard Database Manager (/database)" style="display:none; text-decoration:none;"><span>🗄️</span></a>
 
+      <button type="button" class="icon-tool-btn" id="btn-open-changelog" title="Update Log & Patch Notes (v2.4.0)">
+        <span>📜</span>
+      </button>
+
       <button type="button" class="icon-tool-btn" id="btn-reset-view" title="Reset 3D View & Fix Black Screen (R)">
         <span>🔄</span>
       </button>
@@ -212,6 +216,13 @@
             </div>
           </div>
 
+          <!-- Update Log Announcement Pill -->
+          <button type="button" class="lobby-changelog-btn" id="lobby-changelog-btn" title="View Update Log & What's New in v2.4">
+            <span class="changelog-pill-icon">📜</span>
+            <span class="changelog-pill-text"><strong>v2.4 Update:</strong> Rayquaza Rework, 1-Run LB & Patch Notes</span>
+            <span class="changelog-pill-arrow">→</span>
+          </button>
+
           <!-- Hero Glowing Play Button -->
           <button type="button" class="btn-play-hero btn-play" id="start-btn">
             <span class="play-icon">▶</span>
@@ -338,10 +349,17 @@
                 <span class="search-icon">🔍</span>
                 <input type="text" id="lb-search-input" placeholder="Search player, rank (#1), or score..." autocomplete="off" />
               </div>
-              <div class="lb-tabs" id="lb-tabs">
-                <button type="button" class="lb-tab" data-tab="easy" id="tab-btn-lb-easy">🟢 Easy</button>
-                <button type="button" class="lb-tab active" data-tab="medium" id="tab-btn-lb-med">🟡 Medium</button>
-                <button type="button" class="lb-tab" data-tab="hard" id="tab-btn-lb-hard">🔴 Hard</button>
+              <div class="lb-tabs-bar">
+                <div class="lb-tabs" id="lb-tabs">
+                  <button type="button" class="lb-tab" data-tab="easy" id="tab-btn-lb-easy">🟢 Easy</button>
+                  <button type="button" class="lb-tab active" data-tab="medium" id="tab-btn-lb-med">🟡 Medium</button>
+                  <button type="button" class="lb-tab" data-tab="hard" id="tab-btn-lb-hard">🔴 Hard</button>
+                </div>
+                <button type="button" class="lb-unique-toggle-btn active" id="btn-toggle-lb-unique" title="Toggle 1 Record per Player" aria-pressed="true">
+                  <span class="unique-toggle-icon">👤</span>
+                  <span class="unique-toggle-label">1 Run / Player</span>
+                  <span class="unique-toggle-pill" id="lb-unique-pill">ON</span>
+                </button>
               </div>
             </div>
             <button type="button" class="btn-small" id="tab-btn-lb" style="display:none;">LB</button>
@@ -486,6 +504,16 @@
             </label>
           </div>
 
+          <div class="settings-section-title"><span>📜</span> Version & Release History</div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Update Log & Patch Notes</span>
+              <span class="setting-desc">Currently running Version 2.4.0 (Latest) • Click to inspect all patch notes</span>
+            </div>
+            <button type="button" class="btn-small" id="btn-settings-open-changelog" style="padding: 7px 16px; border-radius: 999px;">View Log</button>
+          </div>
+
           <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; border-top:1px solid var(--border-subtle); padding-top:14px;">
             <button type="button" class="btn-small" id="btn-settings-reset" style="background:var(--pill-bg); color:var(--text-secondary); border:1px solid var(--border-subtle);">
               ↻ Reset to Defaults
@@ -522,14 +550,14 @@
                   <label for="auth-username" class="auth-label">Player Username</label>
                   <div class="auth-input-wrap">
                     <span class="auth-input-icon">👤</span>
-                    <input type="text" id="auth-username" class="account-input" placeholder="Enter username (3-16 chars)" maxlength="16" autocomplete="username" />
+                    <input type="text" id="auth-username" class="account-input" placeholder="Enter username (2-20 chars)" maxlength="20" autocomplete="username" />
                   </div>
                 </div>
                 <div class="auth-field">
                   <label for="auth-password" class="auth-label">Secret Password</label>
                   <div class="auth-input-wrap">
                     <span class="auth-input-icon">🔒</span>
-                    <input type="password" id="auth-password" class="account-input" placeholder="Enter password (4+ chars)" maxlength="64" autocomplete="current-password" />
+                    <input type="password" id="auth-password" class="account-input" placeholder="Enter password (1-64 chars)" maxlength="64" autocomplete="current-password" />
                   </div>
                 </div>
               </div>
@@ -783,14 +811,14 @@
             <label for="guest-modal-username" class="auth-label">Player Username</label>
             <div class="auth-input-wrap">
               <span class="auth-input-icon">👤</span>
-              <input type="text" id="guest-modal-username" class="account-input" placeholder="Enter username (3-16 chars)" maxlength="16" autocomplete="username" />
+              <input type="text" id="guest-modal-username" class="account-input" placeholder="Enter username (2-20 chars)" maxlength="20" autocomplete="username" />
             </div>
           </div>
           <div class="auth-field">
             <label for="guest-modal-password" class="auth-label">Secret Password</label>
             <div class="auth-input-wrap">
               <span class="auth-input-icon">🔒</span>
-              <input type="password" id="guest-modal-password" class="account-input" placeholder="Enter password (4+ chars)" maxlength="64" autocomplete="current-password" />
+              <input type="password" id="guest-modal-password" class="account-input" placeholder="Enter password (1-64 chars)" maxlength="64" autocomplete="current-password" />
             </div>
           </div>
         </div>
@@ -890,6 +918,245 @@
 
       <div class="public-profile-footer">
         <button type="button" class="btn-public-profile-close" id="public-profile-footer-close-btn">Close Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dedicated Game Update Log & Patch Notes Modal -->
+  <div class="modal-backdrop changelog-backdrop" id="modal-changelog" role="dialog" aria-modal="true" aria-labelledby="changelog-modal-title" style="display:none;">
+    <div class="card changelog-modal-card">
+      <div class="changelog-modal-header">
+        <div class="changelog-header-left">
+          <span class="changelog-header-icon">📜</span>
+          <div>
+            <h2 class="changelog-modal-title" id="changelog-modal-title">Game Update Log & Patch Notes</h2>
+            <p class="changelog-modal-sub">Click on any update version below to see what got added, changed, and fixed</p>
+          </div>
+        </div>
+        <button type="button" class="guest-modal-close" id="changelog-close-btn" title="Close Update Log (Esc)">✕</button>
+      </div>
+
+      <div class="changelog-tools-bar">
+        <div class="changelog-badge-latest">Current Build: <strong>v2.4.0 (Latest)</strong></div>
+        <div class="changelog-quick-actions">
+          <button type="button" class="btn-changelog-action" id="btn-changelog-expand-all">➕ Expand All</button>
+          <button type="button" class="btn-changelog-action" id="btn-changelog-collapse-all">➖ Collapse All</button>
+        </div>
+      </div>
+
+      <div class="changelog-versions-scroll" id="changelog-versions-list">
+        <!-- UPDATE 2.4.0 (LATEST) -->
+        <div class="changelog-version-card expanded" data-version="2.4.0">
+          <button type="button" class="changelog-card-header" aria-expanded="true">
+            <div class="changelog-card-title-group">
+              <div class="changelog-version-pills">
+                <span class="version-tag">v2.4.0</span>
+                <span class="version-latest-badge">✨ LATEST</span>
+              </div>
+              <h3 class="version-name">The Sky Dragon & Leaderboard Overhaul</h3>
+              <span class="version-date">📅 November 2026</span>
+            </div>
+            <div class="changelog-chevron">▼</div>
+          </button>
+          <div class="changelog-card-body">
+            <p class="changelog-summary">Complete 3D visual rework of Rayquaza, default competitive 1-run-per-player leaderboard toggle, perfect profile icon centering, interactive update log, and responsive locker styling.</p>
+
+            <div class="changelog-category category-added">
+              <div class="category-title"><span class="cat-pill cat-pill-added">✨ WHAT GOT ADDED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>📜 Interactive In-Game Update Log:</strong> Full patch notes viewer with version history, expandable release notes, and categorized changes.</li>
+                <li><strong>👤 1-Run-Per-Player Leaderboard Toggle (Default ON):</strong> Added competitive unique player leaderboard mode with repeat multipliers (e.g. <code>24 (3x)</code>) for multiple personal best achievements.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-changed">
+              <div class="category-title"><span class="cat-pill cat-pill-changed">🛠️ WHAT GOT CHANGED / IMPROVED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>🐉 Epic Rayquaza 3D Skin Rework:</strong> Completely redesigned from the ground up! Scaled up to majestic 1.08x size, featuring 7 undulating serpentine body segments, sculpted dragon head with ivory white fangs, swept cranial horns, golden runic rings, and double celestial Delta Stream orbital rings.</li>
+                <li><strong>🎯 Profile Icon Centering:</strong> Perfected vertical and horizontal centering of player profile avatars in the hero dashboard and public profile cards.</li>
+                <li><strong>📱 Responsive Cosmetic Typography:</strong> Dynamic font scaling and hover tooltips for extra-long cosmetic names (up to 29 characters) in the Locker.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-fixed">
+              <div class="category-title"><span class="cat-pill cat-pill-fixed">🐞 WHAT GOT FIXED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>Fixed Locker Box Overflow:</strong> Eliminated text clipping where long skin names or descriptions were cut off or pushed out of view.</li>
+                <li><strong>Fixed Unique Leaderboard Ranks:</strong> Leaderboard ranks correctly re-index sequentially (🥇 #1, 🥈 #2, 🥉 #3...) across all unique players.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- UPDATE 2.3.0 -->
+        <div class="changelog-version-card" data-version="2.3.0">
+          <button type="button" class="changelog-card-header" aria-expanded="false">
+            <div class="changelog-card-title-group">
+              <div class="changelog-version-pills">
+                <span class="version-tag">v2.3.0</span>
+              </div>
+              <h3 class="version-name">Smart Registration & International Player Support</h3>
+              <span class="version-date">📅 November 2026</span>
+            </div>
+            <div class="changelog-chevron">▼</div>
+          </button>
+          <div class="changelog-card-body">
+            <p class="changelog-summary">Introduced seamless smart authentication for instantaneous account creation and full Danish character support.</p>
+
+            <div class="changelog-category category-added">
+              <div class="category-title"><span class="cat-pill cat-pill-added">✨ WHAT GOT ADDED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>⚡ Seamless Smart Authentication:</strong> Automatic registration when logging in with a new account name—no separate registration forms required.</li>
+                <li><strong>🌍 Danish & International Name Support:</strong> Usernames now support Danish letters (<code>æ, ø, å, Æ, Ø, Å</code>), spaces, hyphens, and dots.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-changed">
+              <div class="category-title"><span class="cat-pill cat-pill-changed">🛠️ WHAT GOT CHANGED / IMPROVED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>🔒 Secure Mixed-Content Resolution:</strong> API requests automatically detect HTTPS and connect seamlessly in production environments.</li>
+                <li><strong>📊 Career Record Preservation:</strong> Existing offline high scores are preserved and uploaded upon initial account registration.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-fixed">
+              <div class="category-title"><span class="cat-pill cat-pill-fixed">🐞 WHAT GOT FIXED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>Fixed Account Creation Validation:</strong> Resolved issues where players with Danish characters or short passwords were unable to create accounts.</li>
+                <li><strong>Fixed Enter Key Login:</strong> Pressing Enter inside credential fields now executes login immediately.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- UPDATE 2.2.0 -->
+        <div class="changelog-version-card" data-version="2.2.0">
+          <button type="button" class="changelog-card-header" aria-expanded="false">
+            <div class="changelog-card-title-group">
+              <div class="changelog-version-pills">
+                <span class="version-tag">v2.2.0</span>
+              </div>
+              <h3 class="version-name">MeDonut Live Admin Database & Death Screen Flow</h3>
+              <span class="version-date">📅 October 2026</span>
+            </div>
+            <div class="changelog-chevron">▼</div>
+          </button>
+          <div class="changelog-card-body">
+            <p class="changelog-summary">Empowered server administrators with live database management tools and added streamlined death screen navigation.</p>
+
+            <div class="changelog-category category-added">
+              <div class="category-title"><span class="cat-pill cat-pill-added">✨ WHAT GOT ADDED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>🗄️ MeDonut Live Database Hub (/database):</strong> Dedicated web interface to inspect player statistics, live audit feeds, and manage accounts.</li>
+                <li><strong>🎁 Admin Inventory Manager:</strong> Added ability for admins to grant unlocked cosmetics or lock skins with persistent admin enforcement.</li>
+                <li><strong>⚡ Instant Death Screen Navigation:</strong> Jump directly to Leaderboards, Locker, or Career Stats straight from the Game Over screen without having to return to Lobby first.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-changed">
+              <div class="category-title"><span class="cat-pill cat-pill-changed">🛠️ WHAT GOT CHANGED / IMPROVED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>📊 Dedicated Full-Screen Career Stats:</strong> Comprehensive telemetry dashboard tracking total flights, flap counts, crash rates, and collection completion across all modes.</li>
+                <li><strong>🧼 Clean Header Navigation:</strong> Removed redundant FPS badges and cleaned up top bar layout for cleaner visibility.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-fixed">
+              <div class="category-title"><span class="cat-pill cat-pill-fixed">🐞 WHAT GOT FIXED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>Fixed Game Over Screen Spacing:</strong> Prevented the Game Over modal card from colliding with or sliding underneath the top navigation dock.</li>
+                <li><strong>Fixed Locker Scroll Position:</strong> Equipping a cosmetic card no longer resets the scroll container back to the top.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- UPDATE 2.1.0 -->
+        <div class="changelog-version-card" data-version="2.1.0">
+          <button type="button" class="changelog-card-header" aria-expanded="false">
+            <div class="changelog-card-title-group">
+              <div class="changelog-version-pills">
+                <span class="version-tag">v2.1.0</span>
+              </div>
+              <h3 class="version-name">3D Pokémon Legends & 10 Meme Quests</h3>
+              <span class="version-date">📅 October 2026</span>
+            </div>
+            <div class="changelog-chevron">▼</div>
+          </button>
+          <div class="changelog-card-body">
+            <p class="changelog-summary">Introduced 10 bespoke Pokémon 3D characters, 8 animated Pokémon gym pipe pillars, and 10 meme challenge quests.</p>
+
+            <div class="changelog-category category-added">
+              <div class="category-title"><span class="cat-pill cat-pill-added">✨ WHAT GOT ADDED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>🔴 10 Legendary Pokémon 3D Bird Skins:</strong> Rayquaza, Charizard, Mewtwo, Pikachu, Charmander, Squirtle, Bulbasaur, Gengar, Lucario, and Greninja.</li>
+                <li><strong>🏗️ 8 Animated Pokémon Pipe Pillars:</strong> Poké Ball, Master Ball, and Element Gym columns with animated pulse rings.</li>
+                <li><strong>😂 10 Meme Quests & Skins:</strong> 6-7 Streetball, 9+10=21 Math Genius, First-Pipe Wall Inspector, 777 Jackpot, MLG Deal-With-It, and more.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-changed">
+              <div class="category-title"><span class="cat-pill cat-pill-changed">🛠️ WHAT GOT CHANGED / IMPROVED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>🎨 Custom PBR Metallic & Emissive Shaders:</strong> High-tier skins now feature dynamic reflections and luminous core glow.</li>
+                <li><strong>🪽 Dynamic 3D Wing Styles:</strong> Dragon Wyvern, Seraph, Fairy, and Cyber Blade wings with distinct flap physics.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-fixed">
+              <div class="category-title"><span class="cat-pill cat-pill-fixed">🐞 WHAT GOT FIXED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>Hitbox Calibration:</strong> Calibrated all 3D character presets to maintain the exact 0.60m collision hitbox center.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- UPDATE 2.0.0 -->
+        <div class="changelog-version-card" data-version="2.0.0">
+          <button type="button" class="changelog-card-header" aria-expanded="false">
+            <div class="changelog-card-title-group">
+              <div class="changelog-version-pills">
+                <span class="version-tag">v2.0.0</span>
+              </div>
+              <h3 class="version-name">Flappy Bird 3D Major Engine Overhaul</h3>
+              <span class="version-date">📅 September 2026</span>
+            </div>
+            <div class="changelog-chevron">▼</div>
+          </button>
+          <div class="changelog-card-body">
+            <p class="changelog-summary">Complete architecture refactoring, dynamic theme engine, 2048 PCFSoft shadow mapping, and 60Hz anti-cheat verification.</p>
+
+            <div class="changelog-category category-added">
+              <div class="category-title"><span class="cat-pill cat-pill-added">✨ WHAT GOT ADDED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>🎨 Dynamic Theme Engine:</strong> Instant switching between Midnight Dark, Daylight Clean, and Cyber Neon themes.</li>
+                <li><strong>✨ 2048 PCFSoft Dynamic Shadow Mapping:</strong> Realistic realtime shadows cast by the bird onto obstacles and terrain.</li>
+                <li><strong>🚀 60Hz Server Anti-Cheat Trajectory Verification:</strong> Server-side mathematical validation protecting the Top 100 leaderboards.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-changed">
+              <div class="category-title"><span class="cat-pill cat-pill-changed">🛠️ WHAT GOT CHANGED / IMPROVED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>⚡ 120Hz/144Hz Sub-Tick Physics:</strong> Game simulation runs at deterministic 60Hz with interpolated sub-tick rendering for buttery-smooth high refresh rate gameplay.</li>
+                <li><strong>🗃️ Modular Code Architecture:</strong> Split monolithic codebase into clean modular modules (game.js, models-3d.js, skins-data.js, ui-views.js).</li>
+              </ul>
+            </div>
+
+            <div class="changelog-category category-fixed">
+              <div class="category-title"><span class="cat-pill cat-pill-fixed">🐞 WHAT GOT FIXED</span></div>
+              <ul class="changelog-items-list">
+                <li><strong>Camera Occlusion:</strong> Eliminated camera clipping through high pipes during steep climbs.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="changelog-modal-footer">
+        <span class="changelog-footer-note">Flappy Bird 3D • Crafted with ❤️ by MeDonut</span>
+        <button type="button" class="btn-changelog-close-footer" id="changelog-footer-close-btn">Close</button>
       </div>
     </div>
   </div>

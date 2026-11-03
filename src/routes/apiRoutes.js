@@ -130,18 +130,20 @@ async function handleApiRequest(req, res, pathname, port) {
 
   // 2. Register Account
   if (req.method === 'POST' && pathname === '/api/register') {
-    const { username, password } = await readJsonBody(req);
-    const cleanName = typeof username === 'string' ? username.trim() : '';
+    const { username, password, records: reqRecords } = await readJsonBody(req);
+    const cleanName = typeof username === 'string' ? username.trim().replace(/\s+/g, ' ') : '';
     const cleanPass = typeof password === 'string' ? password : '';
 
-    if (!/^[a-zA-Z0-9_]{3,16}$/.test(cleanName)) {
+    // Allow Unicode letters (Danish æ, ø, å, accents, etc.), digits, spaces, hyphens, underscores, dots (2-20 chars)
+    const isValidUsername = /^[\p{L}\p{N}_\-\. ]{2,20}$/u.test(cleanName);
+    if (!isValidUsername) {
       return sendJSON(res, 400, {
-        error: 'Username must be 3-16 characters (letters, numbers, or underscores).'
+        error: 'Username must be 2-20 characters (letters, numbers, spaces, hyphens, or underscores).'
       });
     }
-    if (cleanPass.length < 4 || cleanPass.length > 64) {
+    if (cleanPass.length < 1 || cleanPass.length > 64) {
       return sendJSON(res, 400, {
-        error: 'Password must be at least 4 characters.'
+        error: 'Password must be between 1 and 64 characters.'
       });
     }
 
@@ -156,30 +158,40 @@ async function handleApiRequest(req, res, pathname, port) {
     const passwordHash = hashPassword(cleanPass, salt);
     const now = Date.now();
 
+    const initialRecords = {
+      easy: Math.max(0, Math.floor(Number(reqRecords && reqRecords.easy) || 0)),
+      medium: Math.max(0, Math.floor(Number(reqRecords && reqRecords.medium) || 0)),
+      hard: Math.max(0, Math.floor(Number(reqRecords && reqRecords.hard) || 0))
+    };
+
     db.users[usernameKey] = {
       username: cleanName,
       salt,
       passwordHash,
       createdAt: now,
-      loginCount: 1,
+      loginCount: 0,
       lastLoginAt: now,
       lastLoginReadable: formatReadableTimestamp(now),
       lastNewBestAt: 0,
       lastNewBestText: 'Account created — no personal best set yet',
       selectedSkin: 'classic',
       selectedPipeSkin: 'classic_pipe',
-      records: { easy: 0, medium: 0, hard: 0 },
+      grantedSkins: [],
+      adminLockedSkins: [],
+      records: initialRecords,
       recordTimestamps: { easy: now, medium: now, hard: now }
     };
 
     const token = crypto.randomBytes(24).toString('hex');
     db.sessions[token] = { usernameKey, username: cleanName, createdAt: now };
 
+    recordUserLogin(db.users[usernameKey], 'register');
+
     logDatabaseEvent(
       'REGISTER',
       cleanName,
       `✨ New player account registered & logged in: ${cleanName}`,
-      { records: { easy: 0, medium: 0, hard: 0 } }
+      { records: initialRecords }
     );
     saveDatabase();
 
@@ -200,7 +212,7 @@ async function handleApiRequest(req, res, pathname, port) {
   // 3. Password Login
   if (req.method === 'POST' && pathname === '/api/login') {
     const { username, password } = await readJsonBody(req);
-    const cleanName = typeof username === 'string' ? username.trim() : '';
+    const cleanName = typeof username === 'string' ? username.trim().replace(/\s+/g, ' ') : '';
     const cleanPass = typeof password === 'string' ? password : '';
     const usernameKey = cleanName.toLowerCase();
 

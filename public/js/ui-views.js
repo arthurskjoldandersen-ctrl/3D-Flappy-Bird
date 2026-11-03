@@ -479,19 +479,11 @@ class FlappyBirdUIAndProgression {
             if (res.ok) {
               return await res.json();
             }
-            if (res.status === 404 && typeof window !== 'undefined' && window.location && window.location.port !== '3000') {
-              const fallbackUrl = `http://localhost:3000${path.startsWith('/') ? '' : '/'}${path}`;
-              const fallbackRes = await fetch(fallbackUrl, {
-                method,
-                headers,
-                body: body ? JSON.stringify(body) : null
-              });
-              if (fallbackRes.ok) return await fallbackRes.json();
-            }
             const data = await res.json().catch(() => ({}));
             throw new Error(data.error || `Request failed (${res.status})`);
           } catch (err) {
-            if (typeof window !== 'undefined' && window.location && window.location.origin !== 'http://localhost:3000') {
+            const isLocalHost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+            if (isLocalHost && window.location.port !== '3000' && !err.message.includes('40')) {
               try {
                 const fallbackUrl = `http://localhost:3000${path.startsWith('/') ? '' : '/'}${path}`;
                 const fallbackRes = await fetch(fallbackUrl, {
@@ -822,6 +814,9 @@ class FlappyBirdUIAndProgression {
           if (heroAvatar) {
             heroAvatar.textContent = skin.emoji;
             heroAvatar.style.background = gradientStyle;
+            heroAvatar.style.display = 'flex';
+            heroAvatar.style.alignItems = 'center';
+            heroAvatar.style.justifyContent = 'center';
             heroAvatar.style.boxShadow = `0 6px 20px ${hexBody}88`;
             heroAvatar.title = `Profile Picture: ${skin.name}`;
           }
@@ -976,12 +971,46 @@ class FlappyBirdUIAndProgression {
           const username = usernameInput.value.trim();
           const password = passwordInput.value;
 
+          if (!username) {
+            msgEl.className = 'auth-msg error';
+            msgEl.textContent = 'Please enter a username (2-20 characters).';
+            return;
+          }
+          if (!password) {
+            msgEl.className = 'auth-msg error';
+            msgEl.textContent = 'Please enter a password.';
+            return;
+          }
+
           msgEl.className = 'auth-msg';
           msgEl.textContent = mode === 'register' ? 'Creating account...' : 'Logging in...';
 
           try {
-            const endpoint = mode === 'register' ? '/api/register' : '/api/login';
-            const data = await this.apiRequest(endpoint, 'POST', { username, password });
+            let data;
+            if (mode === 'smart') {
+              // Try login first; if 401 (Account not found), automatically register!
+              try {
+                data = await this.apiRequest('/api/login', 'POST', { username, password });
+              } catch (loginErr) {
+                if (loginErr.message && (loginErr.message.toLowerCase().includes('not found') || loginErr.message.includes('401'))) {
+                  msgEl.textContent = 'Account not found — creating new account...';
+                  data = await this.apiRequest('/api/register', 'POST', {
+                    username,
+                    password,
+                    records: this.localRecords
+                  });
+                } else {
+                  throw loginErr;
+                }
+              }
+            } else {
+              const endpoint = mode === 'register' ? '/api/register' : '/api/login';
+              data = await this.apiRequest(endpoint, 'POST', {
+                username,
+                password,
+                records: this.localRecords
+              });
+            }
             passwordInput.value = '';
             msgEl.className = 'auth-msg success';
             msgEl.textContent = `Welcome, ${data.user.username}!`;
@@ -1095,6 +1124,9 @@ class FlappyBirdUIAndProgression {
           const profAvatarEl = document.getElementById('profile-avatar-emoji');
           if (profAvatarEl && activeBird) {
             profAvatarEl.textContent = activeBird.emoji || '🐤';
+            profAvatarEl.style.display = 'flex';
+            profAvatarEl.style.alignItems = 'center';
+            profAvatarEl.style.justifyContent = 'center';
             const hexBody = '#' + activeBird.body.toString(16).padStart(6, '0');
             const hexWing = '#' + activeBird.wing.toString(16).padStart(6, '0');
             profAvatarEl.style.background = `linear-gradient(135deg, ${hexBody} 50%, ${hexWing} 100%)`;
@@ -1287,12 +1319,46 @@ class FlappyBirdUIAndProgression {
           const username = usernameInput.value.trim();
           const password = passwordInput.value;
 
+          if (!username) {
+            msgEl.className = 'auth-msg error';
+            msgEl.textContent = 'Please enter a username (2-20 characters).';
+            return;
+          }
+          if (!password) {
+            msgEl.className = 'auth-msg error';
+            msgEl.textContent = 'Please enter a password.';
+            return;
+          }
+
           msgEl.className = 'auth-msg';
           msgEl.textContent = mode === 'register' ? 'Creating account...' : 'Logging in...';
 
           try {
-            const endpoint = mode === 'register' ? '/api/register' : '/api/login';
-            const data = await this.apiRequest(endpoint, 'POST', { username, password });
+            let data;
+            if (mode === 'smart') {
+              // Try login first; if 401 (Account not found), automatically register!
+              try {
+                data = await this.apiRequest('/api/login', 'POST', { username, password });
+              } catch (loginErr) {
+                if (loginErr.message && (loginErr.message.toLowerCase().includes('not found') || loginErr.message.includes('401'))) {
+                  msgEl.textContent = 'Account not found — creating new account...';
+                  data = await this.apiRequest('/api/register', 'POST', {
+                    username,
+                    password,
+                    records: this.localRecords
+                  });
+                } else {
+                  throw loginErr;
+                }
+              }
+            } else {
+              const endpoint = mode === 'register' ? '/api/register' : '/api/login';
+              data = await this.apiRequest(endpoint, 'POST', {
+                username,
+                password,
+                records: this.localRecords
+              });
+            }
             passwordInput.value = '';
             msgEl.className = 'auth-msg success';
             msgEl.textContent = `Welcome, ${data.user.username}!`;
@@ -1315,6 +1381,9 @@ class FlappyBirdUIAndProgression {
         }
 
         renderLeaderboard(highlightEntryId = null) {
+          if (typeof this.updateLeaderboardUniqueToggleUI === 'function') {
+            this.updateLeaderboardUniqueToggleUI();
+          }
           this.renderLeaderboardInto(
             document.getElementById('lb-list'),
             this.activeLbTab,
@@ -1335,13 +1404,49 @@ class FlappyBirdUIAndProgression {
 
         renderLeaderboardInto(listEl, diffKey, highlightEntryId = null) {
           if (!listEl) return;
-          const entries = this.leaderboards[diffKey] || [];
+          const rawEntries = this.leaderboards[diffKey] || [];
           const label = CONFIG.difficulties[diffKey].label;
 
           // Preserve scroll position so periodic leaderboard refreshes NEVER jump back to the top!
           const prevScrollTop = listEl.scrollTop || 0;
 
           listEl.innerHTML = '';
+
+          // Filter to 1 record per player if unique toggle is turned on
+          let entries = rawEntries;
+          if (this.lbUniqueRecordsOnly) {
+            const maxScoreMap = new Map();
+            for (const item of rawEntries) {
+              const uKey = (item.username || '').toLowerCase();
+              const curMax = maxScoreMap.get(uKey);
+              if (curMax === undefined || item.score > curMax) {
+                maxScoreMap.set(uKey, item.score);
+              }
+            }
+
+            const maxCountMap = new Map();
+            for (const item of rawEntries) {
+              const uKey = (item.username || '').toLowerCase();
+              if (item.score === maxScoreMap.get(uKey)) {
+                maxCountMap.set(uKey, (maxCountMap.get(uKey) || 0) + 1);
+              }
+            }
+
+            const seenPlayers = new Set();
+            const uniqueEntries = [];
+            for (const item of rawEntries) {
+              const uKey = (item.username || '').toLowerCase();
+              if (!seenPlayers.has(uKey) && item.score === maxScoreMap.get(uKey)) {
+                seenPlayers.add(uKey);
+                uniqueEntries.push({
+                  ...item,
+                  repeatCount: maxCountMap.get(uKey) || 1
+                });
+              }
+            }
+            uniqueEntries.sort((a, b) => b.score - a.score);
+            entries = uniqueEntries;
+          }
 
           // 1. Dedicated "Your Standing" Header Card
           const standingCard = document.createElement('div');
@@ -1355,17 +1460,18 @@ class FlappyBirdUIAndProgression {
           if (this.currentUser && myIndex !== -1) {
             const myEntry = entries[myIndex];
             standingCard.classList.add('is-ranked');
+            const repeatSuffix = this.lbUniqueRecordsOnly && myEntry.repeatCount > 1 ? ` (${myEntry.repeatCount}x)` : '';
             standingCard.innerHTML = `
               <div class="standing-pill-left">
                 <span class="standing-crown">⭐</span>
                 <div>
                   <div class="standing-title">Your Verified ${label} Standing</div>
-                  <strong class="standing-rank">Rank #${myIndex + 1} of ${entries.length} ${this.lbShowAllPlayers ? '(All Players)' : '(Top 100)'}</strong>
+                  <strong class="standing-rank">Rank #${myIndex + 1} of ${entries.length} ${this.lbUniqueRecordsOnly ? '(Unique Players)' : (this.lbShowAllPlayers ? '(All Players)' : '(Top 100)')}</strong>
                 </div>
               </div>
               <div class="standing-pill-right">
                 <span class="standing-tag">YOUR BEST</span>
-                <span class="standing-score">${myEntry.score} pts</span>
+                <span class="standing-score">${myEntry.score}${repeatSuffix} pts</span>
               </div>
             `;
           } else if (this.currentUser) {
@@ -1467,7 +1573,11 @@ class FlappyBirdUIAndProgression {
 
             const scoreEl = document.createElement('span');
             scoreEl.className = 'lb-score' + (isMe ? ' my-score' : '');
-            scoreEl.textContent = String(item.score);
+            if (this.lbUniqueRecordsOnly && item.repeatCount > 1) {
+              scoreEl.innerHTML = `${item.score} <span class="lb-repeat-tag">(${item.repeatCount}x)</span>`;
+            } else {
+              scoreEl.textContent = String(item.score);
+            }
 
             row.append(rankEl, nameEl, scoreEl);
             listEl.appendChild(row);
@@ -2058,9 +2168,14 @@ class FlappyBirdUIAndProgression {
           const nameEl = document.createElement('span');
           nameEl.className = 'skin-name';
           nameEl.textContent = item.name;
+          nameEl.title = item.name;
 
           // Responsive font scaling for long Pokemon and Meme names to prevent clipping
-          if (item.name.length > 20) {
+          if (item.name.length > 24) {
+            nameEl.style.fontSize = '0.68rem';
+            nameEl.style.letterSpacing = '-0.3px';
+            nameEl.style.lineHeight = '1.12';
+          } else if (item.name.length > 20) {
             nameEl.style.fontSize = '0.72rem';
             nameEl.style.letterSpacing = '-0.2px';
             nameEl.style.lineHeight = '1.15';
@@ -2118,6 +2233,7 @@ class FlappyBirdUIAndProgression {
           const descEl = document.createElement('div');
           descEl.className = 'skin-desc';
           descEl.textContent = item.desc;
+          descEl.title = item.desc;
 
           info.append(titleRow, metaRow, descEl);
 
@@ -2138,6 +2254,7 @@ class FlappyBirdUIAndProgression {
             reqEl.textContent = isAdminLocked
               ? '🔒 Locked by Admin MeDonut (Stays locked)'
               : `${item.reqText} • ${prog.current}/${prog.target} (${prog.percent}%)`;
+            reqEl.title = reqEl.textContent;
 
             progRow.append(track, reqEl);
             info.appendChild(progRow);
@@ -2977,6 +3094,9 @@ class FlappyBirdUIAndProgression {
             }
           } else if (viewName === 'leaderboard') {
             this.fetchLeaderboards(this.lbShowAllPlayers);
+            if (typeof this.updateLeaderboardUniqueToggleUI === 'function') {
+              this.updateLeaderboardUniqueToggleUI();
+            }
           } else if (viewName === 'stats') {
             this.renderStatsMenu();
           } else if (viewName === 'account') {
@@ -2998,6 +3118,107 @@ class FlappyBirdUIAndProgression {
           } else {
             if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
           }
+        }
+
+        toggleChangelogModal(forceOpen) {
+          const modal = document.getElementById('modal-changelog');
+          if (!modal) return;
+          const isAct = modal.classList.contains('active') || modal.style.display === 'flex';
+          const target = typeof forceOpen === 'boolean' ? forceOpen : !isAct;
+
+          if (target) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+            if (this.sound && typeof this.sound.playClick === 'function') {
+              this.sound.playClick();
+            }
+          } else {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+          }
+        }
+
+        initChangelog() {
+          if (this._changelogInitialized) return;
+          this._changelogInitialized = true;
+
+          const modal = document.getElementById('modal-changelog');
+          const openTopBtn = document.getElementById('btn-open-changelog');
+          const openLobbyBtn = document.getElementById('lobby-changelog-btn');
+          const openSettingsBtn = document.getElementById('btn-settings-open-changelog');
+          const closeTopBtn = document.getElementById('changelog-close-btn');
+          const closeFooterBtn = document.getElementById('changelog-footer-close-btn');
+
+          const expandAllBtn = document.getElementById('btn-changelog-expand-all');
+          const collapseAllBtn = document.getElementById('btn-changelog-collapse-all');
+
+          const openHandler = (e) => {
+            if (e) e.preventDefault();
+            this.toggleChangelogModal(true);
+          };
+          const closeHandler = (e) => {
+            if (e) e.preventDefault();
+            this.toggleChangelogModal(false);
+          };
+
+          if (openTopBtn) openTopBtn.addEventListener('click', openHandler);
+          if (openLobbyBtn) openLobbyBtn.addEventListener('click', openHandler);
+          if (openSettingsBtn) openSettingsBtn.addEventListener('click', openHandler);
+
+          if (closeTopBtn) closeTopBtn.addEventListener('click', closeHandler);
+          if (closeFooterBtn) closeFooterBtn.addEventListener('click', closeHandler);
+
+          if (modal) {
+            modal.addEventListener('click', (e) => {
+              if (e.target === modal) {
+                this.toggleChangelogModal(false);
+              }
+            });
+          }
+
+          // Interactive accordion toggle for each version card
+          const cardHeaders = document.querySelectorAll('.changelog-card-header');
+          cardHeaders.forEach(header => {
+            header.addEventListener('click', (e) => {
+              e.preventDefault();
+              const card = header.closest('.changelog-version-card');
+              if (!card) return;
+              const isExpanded = card.classList.toggle('expanded');
+              header.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+              if (this.sound && typeof this.sound.playClick === 'function') {
+                this.sound.playClick();
+              }
+            });
+          });
+
+          // Expand / Collapse all actions
+          if (expandAllBtn) {
+            expandAllBtn.addEventListener('click', () => {
+              document.querySelectorAll('.changelog-version-card').forEach(card => {
+                card.classList.add('expanded');
+                const btn = card.querySelector('.changelog-card-header');
+                if (btn) btn.setAttribute('aria-expanded', 'true');
+              });
+              if (this.sound && typeof this.sound.playClick === 'function') this.sound.playClick();
+            });
+          }
+
+          if (collapseAllBtn) {
+            collapseAllBtn.addEventListener('click', () => {
+              document.querySelectorAll('.changelog-version-card').forEach(card => {
+                card.classList.remove('expanded');
+                const btn = card.querySelector('.changelog-card-header');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+              });
+              if (this.sound && typeof this.sound.playClick === 'function') this.sound.playClick();
+            });
+          }
+
+          window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
+              this.toggleChangelogModal(false);
+            }
+          });
         }
 }
 

@@ -888,7 +888,7 @@
           name: 'Rayquaza (Emerald Sky Dragon)',
           emoji: '🐲',
           rarity: 'POKEMON',
-          desc: 'Serpentine Emerald Dragon Crest + Gold Ring Markings + Red Fins + Dragon Ascent Orbs',
+          desc: 'Legendary Sky Dragon • Sculpted Horn Crests • Gold Runic Rings • Articulated Undulating Coils & Delta Stream',
           reqScore: 80,
           reqMode: 'pokemon',
           pokeQuestId: 'poke_rayquaza',
