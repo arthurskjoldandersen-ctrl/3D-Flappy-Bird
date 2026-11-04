@@ -124,6 +124,50 @@ class FlappyBirdUIAndProgression {
           } catch (_) {}
         }
 
+        reconcileTrollQuests() {
+          const tq = this.trollQuests || this.loadTrollQuests();
+          if (!tq.unlockedIds) tq.unlockedIds = {};
+          const allPokeItems = (typeof BIRD_SKINS !== 'undefined' && typeof PIPE_SKINS !== 'undefined')
+            ? [...BIRD_SKINS, ...PIPE_SKINS].filter(i => i.reqMode === 'pokemon' && i.pokeQuestId)
+            : [];
+          allPokeItems.forEach(item => {
+            const prog = this.getPokemonQuestProgress(item.pokeQuestId);
+            if (!prog.unlocked) {
+              delete tq.unlockedIds[item.pokeQuestId];
+            } else {
+              tq.unlockedIds[item.pokeQuestId] = true;
+            }
+          });
+          this.saveTrollQuests();
+        }
+
+        validateAndReconcileEquippedSkins() {
+          if (typeof BIRD_SKINS === 'undefined' || typeof PIPE_SKINS === 'undefined') return;
+          let skinChanged = false;
+          let pipeChanged = false;
+
+          const birdObj = BIRD_SKINS.find(s => s.id === this.selectedSkinId);
+          if (!birdObj || !this.isCosmeticUnlocked(birdObj)) {
+            this.selectedSkinId = 'classic';
+            skinChanged = true;
+            try { localStorage.setItem('flappy3d_skin', 'classic'); } catch (_) {}
+          }
+
+          const pipeObj = PIPE_SKINS.find(p => p.id === this.selectedPipeSkinId);
+          if (!pipeObj || !this.isCosmeticUnlocked(pipeObj)) {
+            this.selectedPipeSkinId = 'classic_pipe';
+            pipeChanged = true;
+            try { localStorage.setItem('flappy3d_pipe_skin', 'classic_pipe'); } catch (_) {}
+          }
+
+          if (skinChanged) {
+            this.applySkin('classic', Boolean(this.authToken && this.currentUser));
+          }
+          if (pipeChanged) {
+            this.applyPipeSkin('classic_pipe', Boolean(this.authToken && this.currentUser));
+          }
+        }
+
         getSequenceMatchProgress(historyArr, targetSeq) {
           for (let len = targetSeq.length; len >= 1; len--) {
             if (historyArr.length < len) continue;
@@ -234,9 +278,6 @@ class FlappyBirdUIAndProgression {
           const careerPipes = (this.careerStats && this.careerStats.totalScore) || 0;
 
           const multiModeEval = (medReq, easyReq, hardReq) => {
-            if (tq.unlockedIds && tq.unlockedIds[questId]) {
-              return { current: medReq, target: medReq, percent: 100, unlocked: true };
-            }
             const pMed = mBest / medReq;
             const pEasy = eBest / easyReq;
             const pHard = hBest / hardReq;
@@ -281,9 +322,6 @@ class FlappyBirdUIAndProgression {
             case 'poke_rayquaza':
               return multiModeEval(80, 155, 55);
             case 'poke_snorlax': {
-              if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 500, target: 500, percent: 100, unlocked: true };
-              }
               const fallback = multiModeEval(52, 100, 34);
               if (careerPipes >= 500 || fallback.unlocked) {
                 return { current: 500, target: 500, percent: 100, unlocked: true };
@@ -295,9 +333,6 @@ class FlappyBirdUIAndProgression {
               return fallback;
             }
             case 'poke_bidoof': {
-              if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 4, target: 4, percent: 100, unlocked: true };
-              }
               const d15 = Number(sd[15]) || 0;
               const fallback = multiModeEval(45, 85, 28);
               if (d15 >= 4 || fallback.unlocked) {
@@ -310,9 +345,6 @@ class FlappyBirdUIAndProgression {
               return fallback;
             }
             case 'poke_jigglypuff': {
-              if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 2, target: 2, percent: 100, unlocked: true };
-              }
               const d39 = Number(sd[39]) || 0;
               const fallback = multiModeEval(44, 85, 28);
               if (d39 >= 2 || fallback.unlocked) {
@@ -325,9 +357,6 @@ class FlappyBirdUIAndProgression {
               return fallback;
             }
             case 'poke_magikarp': {
-              if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 50, target: 50, percent: 100, unlocked: true };
-              }
               const splashFlaps = Math.min(50, Number(tq.bestFlapsUnder8) || 0);
               const fallback = multiModeEval(46, 88, 29);
               if (splashFlaps >= 50 || fallback.unlocked) {
@@ -340,9 +369,6 @@ class FlappyBirdUIAndProgression {
               return fallback;
             }
             case 'poke_meowth': {
-              if (tq.unlockedIds && tq.unlockedIds[questId]) {
-                return { current: 350, target: 350, percent: 100, unlocked: true };
-              }
               const fallback = multiModeEval(50, 95, 32);
               if (careerPipes >= 350 || fallback.unlocked) {
                 return { current: 350, target: 350, percent: 100, unlocked: true };
@@ -406,6 +432,8 @@ class FlappyBirdUIAndProgression {
             const prog = this.getPokemonQuestProgress(item.pokeQuestId);
             if (prog.unlocked) {
               tq.unlockedIds[item.pokeQuestId] = true;
+            } else {
+              delete tq.unlockedIds[item.pokeQuestId];
             }
           });
 
@@ -678,20 +706,6 @@ class FlappyBirdUIAndProgression {
 
           this.toggleGuestLoginModal(false);
 
-          const skinObj = BIRD_SKINS.find(s => s.id === (user.selectedSkin || this.selectedSkinId));
-          if (skinObj && this.isCosmeticUnlocked(skinObj)) {
-            this.applySkin(skinObj.id, false);
-          } else {
-            this.applySkin('classic', false);
-          }
-
-          const pipeObj = PIPE_SKINS.find(p => p.id === (user.selectedPipeSkin || this.selectedPipeSkinId));
-          if (pipeObj && this.isCosmeticUnlocked(pipeObj)) {
-            this.applyPipeSkin(pipeObj.id, false);
-          } else {
-            this.applyPipeSkin('classic_pipe', false);
-          }
-
           if (user.records) {
             this.localRecords = {
               easy: Number(user.records.easy) || 0,
@@ -700,6 +714,30 @@ class FlappyBirdUIAndProgression {
             };
             this.saveLocalRecords();
           }
+
+          this.reconcileTrollQuests();
+
+          const skinObj = BIRD_SKINS.find(s => s.id === (user.selectedSkin || this.selectedSkinId));
+          if (skinObj && this.isCosmeticUnlocked(skinObj)) {
+            this.applySkin(skinObj.id, false);
+          } else {
+            this.applySkin('classic', false);
+            if (this.authToken) {
+              this.apiRequest('/api/skin', 'POST', { skinId: 'classic' }).catch(() => {});
+            }
+          }
+
+          const pipeObj = PIPE_SKINS.find(p => p.id === (user.selectedPipeSkin || this.selectedPipeSkinId));
+          if (pipeObj && this.isCosmeticUnlocked(pipeObj)) {
+            this.applyPipeSkin(pipeObj.id, false);
+          } else {
+            this.applyPipeSkin('classic_pipe', false);
+            if (this.authToken) {
+              this.apiRequest('/api/skin', 'POST', { pipeSkinId: 'classic_pipe' }).catch(() => {});
+            }
+          }
+
+          this.validateAndReconcileEquippedSkins();
           if (user.avatarSkinId) {
             this.avatarSkinId = user.avatarSkinId;
             try { localStorage.setItem('flappy3d_avatar_skin', user.avatarSkinId); } catch (_) {}
@@ -1032,9 +1070,12 @@ class FlappyBirdUIAndProgression {
           const hardBest = this.getBestForDifficulty('hard');
           const anyBest = this.getHighestScoreAnyMode();
 
-          document.getElementById('rec-easy').textContent = String(easyBest);
-          document.getElementById('rec-medium').textContent = String(medBest);
-          document.getElementById('rec-hard').textContent = String(hardBest);
+          const recEasyEl = document.getElementById('rec-easy');
+          if (recEasyEl) recEasyEl.textContent = String(easyBest);
+          const recMedEl = document.getElementById('rec-medium');
+          if (recMedEl) recMedEl.textContent = String(medBest);
+          const recHardEl = document.getElementById('rec-hard');
+          if (recHardEl) recHardEl.textContent = String(hardBest);
           const recAnyEl = document.getElementById('rec-any');
           if (recAnyEl) recAnyEl.textContent = String(anyBest);
 
@@ -1232,7 +1273,9 @@ class FlappyBirdUIAndProgression {
 
         updateNextUnlockTracker() {
           const mode = this.selectedDifficulty || 'medium';
-          const modeLabel = CONFIG.difficulties[mode] ? CONFIG.difficulties[mode].label : 'Medium';
+          const modeLabel = (typeof CONFIG !== 'undefined' && CONFIG.difficulties && CONFIG.difficulties[mode])
+            ? CONFIG.difficulties[mode].label
+            : (mode.charAt(0).toUpperCase() + mode.slice(1));
           const titleEl = document.getElementById('next-unlock-title');
           if (titleEl) {
             titleEl.textContent = `🎯 Next Unlock Goals (${modeLabel} Mode)`;
@@ -1608,6 +1651,8 @@ class FlappyBirdUIAndProgression {
         // BIRD SKINS, PIPE SKINS & DEDICATED PLAYER STATS MENU
         // ------------------------------------------------------------------------
         renderAllCosmeticGrids() {
+          this.reconcileTrollQuests();
+          this.validateAndReconcileEquippedSkins();
           if (!this.birdLockerFilter) this.birdLockerFilter = 'all';
           if (!this.pipeLockerFilter) this.pipeLockerFilter = 'all';
           this.updateProfileRecordPills();

@@ -25,7 +25,8 @@ const {
   deleteLeaderboardEntryAdmin,
   adminUpdateUserSkins,
   resetAllRecordsAdmin,
-  formatReadableTimestamp
+  formatReadableTimestamp,
+  isSkinUnlockedForUser
 } = require('../services/database');
 
 // In-memory active single-use game runs
@@ -293,11 +294,17 @@ async function handleApiRequest(req, res, pathname, port) {
       if (lockedSkins.includes(skinId)) {
         return sendJSON(res, 403, { error: `The skin "${skinId}" has been locked by Administrator and cannot be equipped.` });
       }
+      if (!isSkinUnlockedForUser(skinId, auth.user)) {
+        return sendJSON(res, 403, { error: `The skin "${skinId}" is locked and cannot be equipped.` });
+      }
       auth.user.selectedSkin = skinId;
     }
     if (typeof pipeSkinId === 'string' && pipeSkinId.length <= 40) {
       if (lockedSkins.includes(pipeSkinId)) {
         return sendJSON(res, 403, { error: `The pipe skin "${pipeSkinId}" has been locked by Administrator and cannot be equipped.` });
+      }
+      if (!isSkinUnlockedForUser(pipeSkinId, auth.user)) {
+        return sendJSON(res, 403, { error: `The pipe skin "${pipeSkinId}" is locked and cannot be equipped.` });
       }
       auth.user.selectedPipeSkin = pipeSkinId;
     }
@@ -461,7 +468,7 @@ async function handleApiRequest(req, res, pathname, port) {
     const diffKey = run.difficulty;
     const user = auth.user;
 
-    const { isNewRecord, newRunId, previousBest } = recordVerifiedRun(user, diffKey, verifiedScore);
+    const { isNewRecord, newRunId, previousBest, autoHidden, withinWindow } = recordVerifiedRun(user, diffKey, verifiedScore);
 
     return sendJSON(res, 200, {
       verified: true,
@@ -469,6 +476,8 @@ async function handleApiRequest(req, res, pathname, port) {
       difficulty: diffKey,
       isNewRecord,
       previousBest,
+      autoHidden: Boolean(autoHidden),
+      withinWindow: Boolean(withinWindow),
       entryId: newRunId,
       records: user.records,
       leaderboards: buildLeaderboards()

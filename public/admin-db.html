@@ -947,23 +947,43 @@
             <div style="font-size:0.78rem; color:var(--text-sub); margin-top:4px;">
               Inspect all runs submitted across modes, toggle visibility on/off, edit scores, or add new runs.
             </div>
+            <div style="font-size:0.75rem; color:#7dd3fc; margin-top:6px; background:rgba(2,132,199,0.14); border:1px solid rgba(56,189,248,0.35); padding:6px 12px; border-radius:10px; display:inline-flex; align-items:center; gap:6px;">
+              <span>🕒</span> <strong>Danish Competition Rule (07:50 - 14:10):</strong> Only runs achieved between 07:50 and 14:10 Danish Time appear on the public leaderboard. Runs outside this window are automatically marked <code>🚫 HIDDEN</code>.
+            </div>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
             <button type="button" class="btn lb-mode-btn" data-mode="all" style="padding:6px 12px; font-size:0.78rem;">🌐 All Modes</button>
             <button type="button" class="btn lb-mode-btn" data-mode="easy" style="padding:6px 12px; font-size:0.78rem;">🟢 Easy</button>
             <button type="button" class="btn btn-primary lb-mode-btn" data-mode="medium" style="padding:6px 12px; font-size:0.78rem;">🟡 Medium</button>
             <button type="button" class="btn lb-mode-btn" data-mode="hard" style="padding:6px 12px; font-size:0.78rem;">🔴 Hard</button>
+            <span style="width:1px; height:20px; background:var(--border); margin:0 4px;"></span>
+            <button type="button" class="btn lb-vis-btn btn-primary" data-vis="all" style="padding:6px 12px; font-size:0.78rem;">All</button>
+            <button type="button" class="btn lb-vis-btn" data-vis="visible" style="padding:6px 12px; font-size:0.78rem;">👁️ Visible Only</button>
+            <button type="button" class="btn lb-vis-btn" data-vis="hidden" style="padding:6px 12px; font-size:0.78rem;">🚫 Hidden Only</button>
+            <button type="button" class="btn lb-vis-btn" data-vis="offhours" style="padding:6px 12px; font-size:0.78rem; border-color:rgba(239,68,68,0.5); color:#fca5a5;">🕒 Off-Hours Only</button>
           </div>
         </div>
 
-        <!-- Filter by User + Bulk Visibility Controls -->
+        <!-- Filter by User + Sort + Bulk Visibility Controls -->
         <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; background:#090d16; padding:12px 16px; border-radius:14px; border:1px solid var(--border);">
-          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; flex:1;">
-            <span style="font-size:0.78rem; font-weight:900; color:var(--cyan); text-transform:uppercase;">👤 Filter Player:</span>
-            <select id="runs-user-filter" class="search-input" style="min-width:180px; padding:7px 12px; cursor:pointer;">
-              <option value="">All Players (Everyone)</option>
-            </select>
-            <button type="button" class="btn" id="btn-clear-user-filter" style="padding:6px 12px; font-size:0.76rem; display:none;">✖ Show All Players</button>
+          <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:center; flex:1;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:0.78rem; font-weight:900; color:var(--cyan); text-transform:uppercase;">👤 Filter Player:</span>
+              <select id="runs-user-filter" class="search-input" style="min-width:180px; padding:7px 12px; cursor:pointer;">
+                <option value="">All Players (Everyone)</option>
+              </select>
+              <button type="button" class="btn" id="btn-clear-user-filter" style="padding:6px 12px; font-size:0.76rem; display:none;">✖ Show All Players</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:0.78rem; font-weight:900; color:#38bdf8; text-transform:uppercase;">🔃 Sort Runs:</span>
+              <select id="tab-runs-sort-select" class="search-input" style="min-width:190px; padding:7px 12px; cursor:pointer;">
+                <option value="score_desc" selected>📉 Score: Highest → Lowest</option>
+                <option value="score_asc">📈 Score: Lowest → Highest</option>
+                <option value="mode">🎮 Gamemode: Easy → Med → Hard</option>
+                <option value="date_desc">⏱️ Date: Newest First</option>
+                <option value="date_asc">⏳ Date: Oldest First</option>
+              </select>
+            </div>
           </div>
           <div id="bulk-user-vis-controls" style="display:none; gap:8px; align-items:center;">
             <button type="button" class="btn btn-success" id="btn-show-all-user-runs" style="padding:6px 12px; font-size:0.76rem;">👁️ Show All User Runs</button>
@@ -989,8 +1009,8 @@
             <thead>
               <tr>
                 <th>Status / Rank</th>
-                <th>Player & Mode</th>
-                <th>Edit Score</th>
+                <th id="th-tab-mode" style="cursor:pointer; user-select:none;" title="Click to sort by Gamemode">Player & Mode ⬍</th>
+                <th id="th-tab-score" style="cursor:pointer; user-select:none;" title="Click to sort by Score">Edit Score ⬍</th>
                 <th>Leaderboard Visibility</th>
                 <th>Delete</th>
               </tr>
@@ -1076,14 +1096,14 @@
       <!-- Modal Toolbar: Sort + Mode Filters + Visibility Filters -->
       <div class="modal-toolbar">
         <div class="modal-controls-group">
-          <!-- Sort Dropdown (Requested: Lowest to Highest, Highest to Lowest, etc.) -->
+          <!-- Sort Dropdown (Requested: Lowest to Highest, Highest to Lowest, Gamemode, etc.) -->
           <label style="font-size:0.75rem; font-weight:900; color:var(--cyan); text-transform:uppercase;">🔃 Sort Runs:</label>
           <select id="modal-sort-select" class="modal-sort-select">
-            <option value="score_asc">📈 Score: Lowest → Highest</option>
             <option value="score_desc" selected>📉 Score: Highest → Lowest</option>
+            <option value="score_asc">📈 Score: Lowest → Highest</option>
+            <option value="mode">🎮 Gamemode: Easy → Med → Hard</option>
             <option value="date_desc">⏱️ Date: Newest First</option>
             <option value="date_asc">⏳ Date: Oldest First</option>
-            <option value="mode">🎮 Mode: Easy → Med → Hard</option>
           </select>
         </div>
 
@@ -1100,6 +1120,7 @@
           <button type="button" class="modal-filter-btn active" data-vis="all">All</button>
           <button type="button" class="modal-filter-btn" data-vis="visible">👁️ Visible</button>
           <button type="button" class="modal-filter-btn" data-vis="hidden">🚫 Hidden</button>
+          <button type="button" class="modal-filter-btn" data-vis="offhours">🕒 Off-Hours (Outside 7:50-14:10)</button>
         </div>
       </div>
 
@@ -1127,8 +1148,8 @@
             <thead>
               <tr>
                 <th>Status / Rank</th>
-                <th>Mode & Date</th>
-                <th>Edit Score</th>
+                <th id="th-modal-mode" style="cursor:pointer; user-select:none;" title="Click to sort by Gamemode">Mode & Date ⬍</th>
+                <th id="th-modal-score" style="cursor:pointer; user-select:none;" title="Click to sort by Score">Edit Score ⬍</th>
                 <th>Leaderboard Visibility</th>
                 <th>Delete</th>
               </tr>
@@ -1236,14 +1257,33 @@
   <script>
     let currentDbData = null;
     let activeLbMode = 'medium';
+    let activeLbVis = 'all';
     let isEditingInput = false;
     let activePlayerChip = 'all';
 
     // Player Runs Modal State
     let modalActivePlayer = null;
-    let modalSortOrder = 'score_asc'; // Default as requested: Lowest to Highest option easily testable & accessible
+    let modalSortOrder = 'score_desc';
     let modalFilterMode = 'all';
     let modalFilterVis = 'all';
+
+    function formatDanishDateTime(ms) {
+      if (!ms || ms <= 0) return '';
+      try {
+        return new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Europe/Copenhagen',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(new Date(ms)).replace(',', '');
+      } catch (_) {
+        return new Date(ms).toLocaleString();
+      }
+    }
 
     function getAuthToken() {
       return localStorage.getItem('flappy3d_token') || '';
@@ -1620,7 +1660,7 @@
         hard: '<span style="color:#fda4af; font-weight:900; font-size:0.76rem;">🔴 HARD</span>'
       };
 
-      const combinedRuns = [];
+      let combinedRuns = [];
       modesToShow.forEach(m => {
         const list = allRunsObj[m] || [];
         list.forEach((r, idx) => {
@@ -1633,11 +1673,42 @@
         });
       });
 
+      if (activeLbVis === 'visible') {
+        combinedRuns = combinedRuns.filter(r => !r.hidden);
+      } else if (activeLbVis === 'hidden') {
+        combinedRuns = combinedRuns.filter(r => Boolean(r.hidden));
+      } else if (activeLbVis === 'offhours') {
+        combinedRuns = combinedRuns.filter(r => Boolean(r.isOffHours));
+      }
+
+      // Sort combined runs according to tab sort dropdown (Highest to Lowest, Lowest to Highest, Mode, Date)
+      const tabSortOrder = document.getElementById('tab-runs-sort-select')?.value || 'score_desc';
+      const modeWeights = { easy: 1, medium: 2, hard: 3 };
+      combinedRuns.sort((a, b) => {
+        if (tabSortOrder === 'score_asc') {
+          if (a.score !== b.score) return a.score - b.score;
+          return (a.createdAt || 0) - (b.createdAt || 0);
+        } else if (tabSortOrder === 'score_desc') {
+          if (b.score !== a.score) return b.score - a.score;
+          return (a.createdAt || 0) - (b.createdAt || 0);
+        } else if (tabSortOrder === 'mode') {
+          const ma = modeWeights[a.difficulty] || 99;
+          const mb = modeWeights[b.difficulty] || 99;
+          if (ma !== mb) return ma - mb;
+          return b.score - a.score;
+        } else if (tabSortOrder === 'date_desc') {
+          return (b.createdAt || 0) - (a.createdAt || 0);
+        } else if (tabSortOrder === 'date_asc') {
+          return (a.createdAt || 0) - (b.createdAt || 0);
+        }
+        return b.score - a.score;
+      });
+
       if (combinedRuns.length === 0) {
         tbody.innerHTML = `
           <tr>
             <td colspan="5" style="text-align:center; color:var(--text-sub); padding:24px;">
-              No runs recorded for ${filterUser ? `<strong>${filterUser}</strong> in ` : ''}${activeLbMode.toUpperCase()} mode yet. Use <strong>➕ Add Run</strong> above to add one!
+              No runs recorded for ${filterUser ? `<strong>${filterUser}</strong> in ` : ''}${activeLbMode.toUpperCase()} mode matching the "${activeLbVis}" visibility filter.
             </td>
           </tr>
         `;
@@ -1646,20 +1717,29 @@
 
       combinedRuns.forEach(r => {
         const isHidden = Boolean(r.hidden);
-        const rankLabel = isHidden
-          ? `<span style="background:rgba(245,158,11,0.18); color:#fde047; border:1px solid rgba(245,158,11,0.45); padding:3px 10px; border-radius:999px; font-size:0.72rem; font-weight:900;">🚫 HIDDEN</span>`
-          : `<span style="background:rgba(34,197,94,0.16); color:#4ade80; border:1px solid rgba(34,197,94,0.4); padding:3px 10px; border-radius:999px; font-size:0.74rem; font-weight:900;">#${r.visibleRank || r.fallbackRank} Visible</span>`;
+        const isOffHours = Boolean(r.isOffHours);
+        let rankLabel = '';
+        if (isHidden) {
+          rankLabel = isOffHours
+            ? `<span style="background:rgba(239,68,68,0.22); color:#fca5a5; border:1px solid rgba(239,68,68,0.5); padding:3px 10px; border-radius:999px; font-size:0.72rem; font-weight:900;" title="Achieved outside 07:50-14:10 Danish competition window">🚫 HIDDEN (Off-Hours)</span>`
+            : `<span style="background:rgba(245,158,11,0.18); color:#fde047; border:1px solid rgba(245,158,11,0.45); padding:3px 10px; border-radius:999px; font-size:0.72rem; font-weight:900;">🚫 HIDDEN</span>`;
+        } else {
+          rankLabel = `<span style="background:rgba(34,197,94,0.16); color:#4ade80; border:1px solid rgba(34,197,94,0.4); padding:3px 10px; border-radius:999px; font-size:0.74rem; font-weight:900;">#${r.visibleRank || r.fallbackRank} Visible</span>`;
+        }
 
         const tr = document.createElement('tr');
         if (isHidden) {
-          tr.style.opacity = '0.72';
-          tr.style.background = 'rgba(245, 158, 11, 0.05)';
+          tr.style.opacity = '0.74';
+          tr.style.background = isOffHours ? 'rgba(239, 68, 68, 0.05)' : 'rgba(245, 158, 11, 0.05)';
         }
         tr.innerHTML = `
           <td>${rankLabel}</td>
           <td>
             <div style="font-weight:900; color:#fff;">👤 ${r.username}</div>
             <div style="margin-top:2px;">${modeBadges[r.difficulty] || r.difficulty} • <span style="font-size:0.72rem; color:var(--text-sub);">${r.readableTime || ''}</span></div>
+            ${isOffHours
+              ? `<div style="font-size:0.72rem; color:#f87171; font-weight:800; margin-top:2px;">🕒 Outside Danish Hours (${r.danishTime || ''} DK — Window: 7:50-14:10)</div>`
+              : `<div style="font-size:0.72rem; color:#4ade80; font-weight:800; margin-top:2px;">✅ Inside Danish Hours (${r.danishTime || ''} DK)</div>`}
           </td>
           <td>
             <div style="display:flex; align-items:center; gap:6px;">
@@ -1769,6 +1849,29 @@
       renderLeaderboardRuns();
     });
 
+    const tabSortSel = document.getElementById('tab-runs-sort-select');
+    if (tabSortSel) {
+      tabSortSel.addEventListener('change', () => {
+        renderLeaderboardRuns();
+      });
+    }
+
+    document.getElementById('th-tab-score')?.addEventListener('click', () => {
+      const sel = document.getElementById('tab-runs-sort-select');
+      if (sel) {
+        sel.value = (sel.value === 'score_desc') ? 'score_asc' : 'score_desc';
+        renderLeaderboardRuns();
+      }
+    });
+
+    document.getElementById('th-tab-mode')?.addEventListener('click', () => {
+      const sel = document.getElementById('tab-runs-sort-select');
+      if (sel) {
+        sel.value = (sel.value === 'mode') ? 'score_desc' : 'mode';
+        renderLeaderboardRuns();
+      }
+    });
+
     document.getElementById('btn-clear-user-filter').addEventListener('click', () => {
       const sel = document.getElementById('runs-user-filter');
       if (sel) sel.value = '';
@@ -1865,6 +1968,15 @@
       });
     });
 
+    document.querySelectorAll('.lb-vis-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeLbVis = btn.getAttribute('data-vis');
+        document.querySelectorAll('.lb-vis-btn').forEach(b => b.classList.remove('btn-primary'));
+        btn.classList.add('btn-primary');
+        renderLeaderboardRuns();
+      });
+    });
+
     // ============================================================
     // DEDICATED PLAYER RUNS MODAL POPUP LOGIC
     // ============================================================
@@ -1883,6 +1995,9 @@
       `;
       document.getElementById('modal-bird-pill').textContent = `🐦 ${playerObj.selectedSkin || 'Classic Yellow'}`;
       document.getElementById('modal-pipe-pill').textContent = `🏗️ ${playerObj.selectedPipeSkin || 'Classic Green'}`;
+
+      const sortSel = document.getElementById('modal-sort-select');
+      if (sortSel) sortSel.value = modalSortOrder;
 
       modal.classList.add('is-open');
       renderModalRuns();
@@ -1914,6 +2029,20 @@
     // Modal Sort Dropdown Event (Lowest to Highest, Highest to Lowest, etc.)
     document.getElementById('modal-sort-select').addEventListener('change', (e) => {
       modalSortOrder = e.target.value;
+      renderModalRuns();
+    });
+
+    document.getElementById('th-modal-score')?.addEventListener('click', () => {
+      modalSortOrder = (modalSortOrder === 'score_desc') ? 'score_asc' : 'score_desc';
+      const sel = document.getElementById('modal-sort-select');
+      if (sel) sel.value = modalSortOrder;
+      renderModalRuns();
+    });
+
+    document.getElementById('th-modal-mode')?.addEventListener('click', () => {
+      modalSortOrder = (modalSortOrder === 'mode') ? 'score_desc' : 'mode';
+      const sel = document.getElementById('modal-sort-select');
+      if (sel) sel.value = modalSortOrder;
       renderModalRuns();
     });
 
@@ -2018,22 +2147,27 @@
         filteredRuns = filteredRuns.filter(r => !r.hidden);
       } else if (modalFilterVis === 'hidden') {
         filteredRuns = filteredRuns.filter(r => Boolean(r.hidden));
+      } else if (modalFilterVis === 'offhours') {
+        filteredRuns = filteredRuns.filter(r => Boolean(r.isOffHours));
       }
 
-      // Sort Runs according to user selection
+      // Sort Runs according to user selection (Highest to Lowest, Lowest to Highest, Gamemode, Date)
       filteredRuns.sort((a, b) => {
         if (modalSortOrder === 'score_asc') {
           // Lowest to Highest (explicit user request)
-          return a.score - b.score;
+          if (a.score !== b.score) return a.score - b.score;
+          return (a.createdAt || 0) - (b.createdAt || 0);
         } else if (modalSortOrder === 'score_desc') {
           // Highest to Lowest
+          if (b.score !== a.score) return b.score - a.score;
+          return (a.createdAt || 0) - (b.createdAt || 0);
+        } else if (modalSortOrder === 'mode') {
+          if (a.modeIndex !== b.modeIndex) return a.modeIndex - b.modeIndex;
           return b.score - a.score;
         } else if (modalSortOrder === 'date_desc') {
-          return (new Date(b.date || b.timestamp || 0)) - (new Date(a.date || a.timestamp || 0));
+          return (b.createdAt || 0) - (a.createdAt || 0);
         } else if (modalSortOrder === 'date_asc') {
-          return (new Date(a.date || a.timestamp || 0)) - (new Date(b.date || b.timestamp || 0));
-        } else if (modalSortOrder === 'mode') {
-          return a.modeIndex - b.modeIndex || b.score - a.score;
+          return (a.createdAt || 0) - (b.createdAt || 0);
         }
         return b.score - a.score;
       });
@@ -2057,20 +2191,29 @@
 
       filteredRuns.forEach(r => {
         const isHidden = Boolean(r.hidden);
-        const rankLabel = isHidden
-          ? `<span style="background:rgba(245,158,11,0.18); color:#fde047; border:1px solid rgba(245,158,11,0.45); padding:3px 10px; border-radius:999px; font-size:0.72rem; font-weight:900;">🚫 HIDDEN</span>`
-          : `<span style="background:rgba(34,197,94,0.16); color:#4ade80; border:1px solid rgba(34,197,94,0.4); padding:3px 10px; border-radius:999px; font-size:0.74rem; font-weight:900;">#${r.visibleRank || r.fallbackRank} Visible</span>`;
+        const isOffHours = Boolean(r.isOffHours);
+        let rankLabel = '';
+        if (isHidden) {
+          rankLabel = isOffHours
+            ? `<span style="background:rgba(239,68,68,0.22); color:#fca5a5; border:1px solid rgba(239,68,68,0.5); padding:3px 10px; border-radius:999px; font-size:0.72rem; font-weight:900;" title="Achieved outside 07:50-14:10 Danish competition window">🚫 HIDDEN (Off-Hours)</span>`
+            : `<span style="background:rgba(245,158,11,0.18); color:#fde047; border:1px solid rgba(245,158,11,0.45); padding:3px 10px; border-radius:999px; font-size:0.72rem; font-weight:900;">🚫 HIDDEN</span>`;
+        } else {
+          rankLabel = `<span style="background:rgba(34,197,94,0.16); color:#4ade80; border:1px solid rgba(34,197,94,0.4); padding:3px 10px; border-radius:999px; font-size:0.74rem; font-weight:900;">#${r.visibleRank || r.fallbackRank} Visible</span>`;
+        }
 
         const tr = document.createElement('tr');
         if (isHidden) {
           tr.style.opacity = '0.74';
-          tr.style.background = 'rgba(245, 158, 11, 0.05)';
+          tr.style.background = isOffHours ? 'rgba(239, 68, 68, 0.05)' : 'rgba(245, 158, 11, 0.05)';
         }
         tr.innerHTML = `
           <td>${rankLabel}</td>
           <td>
             <div style="font-weight:900;">${modeBadges[r.difficulty] || r.difficulty}</div>
             <div style="font-size:0.72rem; color:var(--text-sub); margin-top:2px;">🕒 ${r.readableTime || r.date || 'Recorded run'}</div>
+            ${isOffHours
+              ? `<div style="font-size:0.70rem; color:#f87171; font-weight:800; margin-top:2px;">🕒 Outside Danish Hours (${r.danishTime || ''} DK — Window: 7:50-14:10)</div>`
+              : `<div style="font-size:0.70rem; color:#4ade80; font-weight:800; margin-top:2px;">✅ Inside Danish Hours (${r.danishTime || ''} DK)</div>`}
           </td>
           <td>
             <div style="display:flex; align-items:center; gap:6px;">
@@ -2230,7 +2373,7 @@
           </td>
           <td>
             <div style="font-family:monospace; font-size:0.82rem; color:#7dd3fc;">
-              📅 ${entry.timeString || new Date(entry.timestamp).toLocaleString()}
+              📅 ${entry.timeString || formatDanishDateTime(entry.timestamp)}
             </div>
           </td>
           <td>
@@ -2313,12 +2456,7 @@
         return true;
       }
 
-      // 4. Currently equipped skins are owned
-      if (p.selectedSkin === skinId || p.selectedPipeSkin === skinId) {
-        return true;
-      }
-
-      // 5. Score requirements from player records
+      // 4. Score requirements from player records
       const rec = p.records || {};
       const easyBest = Number(rec.easy) || 0;
       const medBest = Number(rec.medium) || 0;
@@ -2331,7 +2469,7 @@
       if (item.reqMode === 'medium') return medBest >= item.reqScore;
       if (item.reqMode === 'hard') return hardBest >= item.reqScore;
 
-      // 6. Pokémon quest evaluation based on best records
+      // 5. Pokémon quest evaluation based on best records
       if (item.reqMode === 'pokemon' && item.pokeQuestId) {
         const qid = item.pokeQuestId;
         const checkPoke = (mReq, eReq, hReq) => (medBest >= mReq || easyBest >= eReq || hardBest >= hReq);
@@ -2339,29 +2477,29 @@
           case 'poke_pikachu': return checkPoke(50, 95, 32);
           case 'poke_charmander':
           case 'poke_eevee': return checkPoke(48, 90, 30);
-          case 'poke_squirtle':
-          case 'poke_jigglypuff': return checkPoke(46, 85, 28);
-          case 'poke_bulbasaur':
-          case 'poke_meowth': return checkPoke(44, 80, 26);
-          case 'poke_bidoof': return checkPoke(35, 60, 20);
-          case 'poke_magikarp': return checkPoke(15, 30, 10);
-          case 'poke_snorlax': return checkPoke(52, 98, 34);
-          case 'poke_gengar': return checkPoke(54, 102, 36);
-          case 'poke_lucario': return checkPoke(56, 106, 38);
-          case 'poke_greninja': return checkPoke(58, 110, 40);
-          case 'poke_charizard': return checkPoke(60, 115, 42);
-          case 'poke_mew': return checkPoke(62, 120, 45);
-          case 'poke_mewtwo': return checkPoke(65, 128, 48);
-          case 'poke_rayquaza': return checkPoke(70, 135, 52);
-          case 'poke_pipe_pokeball': return checkPoke(30, 50, 18);
-          case 'poke_masterball': return checkPoke(65, 128, 48);
+          case 'poke_squirtle': return checkPoke(45, 85, 28);
+          case 'poke_bulbasaur': return checkPoke(42, 80, 26);
+          case 'poke_pipe_pokeball': return checkPoke(40, 75, 25);
+          case 'poke_mew': return checkPoke(65, 125, 42);
+          case 'poke_masterball': return checkPoke(70, 135, 46);
+          case 'poke_charizard': return checkPoke(60, 115, 38);
+          case 'poke_gengar': return checkPoke(55, 105, 35);
+          case 'poke_lucario': return checkPoke(58, 110, 36);
+          case 'poke_greninja': return checkPoke(56, 108, 35);
+          case 'poke_mewtwo': return checkPoke(72, 140, 48);
+          case 'poke_rayquaza': return checkPoke(80, 155, 55);
+          case 'poke_snorlax': return checkPoke(52, 100, 34);
+          case 'poke_bidoof': return checkPoke(45, 85, 28);
+          case 'poke_jigglypuff': return checkPoke(44, 85, 28);
+          case 'poke_magikarp': return checkPoke(46, 88, 29);
+          case 'poke_meowth': return checkPoke(50, 95, 32);
           default:
-            if (item.reqScore) return checkPoke(item.reqScore, item.reqScore * 1.8, Math.round(item.reqScore * 0.65));
+            if (item.reqScore) return checkPoke(item.reqScore, Math.round(item.reqScore * 1.9), Math.round(item.reqScore * 0.65));
             break;
         }
       }
 
-      // 7. Troll / Meme quests fallback
+      // 6. Troll / Meme quests fallback
       if (item.reqMode === 'meme') {
         if (item.reqScore && anyBest >= item.reqScore) return true;
       }
@@ -2381,8 +2519,7 @@
       // 1. EQUIPPED BIRDS: Only bird skins the player owns
       const ownedBirds = birdList.filter(s => isSkinOwnedByPlayer(s, p));
       if (p.selectedSkin && !ownedBirds.some(s => s.id === p.selectedSkin)) {
-        const curBird = birdList.find(s => s.id === p.selectedSkin);
-        if (curBird) ownedBirds.unshift(curBird);
+        p.selectedSkin = 'classic';
       }
       if (birdSelect) {
         if (ownedBirds.length > 0) {
@@ -2390,21 +2527,24 @@
             <option value="${s.id}" ${s.id === p.selectedSkin ? 'selected' : ''}>${s.emoji || '🐤'} ${s.name} (${s.rarity})</option>
           `).join('');
         } else {
-          birdSelect.innerHTML = `<option value="${p.selectedSkin || 'classic'}">🐤 Classic (Default)</option>`;
+          birdSelect.innerHTML = `<option value="classic">🐤 Classic (Default)</option>`;
         }
       }
 
       // 2. EQUIPPED PIPES: Only pipe skins the player owns
       const ownedPipes = pipeList.filter(pSkin => isSkinOwnedByPlayer(pSkin, p));
       if (p.selectedPipeSkin && !ownedPipes.some(pSkin => pSkin.id === p.selectedPipeSkin)) {
-        const curPipe = pipeList.find(pSkin => pSkin.id === p.selectedPipeSkin);
-        if (curPipe) ownedPipes.unshift(curPipe);
+        p.selectedPipeSkin = 'classic_pipe';
       }
       if (pipeSelect) {
         if (ownedPipes.length > 0) {
           pipeSelect.innerHTML = ownedPipes.map(pSkin => `
             <option value="${pSkin.id}" ${pSkin.id === p.selectedPipeSkin ? 'selected' : ''}>${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})</option>
           `).join('');
+        } else {
+          pipeSelect.innerHTML = `<option value="classic_pipe">🟢 Classic Green (Default)</option>`;
+        }
+      }
         } else {
           pipeSelect.innerHTML = `<option value="${p.selectedPipeSkin || 'classic_pipe'}">🟢 Classic Green (Default)</option>`;
         }

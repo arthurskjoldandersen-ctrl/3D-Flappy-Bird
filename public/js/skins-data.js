@@ -1667,6 +1667,11 @@
         GAMEOVER: 'GAMEOVER'
       });
 
-window.BIRD_SKINS = BIRD_SKINS;
-window.PIPE_SKINS = PIPE_SKINS;
-window.GAME_STATE = GAME_STATE;
+if (typeof window !== 'undefined') {
+  window.BIRD_SKINS = BIRD_SKINS;
+  window.PIPE_SKINS = PIPE_SKINS;
+  window.GAME_STATE = GAME_STATE;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { BIRD_SKINS, PIPE_SKINS, GAME_STATE };
+}

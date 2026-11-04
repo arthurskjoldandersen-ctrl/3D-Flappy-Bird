@@ -43,6 +43,7 @@
           this.currentTick = 0;
           this.flapTicks = [];
           this.pendingFlap = false;
+          this.flapBufferTicks = 0;
           this.lastFlapTick = -10;
           this.physicsAccumulator = 0;
 
@@ -129,7 +130,8 @@
               return;
             }
 
-            if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+            const isJumpKey = (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W');
+            if (isJumpKey) {
               e.preventDefault();
               if (this.state === GAME_STATE.START) {
                 this.startGame();
@@ -160,6 +162,17 @@
               this.queueFlap();
             }
           });
+
+          // Global pointerdown listener to ensure jump clicks anywhere on screen are never missed during gameplay
+          window.addEventListener('pointerdown', (e) => {
+            if (this.state === GAME_STATE.PLAYING) {
+              const target = e.target;
+              if (target && (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('select') || target.closest('.modal-backdrop') || target.closest('.app-header'))) {
+                return;
+              }
+              this.queueFlap();
+            }
+          }, { passive: true });
 
           document.getElementById('start-btn').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -883,12 +896,15 @@
 
           this.birdVelocityY = CONFIG.flapImpulse;
           this.wingFlapBoost = 1.0;
+          this.pendingFlap = false;
+          this.flapBufferTicks = 0;
           this.sound.playFlap();
         }
 
         queueFlap() {
           if (this.state !== GAME_STATE.PLAYING) return;
           this.pendingFlap = true;
+          this.flapBufferTicks = 6; // Buffers jump for up to 6 ticks (~100ms) so it is never dropped
         }
 
         async triggerGameOver() {
@@ -977,7 +993,11 @@
               badge.classList.toggle('visible', Boolean(verifyRes.isNewRecord && verifyRes.verifiedScore > 0));
 
               statusPill.className = 'anticheat-status verified';
-              statusPill.textContent = `🛡️ Anti-Cheat Verified (${finalTicks} ticks) • Added to ${diffLabel} Leaderboard!`;
+              if (verifyRes.autoHidden) {
+                statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • 🕒 Off-Hours (Outside 7:50-14:10 Danish) — Saved & Hidden from Leaderboard`;
+              } else {
+                statusPill.textContent = `🛡️ Anti-Cheat Verified (${finalTicks} ticks) • Added to ${diffLabel} Leaderboard!`;
+              }
             } catch (err) {
               statusPill.className = 'anticheat-status rejected';
               statusPill.textContent = `⚠️ ${err.message}`;
@@ -1088,14 +1108,24 @@
             this.pipes[i].prevX = this.pipes[i].x;
           }
 
-          if (this.pendingFlap && (this.currentTick - this.lastFlapTick) >= 2) {
-            this.birdVelocityY = flapImpulse;
-            this.wingFlapBoost = 1.0;
-            this.flapTicks.push(this.currentTick);
-            this.lastFlapTick = this.currentTick;
-            this.sound.playFlap();
+          // Smooth, non-dropping jump execution: checks if jump is queued and valid against anti-cheat rate limit
+          if (this.pendingFlap || this.flapBufferTicks > 0) {
+            if ((this.currentTick - this.lastFlapTick) >= 2) {
+              this.birdVelocityY = flapImpulse;
+              this.wingFlapBoost = 1.0;
+              this.flapTicks.push(this.currentTick);
+              this.lastFlapTick = this.currentTick;
+              this.sound.playFlap();
+              this.pendingFlap = false;
+              this.flapBufferTicks = 0;
+            } else if (this.flapBufferTicks > 0) {
+              // Decrement buffer timer, retaining the queued jump for the very next tick
+              this.flapBufferTicks--;
+              this.pendingFlap = false;
+            } else {
+              this.pendingFlap = false;
+            }
           }
-          this.pendingFlap = false;
 
           this.birdVelocityY += gravity * dt;
           if (this.birdVelocityY < maxFallSpeed) {

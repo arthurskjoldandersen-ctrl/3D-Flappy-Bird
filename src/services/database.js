@@ -35,11 +35,184 @@ if (!fs.existsSync(BACKUPS_DIR)) {
   fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 }
 
+let BIRD_SKINS = [];
+let PIPE_SKINS = [];
+try {
+  const skinsModule = require(path.join(__dirname, '..', '..', 'public', 'js', 'skins-data.js'));
+  BIRD_SKINS = skinsModule.BIRD_SKINS || [];
+  PIPE_SKINS = skinsModule.PIPE_SKINS || [];
+} catch (_) {}
+
+/**
+ * Validates whether a specific bird or pipe skin is unlocked for a user based on their current records,
+ * admin-granted status, or admin-locked status.
+ */
+function isSkinUnlockedForUser(skinId, user) {
+  if (!skinId || skinId === 'classic' || skinId === 'classic_pipe') return true;
+  if (!user) return false;
+
+  // 1. Admin-locked skins are strictly locked
+  const lockedList = Array.isArray(user.adminLockedSkins) ? user.adminLockedSkins : [];
+  if (lockedList.includes(skinId)) return false;
+
+  // 2. Admin-granted skins are always unlocked
+  const grantedList = Array.isArray(user.grantedSkins) ? user.grantedSkins : [];
+  if (grantedList.includes(skinId)) return true;
+
+  const item = [...BIRD_SKINS, ...PIPE_SKINS].find(s => s && s.id === skinId);
+  if (!item) return false;
+  if (item.reqScore <= 0) return true;
+
+  const rec = user.records || {};
+  const easyBest = Number(rec.easy) || 0;
+  const medBest = Number(rec.medium) || 0;
+  const hardBest = Number(rec.hard) || 0;
+  const anyBest = Math.max(easyBest, medBest, hardBest, Number(user.allTimeBest) || 0);
+
+  if (item.altScore && anyBest >= item.altScore) return true;
+  if (item.reqMode === 'any') return anyBest >= item.reqScore;
+  if (item.reqMode === 'easy') return easyBest >= item.reqScore;
+  if (item.reqMode === 'medium') return medBest >= item.reqScore;
+  if (item.reqMode === 'hard') return hardBest >= item.reqScore;
+
+  if (item.reqMode === 'pokemon' && item.pokeQuestId) {
+    const qid = item.pokeQuestId;
+    const checkPoke = (mReq, eReq, hReq) => (medBest >= mReq || easyBest >= eReq || hardBest >= hReq);
+    switch (qid) {
+      case 'poke_pikachu': return checkPoke(50, 95, 32);
+      case 'poke_charmander':
+      case 'poke_eevee': return checkPoke(48, 90, 30);
+      case 'poke_squirtle': return checkPoke(45, 85, 28);
+      case 'poke_bulbasaur': return checkPoke(42, 80, 26);
+      case 'poke_pipe_pokeball': return checkPoke(40, 75, 25);
+      case 'poke_mew': return checkPoke(65, 125, 42);
+      case 'poke_masterball': return checkPoke(70, 135, 46);
+      case 'poke_charizard': return checkPoke(60, 115, 38);
+      case 'poke_gengar': return checkPoke(55, 105, 35);
+      case 'poke_lucario': return checkPoke(58, 110, 36);
+      case 'poke_greninja': return checkPoke(56, 108, 35);
+      case 'poke_mewtwo': return checkPoke(72, 140, 48);
+      case 'poke_rayquaza': return checkPoke(80, 155, 55);
+      case 'poke_snorlax': return checkPoke(52, 100, 34);
+      case 'poke_bidoof': return checkPoke(45, 85, 28);
+      case 'poke_jigglypuff': return checkPoke(44, 85, 28);
+      case 'poke_magikarp': return checkPoke(46, 88, 29);
+      case 'poke_meowth': return checkPoke(50, 95, 32);
+      default:
+        if (item.reqScore) return checkPoke(item.reqScore, Math.round(item.reqScore * 1.9), Math.round(item.reqScore * 0.65));
+        return checkPoke(50, 95, 32);
+    }
+  }
+
+  if (item.reqMode === 'meme') {
+    if (item.reqScore && anyBest >= item.reqScore) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Automatically maintains at most `maxBackups` (default 3) latest backup snapshots in `data/backups/`.
+ * Any older backups are safely removed to prevent storage accumulation.
+ */
+function pruneBackups(maxBackups = 3) {
+  try {
+    if (!fs.existsSync(BACKUPS_DIR)) return;
+    const backupFiles = fs.readdirSync(BACKUPS_DIR)
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        const full = path.join(BACKUPS_DIR, f);
+        return { file: f, full, mtime: fs.statSync(full).mtimeMs };
+      })
+      .sort((a, b) => b.mtime - a.mtime); // Newest first
+
+    if (backupFiles.length > maxBackups) {
+      const toDelete = backupFiles.slice(maxBackups);
+      for (const item of toDelete) {
+        try {
+          fs.unlinkSync(item.full);
+          console.log(`🧹 Pruned old backup (kept ${maxBackups} latest): ${item.file}`);
+        } catch (_) {}
+      }
+    }
+  } catch (err) {
+    console.error('Backup pruning error:', err.message);
+  }
+}
+
 function formatReadableTimestamp(ms) {
   if (!ms || ms <= 0) return 'Never';
-  const d = new Date(ms);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Copenhagen',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(new Date(ms));
+    let year = '0000', month = '00', day = '00', hour = '00', minute = '00', second = '00';
+    for (const p of parts) {
+      if (p.type === 'year') year = p.value;
+      if (p.type === 'month') month = p.value;
+      if (p.type === 'day') day = p.value;
+      if (p.type === 'hour') hour = p.value;
+      if (p.type === 'minute') minute = p.value;
+      if (p.type === 'second') second = p.value;
+    }
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+  } catch (_) {
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+}
+
+/**
+ * Checks whether a given timestamp falls within the allowed Danish competition hours: 07:50 to 14:10 Danish Time.
+ * Uses Europe/Copenhagen IANA time zone.
+ */
+function isWithinDanishWindow(timestampMs = Date.now()) {
+  if (!timestampMs || timestampMs <= 0) return true;
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Copenhagen',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(new Date(timestampMs));
+    let hour = 0;
+    let minute = 0;
+    for (const p of parts) {
+      if (p.type === 'hour') hour = parseInt(p.value, 10) % 24;
+      if (p.type === 'minute') minute = parseInt(p.value, 10);
+    }
+    const totalMinutes = hour * 60 + minute;
+    // 07:50 is 470 minutes (7 * 60 + 50)
+    // 14:10 is 850 minutes (14 * 60 + 10)
+    return totalMinutes >= 470 && totalMinutes <= 850;
+  } catch (_) {
+    return true;
+  }
+}
+
+function formatDanishTime(timestampMs = Date.now()) {
+  if (!timestampMs || timestampMs <= 0) return '';
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Copenhagen',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    return formatter.format(new Date(timestampMs));
+  } catch (_) {
+    return '';
+  }
 }
 
 function hashPassword(password, salt) {
@@ -171,7 +344,7 @@ function recalculateUserBestFromVisibleRuns(username, diff) {
 
   const list = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
   const highestVisible = list
-    .filter(r => r && r.username && r.username.toLowerCase() === uLower && !r.hidden)
+    .filter(r => r && r.username && r.username.toLowerCase() === uLower && !r.hidden && isWithinDanishWindow(r.createdAt))
     .reduce((max, r) => Math.max(max, Number(r.score) || 0), 0);
 
   user.records[diff] = highestVisible;
@@ -303,19 +476,47 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     };
   }
 
-  // 3. Sort and trim `db.runs` (keep up to 300 runs per difficulty so hidden & historical runs are preserved)
+  // 3. Keep the 100 highest runs in each mode from EACH PLAYER
+  // Automatically mark any run outside the Danish competition window (07:50 - 14:10) as hidden!
   ['easy', 'medium', 'hard'].forEach(diff => {
-    db.runs[diff] = db.runs[diff]
+    const list = Array.isArray(db.runs[diff]) ? db.runs[diff] : [];
+    const validRuns = list
       .filter(r => r && typeof r.score === 'number' && r.score > 0 && r.username)
-      .map(r => ({
-        ...r,
-        hidden: Boolean(r.hidden)
-      }))
-      .sort((a, b) => {
+      .map(r => {
+        const isOffHours = !isWithinDanishWindow(r.createdAt);
+        return {
+          ...r,
+          hidden: isOffHours ? true : Boolean(r.hidden)
+        };
+      });
+
+    // Group runs by player (lowercase username)
+    const runsByPlayer = new Map();
+    for (const r of validRuns) {
+      const uKey = String(r.username).toLowerCase();
+      if (!runsByPlayer.has(uKey)) {
+        runsByPlayer.set(uKey, []);
+      }
+      runsByPlayer.get(uKey).push(r);
+    }
+
+    // Keep up to 100 highest runs for EACH PLAYER in this gamemode
+    const prunedRuns = [];
+    for (const pRuns of runsByPlayer.values()) {
+      pRuns.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
         return (a.createdAt || 0) - (b.createdAt || 0);
-      })
-      .slice(0, 300);
+      });
+      prunedRuns.push(...pRuns.slice(0, 100));
+    }
+
+    // Sort all combined runs across all players by score descending
+    prunedRuns.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+
+    db.runs[diff] = prunedRuns;
   });
 
   // 4. Rebuild `playerRecordsOverview` sorted by highest all-time best score so `db.json` is super easy to inspect & edit
@@ -336,10 +537,10 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     const allTimeBest = Math.max(eBest, mBest, hBest);
     const uLower = u.username.toLowerCase();
 
-    // Count how many VISIBLE placements this player currently holds across the leaderboards
-    const easySpots = db.runs.easy.filter(r => r.username.toLowerCase() === uLower && !r.hidden).length;
-    const medSpots = db.runs.medium.filter(r => r.username.toLowerCase() === uLower && !r.hidden).length;
-    const hardSpots = db.runs.hard.filter(r => r.username.toLowerCase() === uLower && !r.hidden).length;
+    // Count how many VISIBLE placements this player currently holds across the leaderboards (must be visible and within Danish competition window)
+    const easySpots = db.runs.easy.filter(r => r.username.toLowerCase() === uLower && !r.hidden && isWithinDanishWindow(r.createdAt)).length;
+    const medSpots = db.runs.medium.filter(r => r.username.toLowerCase() === uLower && !r.hidden && isWithinDanishWindow(r.createdAt)).length;
+    const hardSpots = db.runs.hard.filter(r => r.username.toLowerCase() === uLower && !r.hidden && isWithinDanishWindow(r.createdAt)).length;
 
     // Also count total runs (including hidden) per mode
     const easyTotalRuns = db.runs.easy.filter(r => r.username.toLowerCase() === uLower).length;
@@ -357,6 +558,14 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     if (!u.grantedSkins) u.grantedSkins = [];
     if (!u.adminLockedSkins) u.adminLockedSkins = [];
     if (!u.loginHistory) u.loginHistory = [];
+
+    // Ensure equipped skins are strictly valid for current records or granted status
+    if (u.selectedSkin && !isSkinUnlockedForUser(u.selectedSkin, u)) {
+      u.selectedSkin = 'classic';
+    }
+    if (u.selectedPipeSkin && !isSkinUnlockedForUser(u.selectedPipeSkin, u)) {
+      u.selectedPipeSkin = 'classic_pipe';
+    }
 
     overview[u.username] = {
       username: u.username,
@@ -447,14 +656,19 @@ function loadDatabase(fromWatcher = false) {
         parsed = JSON.parse(raw);
       } catch (parseErr) {
         console.error('⚠️ Warning: db.json was corrupted or unreadable:', parseErr.message);
-        // Try recovering from backup snapshot
-        const backupFile = path.join(BACKUPS_DIR, 'db-backup-last.json');
-        if (fs.existsSync(backupFile)) {
-          try {
-            parsed = JSON.parse(fs.readFileSync(backupFile, 'utf8'));
-            console.log('🛡️ Successfully recovered database from backup: ' + backupFile);
-          } catch (bkErr) {
-            console.error('Failed to parse backup:', bkErr.message);
+        // Try recovering from latest available backup snapshot
+        if (fs.existsSync(BACKUPS_DIR)) {
+          const backupFiles = fs.readdirSync(BACKUPS_DIR)
+            .filter(f => f.endsWith('.json'))
+            .map(f => ({ path: path.join(BACKUPS_DIR, f), mtime: fs.statSync(path.join(BACKUPS_DIR, f)).mtimeMs }))
+            .sort((a, b) => b.mtime - a.mtime);
+          if (backupFiles.length > 0) {
+            try {
+              parsed = JSON.parse(fs.readFileSync(backupFiles[0].path, 'utf8'));
+              console.log('🛡️ Successfully recovered database from latest backup: ' + backupFiles[0].path);
+            } catch (bkErr) {
+              console.error('Failed to parse backup:', bkErr.message);
+            }
           }
         }
       }
@@ -523,13 +737,15 @@ function saveDatabase(forceBackup = false) {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
     }
 
-    // Maintain a rolling backup every 15 minutes or when forced
+    // Maintain rolling backups (kept to the 3 latest snapshots) every 15 minutes or when forced
     const now = Date.now();
     if (forceBackup || now - lastBackupTimestamp > 15 * 60 * 1000) {
       lastBackupTimestamp = now;
       try {
-        const backupTarget = path.join(BACKUPS_DIR, 'db-backup-last.json');
+        const stamp = new Date(now).toISOString().replace(/[:.]/g, '-');
+        const backupTarget = path.join(BACKUPS_DIR, `db-backup-${stamp}.json`);
         fs.writeFileSync(backupTarget, JSON.stringify(orderedDb, null, 2), 'utf8');
+        pruneBackups(3);
       } catch (backupErr) {
         console.error('Backup write error:', backupErr.message);
       }
@@ -612,7 +828,7 @@ function buildLeaderboards(limit = 100) {
   ['easy', 'medium', 'hard'].forEach(diff => {
     const runsList = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
     let filtered = runsList
-      .filter(entry => entry && typeof entry.score === 'number' && entry.score > 0 && !entry.hidden)
+      .filter(entry => entry && typeof entry.score === 'number' && entry.score > 0 && !entry.hidden && isWithinDanishWindow(entry.createdAt))
       .slice()
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -678,46 +894,66 @@ function recordUserLogin(user, method = 'login') {
 
 /**
  * Records a verified game run and checks/logs if the player achieved a NEW BEST!
+ * Runs achieved outside 07:50 - 14:10 Danish Time are automatically saved with hidden: true
+ * so they do not show on the public leaderboard.
  */
 function recordVerifiedRun(user, diffKey, verifiedScore) {
   const now = Date.now();
   if (!user.records) user.records = { easy: 0, medium: 0, hard: 0 };
   if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
 
+  const withinWindow = isWithinDanishWindow(now);
   const previousBest = Number(user.records[diffKey]) || 0;
   let isNewRecord = false;
+  let autoHidden = false;
 
-  if (verifiedScore > previousBest) {
-    user.records[diffKey] = verifiedScore;
-    user.recordTimestamps[diffKey] = now;
-    user.lastNewBestAt = now;
-    user.lastNewBestReadable = formatReadableTimestamp(now);
-    user.lastNewBestMode = diffKey;
-    user.lastNewBestScore = verifiedScore;
-    user.lastNewBestPrevious = previousBest;
-    user.lastNewBestText = `🔥 NEW BEST in ${diffKey.toUpperCase()}: ${verifiedScore} pts (beat old best of ${previousBest} pts on ${formatReadableTimestamp(now)})`;
-    isNewRecord = true;
+  if (withinWindow) {
+    if (verifiedScore > previousBest) {
+      user.records[diffKey] = verifiedScore;
+      user.recordTimestamps[diffKey] = now;
+      user.lastNewBestAt = now;
+      user.lastNewBestReadable = formatReadableTimestamp(now);
+      user.lastNewBestMode = diffKey;
+      user.lastNewBestScore = verifiedScore;
+      user.lastNewBestPrevious = previousBest;
+      user.lastNewBestText = `🔥 NEW BEST in ${diffKey.toUpperCase()}: ${verifiedScore} pts (beat old best of ${previousBest} pts on ${formatReadableTimestamp(now)})`;
+      isNewRecord = true;
 
-    logDatabaseEvent(
-      'NEW_BEST',
-      user.username,
-      `🏆 NEW BEST! ${user.username} achieved a new ${diffKey.toUpperCase()} record of ${verifiedScore} pts! (Previous best: ${previousBest} pts)`,
-      {
-        difficulty: diffKey,
-        newBest: verifiedScore,
-        previousBest,
-        records: { ...user.records }
-      }
-    );
+      logDatabaseEvent(
+        'NEW_BEST',
+        user.username,
+        `🏆 NEW BEST! ${user.username} achieved a new ${diffKey.toUpperCase()} record of ${verifiedScore} pts! (Previous best: ${previousBest} pts)`,
+        {
+          difficulty: diffKey,
+          newBest: verifiedScore,
+          previousBest,
+          records: { ...user.records }
+        }
+      );
+    } else {
+      logDatabaseEvent(
+        'VERIFIED_RUN',
+        user.username,
+        `🎮 ${user.username} finished a verified ${diffKey.toUpperCase()} run with ${verifiedScore} pts (Personal Best: ${previousBest} pts)`,
+        {
+          difficulty: diffKey,
+          score: verifiedScore,
+          personalBest: previousBest
+        }
+      );
+    }
   } else {
+    // Achieved outside Danish competition window (07:50 - 14:10) -> Automatically hidden from leaderboard!
+    autoHidden = true;
     logDatabaseEvent(
-      'VERIFIED_RUN',
+      'OFF_HOURS_RUN',
       user.username,
-      `🎮 ${user.username} finished a verified ${diffKey.toUpperCase()} run with ${verifiedScore} pts (Personal Best: ${previousBest} pts)`,
+      `🕒 ${user.username} finished a ${diffKey.toUpperCase()} run of ${verifiedScore} pts outside allowed Danish hours (7:50-14:10) — Run automatically hidden from leaderboard.`,
       {
         difficulty: diffKey,
         score: verifiedScore,
-        personalBest: previousBest
+        danishTime: formatDanishTime(now),
+        hidden: true
       }
     );
   }
@@ -728,25 +964,49 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
     if (!Array.isArray(db.runs[diffKey])) db.runs[diffKey] = [];
 
     newRunId = crypto.randomBytes(8).toString('hex');
-    db.runs[diffKey].push({
-      id: newRunId,
-      username: user.username,
-      score: verifiedScore,
-      hidden: false,
-      createdAt: now
-    });
+    const userKey = user.username.toLowerCase();
+    const userRunsInMode = db.runs[diffKey].filter(
+      r => r && r.username && r.username.toLowerCase() === userKey
+    );
+
+    // Maintain up to 100 highest runs for THIS PLAYER in this gamemode
+    if (userRunsInMode.length >= 100) {
+      userRunsInMode.sort((a, b) => {
+        if (a.score !== b.score) return a.score - b.score;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+      const lowestRun = userRunsInMode[0];
+      if (verifiedScore >= lowestRun.score) {
+        const rmIdx = db.runs[diffKey].findIndex(r => r.id === lowestRun.id);
+        if (rmIdx !== -1) {
+          db.runs[diffKey].splice(rmIdx, 1);
+        }
+        db.runs[diffKey].push({
+          id: newRunId,
+          username: user.username,
+          score: verifiedScore,
+          hidden: !withinWindow,
+          createdAt: now
+        });
+      }
+    } else {
+      db.runs[diffKey].push({
+        id: newRunId,
+        username: user.username,
+        score: verifiedScore,
+        hidden: !withinWindow,
+        createdAt: now
+      });
+    }
 
     db.runs[diffKey].sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
-    if (db.runs[diffKey].length > 300) {
-      db.runs[diffKey].length = 300;
-    }
   }
 
   saveDatabase();
-  return { isNewRecord, newRunId, previousBest };
+  return { isNewRecord, newRunId, previousBest, autoHidden, withinWindow };
 }
 
 /**
@@ -785,6 +1045,14 @@ function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPi
   }
   if (typeof selectedPipeSkin === 'string' && selectedPipeSkin.trim()) {
     user.selectedPipeSkin = selectedPipeSkin.trim();
+  }
+
+  // Validate that currently equipped skins are still unlocked after record updates
+  if (user.selectedSkin && !isSkinUnlockedForUser(user.selectedSkin, user)) {
+    user.selectedSkin = 'classic';
+  }
+  if (user.selectedPipeSkin && !isSkinUnlockedForUser(user.selectedPipeSkin, user)) {
+    user.selectedPipeSkin = 'classic_pipe';
   }
 
   if (changes.length > 0) {
@@ -869,16 +1137,39 @@ function addLeaderboardRunAdmin(username, difficulty, score, hidden = false) {
   }
   const cleanScore = Math.max(1, Math.floor(Number(score) || 0));
   const now = Date.now();
+  const isOffHours = !isWithinDanishWindow(now);
+  const cleanHidden = isOffHours ? true : Boolean(hidden);
 
   if (!db.runs[difficulty]) db.runs[difficulty] = [];
+
+  const userKey = canonicalUsername.toLowerCase();
+  const userRunsInMode = db.runs[difficulty].filter(
+    r => r && r.username && r.username.toLowerCase() === userKey
+  );
+  if (userRunsInMode.length >= 100) {
+    userRunsInMode.sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+    const lowestRun = userRunsInMode[0];
+    const rmIdx = db.runs[difficulty].findIndex(r => r.id === lowestRun.id);
+    if (rmIdx !== -1) {
+      db.runs[difficulty].splice(rmIdx, 1);
+    }
+  }
+
   const newRun = {
     id: crypto.randomBytes(8).toString('hex'),
     username: canonicalUsername,
     score: cleanScore,
-    hidden: Boolean(hidden),
+    hidden: cleanHidden,
     createdAt: now
   };
   db.runs[difficulty].push(newRun);
+  db.runs[difficulty].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
 
   if (user) {
     recalculateUserBestFromVisibleRuns(user.username, difficulty);
@@ -944,13 +1235,16 @@ function getAllRunsAdmin() {
         return (a.createdAt || 0) - (b.createdAt || 0);
       })
       .map(r => {
-        const isHidden = Boolean(r.hidden);
+        const isOffHours = !isWithinDanishWindow(r.createdAt);
+        const isHidden = Boolean(r.hidden) || isOffHours;
         if (!isHidden) visibleRankCounter++;
         return {
           id: r.id,
           username: r.username,
           score: r.score,
           hidden: isHidden,
+          isOffHours,
+          danishTime: formatDanishTime(r.createdAt),
           visibleRank: isHidden ? null : visibleRankCounter,
           createdAt: r.createdAt || 0,
           readableTime: formatReadableTimestamp(r.createdAt)
@@ -1097,5 +1391,9 @@ module.exports = {
   resetAllRecordsAdmin,
   BACKUPS_DIR,
   TEMPLATE_FILE,
-  formatReadableTimestamp
+  formatReadableTimestamp,
+  formatDanishTime,
+  isWithinDanishWindow,
+  pruneBackups,
+  isSkinUnlockedForUser
 };

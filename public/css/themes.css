@@ -5665,7 +5665,7 @@ input, select, textarea, button {
 .changelog-modal-footer {
   display: flex !important;
   align-items: center !important;
-  justify-content: space-between !important;
+  justify-content: flex-end !important;
   padding: 12px 22px !important;
   border-top: 1.5px solid var(--border-subtle, rgba(255, 255, 255, 0.12)) !important;
   background: rgba(0, 0, 0, 0.25) !important;
