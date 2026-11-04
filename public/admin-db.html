@@ -1314,6 +1314,35 @@
       setTimeout(() => { t.style.display = 'none'; }, 2800);
     }
 
+    async function adminFetch(url, options = {}, maxRetries = 2) {
+      let attempt = 0;
+      while (attempt <= maxRetries) {
+        try {
+          const res = await fetch(url, options);
+          if (res.ok) {
+            return await res.json();
+          }
+          if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
+            attempt++;
+            await new Promise(r => setTimeout(r, attempt * 800));
+            continue;
+          }
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `Request failed (${res.status})`);
+        } catch (err) {
+          const errMsg = String(err && err.message || '');
+          const isProxyOrWakeup = errMsg.includes('502') || errMsg.includes('503') || errMsg.includes('504');
+          const isNetworkErr = (err && err.name === 'TypeError') || errMsg.toLowerCase().includes('failed to fetch');
+          if ((isProxyOrWakeup || isNetworkErr) && attempt < maxRetries) {
+            attempt++;
+            await new Promise(r => setTimeout(r, attempt * 800));
+            continue;
+          }
+          throw err;
+        }
+      }
+    }
+
     async function fetchDatabase() {
       if (isEditingInput) return;
       const gateEl = document.getElementById('admin-auth-gate');
@@ -1325,23 +1354,19 @@
         return;
       }
       try {
-        const res = await fetch('/api/database', {
+        const data = await adminFetch('/api/database', {
           headers: getAuthHeaders()
         });
-        const data = await res.json();
-        if (!res.ok) {
-          if (gateEl) gateEl.style.display = 'flex';
-          if (dashEl) dashEl.style.display = 'none';
-          const errEl = document.getElementById('admin-login-error');
-          if (errEl) errEl.textContent = data.error || 'Access Denied: Only MeDonut can access the database.';
-          return;
-        }
         if (gateEl) gateEl.style.display = 'none';
         if (dashEl) dashEl.style.display = 'flex';
         updateExportLink();
         currentDbData = data;
         renderDashboard(data);
       } catch (err) {
+        if (gateEl) gateEl.style.display = 'flex';
+        if (dashEl) dashEl.style.display = 'none';
+        const errEl = document.getElementById('admin-login-error');
+        if (errEl) errEl.textContent = err.message || 'Access Denied: Only MeDonut can access the database.';
         console.error('Failed to load database:', err);
       }
     }
@@ -1354,24 +1379,19 @@
         if (errEl) errEl.textContent = 'Please enter MeDonut\'s password.';
         return;
       }
-      if (errEl) errEl.textContent = 'Verifying MeDonut credentials...';
+      if (errEl) errEl.textContent = 'Verifying MeDonut credentials (connecting to server)...';
       try {
-        const res = await fetch('/api/login', {
+        const data = await adminFetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: 'MeDonut', password })
         });
-        const data = await res.json();
-        if (!res.ok) {
-          if (errEl) errEl.textContent = data.error || 'Invalid password for MeDonut.';
-          return;
-        }
         localStorage.setItem('flappy3d_token', data.token);
         if (passInput) passInput.value = '';
         if (errEl) errEl.textContent = '';
         await fetchDatabase();
       } catch (err) {
-        if (errEl) errEl.textContent = 'Connection error: ' + err.message;
+        if (errEl) errEl.textContent = err.message || 'Connection error';
       }
     }
 
@@ -2543,10 +2563,6 @@
           `).join('');
         } else {
           pipeSelect.innerHTML = `<option value="classic_pipe">🟢 Classic Green (Default)</option>`;
-        }
-      }
-        } else {
-          pipeSelect.innerHTML = `<option value="${p.selectedPipeSkin || 'classic_pipe'}">🟢 Classic Green (Default)</option>`;
         }
       }
 

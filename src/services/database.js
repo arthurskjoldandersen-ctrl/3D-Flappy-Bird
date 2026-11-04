@@ -140,28 +140,45 @@ function pruneBackups(maxBackups = 3) {
   }
 }
 
+// Cached Intl formatters for extreme speed (avoids re-instantiating C++ objects)
+const danishWindowFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Copenhagen',
+  hour: 'numeric',
+  minute: 'numeric',
+  hour12: false
+});
+
+const danishTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Copenhagen',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false
+});
+
+const danishDateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Copenhagen',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false
+});
+
 function formatReadableTimestamp(ms) {
   if (!ms || ms <= 0) return 'Never';
   try {
-    const formatter = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/Copenhagen',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    const parts = formatter.formatToParts(new Date(ms));
+    const parts = danishDateTimeFormatter.formatToParts(new Date(ms));
     let year = '0000', month = '00', day = '00', hour = '00', minute = '00', second = '00';
-    for (const p of parts) {
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
       if (p.type === 'year') year = p.value;
-      if (p.type === 'month') month = p.value;
-      if (p.type === 'day') day = p.value;
-      if (p.type === 'hour') hour = p.value;
-      if (p.type === 'minute') minute = p.value;
-      if (p.type === 'second') second = p.value;
+      else if (p.type === 'month') month = p.value;
+      else if (p.type === 'day') day = p.value;
+      else if (p.type === 'hour') hour = p.value;
+      else if (p.type === 'minute') minute = p.value;
+      else if (p.type === 'second') second = p.value;
     }
     return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
   } catch (_) {
@@ -178,18 +195,13 @@ function formatReadableTimestamp(ms) {
 function isWithinDanishWindow(timestampMs = Date.now()) {
   if (!timestampMs || timestampMs <= 0) return true;
   try {
-    const formatter = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/Copenhagen',
-      hour: 'numeric',
-      minute: 'numeric',
-      hour12: false
-    });
-    const parts = formatter.formatToParts(new Date(timestampMs));
+    const parts = danishWindowFormatter.formatToParts(new Date(timestampMs));
     let hour = 0;
     let minute = 0;
-    for (const p of parts) {
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
       if (p.type === 'hour') hour = parseInt(p.value, 10) % 24;
-      if (p.type === 'minute') minute = parseInt(p.value, 10);
+      else if (p.type === 'minute') minute = parseInt(p.value, 10);
     }
     const totalMinutes = hour * 60 + minute;
     // 07:50 is 470 minutes (7 * 60 + 50)
@@ -203,13 +215,7 @@ function isWithinDanishWindow(timestampMs = Date.now()) {
 function formatDanishTime(timestampMs = Date.now()) {
   if (!timestampMs || timestampMs <= 0) return '';
   try {
-    const formatter = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/Copenhagen',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-    return formatter.format(new Date(timestampMs));
+    return danishTimeFormatter.format(new Date(timestampMs));
   } catch (_) {
     return '';
   }
@@ -220,6 +226,9 @@ function hashPassword(password, salt) {
 }
 
 let isInternalWrite = false;
+let lastInternalSavedMtime = 0;
+let cachedLeaderboards = null;
+let cachedAllLeaderboards = null;
 
 let db = {
   databaseStatus: {},
@@ -705,7 +714,9 @@ function loadDatabase(fromWatcher = false) {
     }
 
     syncAndRebuildOverview(fromWatcher);
-    saveDatabase(true);
+    if (!fromWatcher) {
+      saveDatabase(false);
+    }
   } catch (err) {
     console.error('Error loading database:', err.message);
   }
@@ -715,6 +726,8 @@ let lastBackupTimestamp = 0;
 
 function saveDatabase(forceBackup = false) {
   try {
+    cachedLeaderboards = null;
+    cachedAllLeaderboards = null;
     syncAndRebuildOverview(false);
     isInternalWrite = true;
     const orderedDb = {
@@ -737,6 +750,11 @@ function saveDatabase(forceBackup = false) {
       try { fs.unlinkSync(tmpFile); } catch (_) {}
     }
 
+    try {
+      const stat = fs.statSync(DB_FILE);
+      lastInternalSavedMtime = stat.mtimeMs;
+    } catch (_) {}
+
     // Maintain rolling backups (kept to the 3 latest snapshots) every 15 minutes or when forced
     const now = Date.now();
     if (forceBackup || now - lastBackupTimestamp > 15 * 60 * 1000) {
@@ -751,7 +769,7 @@ function saveDatabase(forceBackup = false) {
       }
     }
 
-    setTimeout(() => { isInternalWrite = false; }, 250);
+    setTimeout(() => { isInternalWrite = false; }, 500);
   } catch (err) {
     isInternalWrite = false;
     console.error('Error saving database:', err.message);
@@ -811,24 +829,38 @@ function resetAllRecordsAdmin(adminUsername = 'MeDonut') {
 }
 
 // Watch `data/db.json` so if the owner edits & saves `db.json` in a text editor, changes apply live!
-fs.watchFile(DB_FILE, { interval: 1500, persistent: false }, (curr, prev) => {
+fs.watchFile(DB_FILE, { interval: 2500, persistent: false }, (curr, prev) => {
   if (isInternalWrite) return;
+  if (lastInternalSavedMtime && Math.abs(curr.mtimeMs - lastInternalSavedMtime) < 150) return;
   if (curr.mtimeMs !== prev.mtimeMs) {
-    console.log('🔄 Detected external edit to data/db.json — reloading & syncing records...');
+    console.log('🔄 Detected genuine external edit to data/db.json — reloading & syncing records...');
     loadDatabase(true);
   }
 });
 
 /**
  * Builds the 3-Difficulty Leaderboards (Top 100 or All Players/Runs if limit is 0/null)
+ * Ultra-fast in-memory cached (invalidated on new verified runs or record edits)
  */
 function buildLeaderboards(limit = 100) {
+  if (limit === 100 && cachedLeaderboards) {
+    return cachedLeaderboards;
+  }
+  if (!limit && cachedAllLeaderboards) {
+    return cachedAllLeaderboards;
+  }
+
   const result = { easy: [], medium: [], hard: [] };
 
   ['easy', 'medium', 'hard'].forEach(diff => {
     const runsList = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
     let filtered = runsList
-      .filter(entry => entry && typeof entry.score === 'number' && entry.score > 0 && !entry.hidden && isWithinDanishWindow(entry.createdAt))
+      .filter(entry => {
+        if (!entry || typeof entry.score !== 'number' || entry.score <= 0 || entry.hidden) return false;
+        if (entry.isWithinDanishWindow !== undefined) return entry.isWithinDanishWindow;
+        entry.isWithinDanishWindow = isWithinDanishWindow(entry.createdAt);
+        return entry.isWithinDanishWindow;
+      })
       .slice()
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -847,6 +879,12 @@ function buildLeaderboards(limit = 100) {
       updatedAt: entry.createdAt
     }));
   });
+
+  if (limit === 100) {
+    cachedLeaderboards = result;
+  } else if (!limit) {
+    cachedAllLeaderboards = result;
+  }
 
   return result;
 }

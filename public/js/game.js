@@ -35,6 +35,9 @@
           this.activeLbTab = 'medium';
           this.lbUniqueRecordsOnly = true;
           this.isStartingRun = false;
+          this.prefetchedRun = null;
+          this.prefetchPromise = null;
+          this.prefetchingDifficulty = null;
 
           // Anti-Cheat & Sub-Tick Interpolation State
           this.activeRunId = null;
@@ -94,6 +97,7 @@
             this.updateLeaderboardToggleBtn();
           }
           setInterval(() => {
+            if (document.hidden) return;
             if (this.state === GAME_STATE.START || this.state === GAME_STATE.GAMEOVER) {
               this.fetchLeaderboards(this.lbShowAllPlayers);
             }
@@ -735,6 +739,7 @@
               this.updateNextUnlockTracker();
               this.updateHUD();
               if (this.sound) this.sound.playFlap();
+              this.prefetchRunSession(diff);
             });
           });
 
@@ -824,6 +829,42 @@
           this.birdMeshGroup.rotation.set(0, 0, 0);
           this.renderAllCosmeticGrids();
           this.fetchLeaderboards();
+          this.prefetchRunSession(this.selectedDifficulty);
+        }
+
+        prefetchRunSession(difficulty = this.selectedDifficulty) {
+          if (!this.currentUser || !this.authToken) return;
+          const diffKey = CONFIG.difficulties[difficulty] ? difficulty : 'medium';
+
+          if (this.prefetchedRun &&
+              this.prefetchedRun.difficulty === diffKey &&
+              (Date.now() - this.prefetchedRun.fetchedAt < 10 * 60 * 1000)) {
+            return;
+          }
+
+          if (this.prefetchPromise && this.prefetchingDifficulty === diffKey) {
+            return;
+          }
+
+          this.prefetchingDifficulty = diffKey;
+          this.prefetchPromise = this.apiRequest('/api/run/start', 'POST', { difficulty: diffKey })
+            .then(data => {
+              if (data && data.runId) {
+                this.prefetchedRun = {
+                  difficulty: diffKey,
+                  runId: data.runId,
+                  seed: data.seed,
+                  fetchedAt: Date.now()
+                };
+              }
+              this.prefetchPromise = null;
+              this.prefetchingDifficulty = null;
+              return this.prefetchedRun;
+            })
+            .catch(() => {
+              this.prefetchPromise = null;
+              this.prefetchingDifficulty = null;
+            });
         }
 
         async startGame() {
@@ -849,22 +890,55 @@
           }
           this.updatePreviewBanner();
 
+          const targetDifficulty = this.selectedDifficulty || 'medium';
           this.activeRunId = null;
           this.activeSeed = (Math.random() * 0x7fffffff) | 1;
 
           if (this.currentUser && this.authToken) {
-            try {
-              const runData = await this.apiRequest('/api/run/start', 'POST', {
-                difficulty: this.selectedDifficulty
-              });
-              this.activeRunId = runData.runId;
-              this.activeSeed = runData.seed;
-            } catch (err) {
-              if (err && String(err.message).toLowerCase().includes('log in')) {
-                this.clearLoggedInUser();
-              }
-              this.activeRunId = null;
+            // 1. Consume instant pre-fetched token if available (0ms delay)
+            if (this.prefetchedRun &&
+                this.prefetchedRun.difficulty === targetDifficulty &&
+                (Date.now() - this.prefetchedRun.fetchedAt < 10 * 60 * 1000)) {
+              this.activeRunId = this.prefetchedRun.runId;
+              this.activeSeed = this.prefetchedRun.seed;
+              this.prefetchedRun = null;
+            } else if (this.prefetchPromise && this.prefetchingDifficulty === targetDifficulty) {
+              // 2. Prefetch in flight: await with a 600ms cap so run start never stalls
+              try {
+                const timeoutP = new Promise(r => setTimeout(r, 600));
+                await Promise.race([this.prefetchPromise, timeoutP]);
+                if (this.prefetchedRun && this.prefetchedRun.difficulty === targetDifficulty) {
+                  this.activeRunId = this.prefetchedRun.runId;
+                  this.activeSeed = this.prefetchedRun.seed;
+                  this.prefetchedRun = null;
+                }
+              } catch (_) {}
             }
+
+            // 3. Fallback quick direct fetch if not prefetched
+            if (!this.activeRunId) {
+              try {
+                const startFetchPromise = this.apiRequest('/api/run/start', 'POST', {
+                  difficulty: targetDifficulty
+                });
+                const timeoutP = new Promise((_, reject) => setTimeout(() => reject(new Error('Start run timeout')), 1000));
+                const runData = await Promise.race([startFetchPromise, timeoutP]);
+                if (runData && runData.runId) {
+                  this.activeRunId = runData.runId;
+                  this.activeSeed = runData.seed;
+                }
+              } catch (err) {
+                if (err && String(err.message).toLowerCase().includes('log in')) {
+                  this.clearLoggedInUser();
+                }
+                this.activeRunId = null;
+              }
+            }
+
+            // Pre-fetch next run token in background so subsequent runs start in 0ms!
+            setTimeout(() => {
+              this.prefetchRunSession(this.selectedDifficulty);
+            }, 60);
           }
 
           this.prng = createSeededPRNG(this.activeSeed);
@@ -1017,6 +1091,9 @@
           } else {
             unlockToast.classList.remove('visible');
           }
+
+          // Pre-fetch next run token in background so clicking "Play Again" or pressing Space is instant!
+          this.prefetchRunSession(this.selectedDifficulty);
 
           setTimeout(() => {
             this.state = GAME_STATE.GAMEOVER;

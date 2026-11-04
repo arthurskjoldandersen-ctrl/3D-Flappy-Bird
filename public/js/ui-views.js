@@ -489,40 +489,62 @@ class FlappyBirdUIAndProgression {
         }
 
         // ------------------------------------------------------------------------
-        // ONLINE API & AUTHENTICATION
+        // ONLINE API & AUTHENTICATION (WITH COLD-START 502/503 RESILIENT RETRIES)
         // ------------------------------------------------------------------------
-        async apiRequest(path, method = 'GET', body = null) {
+        async apiRequest(path, method = 'GET', body = null, maxRetries = 2) {
           const headers = { 'Content-Type': 'application/json' };
           if (this.authToken) {
             headers['Authorization'] = `Bearer ${this.authToken}`;
           }
 
-          let targetUrl = path;
-          try {
-            const res = await fetch(targetUrl, {
-              method,
-              headers,
-              body: body ? JSON.stringify(body) : null
-            });
-            if (res.ok) {
-              return await res.json();
+          let attempt = 0;
+          while (attempt <= maxRetries) {
+            try {
+              const res = await fetch(path, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : null
+              });
+
+              if (res.ok) {
+                return await res.json();
+              }
+
+              const status = res.status;
+              // Handle server wake-up/proxy delays (502 Bad Gateway, 503 Unavailable, 504 Gateway Timeout)
+              if ((status === 502 || status === 503 || status === 504) && attempt < maxRetries) {
+                attempt++;
+                await new Promise(r => setTimeout(r, attempt * 800));
+                continue;
+              }
+
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error || `Request failed (${status})`);
+            } catch (err) {
+              const errMsg = String(err && err.message || '');
+              const isProxyOrWakeup = errMsg.includes('502') || errMsg.includes('503') || errMsg.includes('504');
+              const isNetworkErr = (err && err.name === 'TypeError') || errMsg.toLowerCase().includes('failed to fetch');
+
+              if ((isProxyOrWakeup || isNetworkErr) && attempt < maxRetries) {
+                attempt++;
+                await new Promise(r => setTimeout(r, attempt * 800));
+                continue;
+              }
+
+              const isLocalHost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+              if (isLocalHost && window.location.port !== '3000' && !errMsg.includes('40')) {
+                try {
+                  const fallbackUrl = `http://localhost:3000${path.startsWith('/') ? '' : '/'}${path}`;
+                  const fallbackRes = await fetch(fallbackUrl, {
+                    method,
+                    headers,
+                    body: body ? JSON.stringify(body) : null
+                  });
+                  if (fallbackRes.ok) return await fallbackRes.json();
+                } catch (_) {}
+              }
+              throw err;
             }
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.error || `Request failed (${res.status})`);
-          } catch (err) {
-            const isLocalHost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-            if (isLocalHost && window.location.port !== '3000' && !err.message.includes('40')) {
-              try {
-                const fallbackUrl = `http://localhost:3000${path.startsWith('/') ? '' : '/'}${path}`;
-                const fallbackRes = await fetch(fallbackUrl, {
-                  method,
-                  headers,
-                  body: body ? JSON.stringify(body) : null
-                });
-                if (fallbackRes.ok) return await fallbackRes.json();
-              } catch (_) {}
-            }
-            throw err;
           }
         }
 
@@ -746,11 +768,17 @@ class FlappyBirdUIAndProgression {
           this.updateProfileRecordPills();
           this.renderAllCosmeticGrids();
           this.renderLeaderboard();
+          if (typeof this.prefetchRunSession === 'function') {
+            this.prefetchRunSession(this.selectedDifficulty);
+          }
         }
 
         clearLoggedInUser(showGuestPrompt = true) {
           this.currentUser = null;
           this.authToken = null;
+          this.prefetchedRun = null;
+          this.prefetchPromise = null;
+          this.prefetchingDifficulty = null;
           this.localRecords = { easy: 0, medium: 0, hard: 0 };
           this.saveLocalRecords();
           localStorage.removeItem('flappy3d_token');
@@ -1021,7 +1049,7 @@ class FlappyBirdUIAndProgression {
           }
 
           msgEl.className = 'auth-msg';
-          msgEl.textContent = mode === 'register' ? 'Creating account...' : 'Logging in...';
+          msgEl.textContent = mode === 'register' ? 'Creating account...' : 'Logging in (connecting to server)...';
 
           try {
             let data;
@@ -1374,7 +1402,7 @@ class FlappyBirdUIAndProgression {
           }
 
           msgEl.className = 'auth-msg';
-          msgEl.textContent = mode === 'register' ? 'Creating account...' : 'Logging in...';
+          msgEl.textContent = mode === 'register' ? 'Creating account...' : 'Logging in (connecting to server)...';
 
           try {
             let data;

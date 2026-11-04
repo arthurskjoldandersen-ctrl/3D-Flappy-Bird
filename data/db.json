@@ -1,8 +1,8 @@
 {
   "databaseStatus": {
-    "lastUpdatedISO": "2026-11-04T11:25:32.111Z",
-    "lastUpdatedReadable": "2026-11-04 11:25:32",
-    "latestEventBanner": "[2026-11-04 11:25:32] 🔑 MeDonut logged in (Password Login #21) — Current Bests: Easy 68 | Medium 36 | Hard 26",
+    "lastUpdatedISO": "2026-11-04T12:00:58.722Z",
+    "lastUpdatedReadable": "2026-11-04 13:00:58",
+    "latestEventBanner": "[2026-11-04 13:00:54] 🔑 MeDonut logged in (Password Login #22) — Current Bests: Easy 68 | Medium 36 | Hard 26",
     "lastEventType": "LOGIN",
     "lastEventPlayer": "MeDonut",
     "currentChampions": {
@@ -12,10 +12,10 @@
     },
     "totalRegisteredPlayers": 42,
     "totalLeaderboardRuns": {
-      "easy": 300,
-      "medium": 300,
-      "hard": 300,
-      "total": 900
+      "easy": 305,
+      "medium": 316,
+      "hard": 307,
+      "total": 928
     },
     "howToViewOrEdit": "Open /database in your browser OR edit records directly in playerRecordsOverview / users below and save this file!"
   },
@@ -23,7 +23,7 @@
     "MeDonut v2": {
       "username": "MeDonut v2",
       "summary": "🏆 Best: 800 pts (Easy: 0 | Medium: 0 | Hard: 800)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:28:06",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:28:06",
       "newBestStatus": "✏️ Records updated (HARD: 0 -> 800) on 2026-11-04 11:24:55",
       "records": {
         "easy": 0,
@@ -52,14 +52,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:28:06",
-      "lastNewBestAtReadable": "2026-11-04 11:24:55",
-      "createdAtReadable": "2026-11-03 11:28:06"
+      "lastLoginAtReadable": "2026-11-03 12:28:06",
+      "lastNewBestAtReadable": "2026-11-04 12:24:55",
+      "createdAtReadable": "2026-11-03 12:28:06"
     },
     "BlueViceee": {
       "username": "BlueViceee",
       "summary": "🏆 Best: 77 pts (Easy: 77 | Medium: 43 | Hard: 28)",
-      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 11:30:39",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 12:30:39",
       "newBestStatus": "🔥 NEW BEST in EASY: 77 pts (beat old best of 69 pts on 2026-11-04 09:42:20)",
       "records": {
         "easy": 77,
@@ -68,12 +68,12 @@
       },
       "allTimeBest": 77,
       "leaderboardPlacements": {
-        "total": 68,
-        "easy": 12,
-        "medium": 36,
-        "hard": 20,
+        "total": 64,
+        "easy": 11,
+        "medium": 35,
+        "hard": 18,
         "totalRecordedRuns": 74,
-        "hiddenRuns": 6
+        "hiddenRuns": 10
       },
       "selectedSkin": "poke_jigglypuff",
       "selectedPipeSkin": "pipe_squirtle_shell",
@@ -90,14 +90,14 @@
         }
       ],
       "loginCount": 2,
-      "lastLoginAtReadable": "2026-11-03 11:30:39",
-      "lastNewBestAtReadable": "2026-11-04 09:42:20",
-      "createdAtReadable": "2026-10-28 12:19:28"
+      "lastLoginAtReadable": "2026-11-03 12:30:39",
+      "lastNewBestAtReadable": "2026-11-04 10:42:20",
+      "createdAtReadable": "2026-10-28 13:19:28"
     },
     "joslor11": {
       "username": "joslor11",
       "summary": "🏆 Best: 70 pts (Easy: 70 | Medium: 41 | Hard: 30)",
-      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-03 12:39:17",
+      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-03 13:39:17",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 41 pts (beat old best of 39 pts on 2026-11-04 09:33:44)",
       "records": {
         "easy": 70,
@@ -106,14 +106,14 @@
       },
       "allTimeBest": 70,
       "leaderboardPlacements": {
-        "total": 139,
-        "easy": 41,
-        "medium": 59,
-        "hard": 39,
+        "total": 75,
+        "easy": 23,
+        "medium": 24,
+        "hard": 28,
         "totalRecordedRuns": 161,
-        "hiddenRuns": 22
+        "hiddenRuns": 86
       },
-      "selectedSkin": "poke_gengar",
+      "selectedSkin": "classic",
       "selectedPipeSkin": "pipe_9_10_21",
       "grantedSkins": [],
       "adminLockedSkins": [],
@@ -138,14 +138,14 @@
         }
       ],
       "loginCount": 5,
-      "lastLoginAtReadable": "2026-11-03 12:39:17",
-      "lastNewBestAtReadable": "2026-11-04 09:33:44",
-      "createdAtReadable": "2026-10-21 06:31:30"
+      "lastLoginAtReadable": "2026-11-03 13:39:17",
+      "lastNewBestAtReadable": "2026-11-04 10:33:44",
+      "createdAtReadable": "2026-10-21 08:31:30"
     },
     "MeDonut": {
       "username": "MeDonut",
       "summary": "🏆 Best: 68 pts (Easy: 68 | Medium: 36 | Hard: 26)",
-      "loginStatus": "🔑 Logged in 21 time(s) • Last login: 2026-11-04 11:25:32",
+      "loginStatus": "🔑 Logged in 22 time(s) • Last login: 2026-11-04 13:00:54",
       "newBestStatus": "🔥 NEW BEST in EASY: 68 pts (beat old best of 56 pts on 2026-11-03 12:02:17)",
       "records": {
         "easy": 68,
@@ -169,6 +169,12 @@
       ],
       "adminLockedSkins": [],
       "loginHistory": [
+        {
+          "timestamp": 1793793654633,
+          "readable": "2026-11-04 13:00:54",
+          "method": "password",
+          "loginNumber": 22
+        },
         {
           "timestamp": 1793791532108,
           "readable": "2026-11-04 11:25:32",
@@ -278,15 +284,15 @@
           "loginNumber": 4
         }
       ],
-      "loginCount": 21,
-      "lastLoginAtReadable": "2026-11-04 11:25:32",
-      "lastNewBestAtReadable": "2026-11-03 12:02:17",
-      "createdAtReadable": "2026-10-19 11:51:29"
+      "loginCount": 22,
+      "lastLoginAtReadable": "2026-11-04 13:00:54",
+      "lastNewBestAtReadable": "2026-11-03 13:02:17",
+      "createdAtReadable": "2026-10-19 13:51:29"
     },
     "bennersgoat": {
       "username": "bennersgoat",
       "summary": "🏆 Best: 56 pts (Easy: 56 | Medium: 44 | Hard: 25)",
-      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 11:46:22",
+      "loginStatus": "🔑 Logged in 3 time(s) • Last login: 2026-11-04 12:52:26",
       "newBestStatus": "🔥 NEW BEST in EASY: 56 pts (beat old best of 47 pts on 2026-11-04 10:12:02)",
       "records": {
         "easy": 56,
@@ -295,20 +301,26 @@
       },
       "allTimeBest": 56,
       "leaderboardPlacements": {
-        "total": 57,
+        "total": 61,
         "easy": 11,
-        "medium": 31,
+        "medium": 35,
         "hard": 15,
-        "totalRecordedRuns": 57,
+        "totalRecordedRuns": 61,
         "hiddenRuns": 0
       },
-      "selectedSkin": "poke_meowth",
-      "selectedPipeSkin": "pipe_bulbasaur_vine",
+      "selectedSkin": "phoenix",
+      "selectedPipeSkin": "void_pipe_hard",
       "grantedSkins": [
         "poke_mew"
       ],
       "adminLockedSkins": [],
       "loginHistory": [
+        {
+          "timestamp": 1793793146423,
+          "readable": "2026-11-04 12:52:26",
+          "method": "password",
+          "loginNumber": 3
+        },
         {
           "timestamp": 1793706382681,
           "readable": "2026-11-03 11:46:22",
@@ -316,15 +328,15 @@
           "loginNumber": 2
         }
       ],
-      "loginCount": 2,
-      "lastLoginAtReadable": "2026-11-03 11:46:22",
-      "lastNewBestAtReadable": "2026-11-04 10:12:02",
-      "createdAtReadable": "2026-10-29 12:42:32"
+      "loginCount": 3,
+      "lastLoginAtReadable": "2026-11-04 12:52:26",
+      "lastNewBestAtReadable": "2026-11-04 11:12:02",
+      "createdAtReadable": "2026-10-29 13:42:32"
     },
     "supermand": {
       "username": "supermand",
       "summary": "🏆 Best: 53 pts (Easy: 53 | Medium: 41 | Hard: 22)",
-      "loginStatus": "🔑 Logged in 4 time(s) • Last login: 2026-11-04 09:33:19",
+      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-04 12:52:04",
       "newBestStatus": "🔥 NEW BEST in HARD: 22 pts (beat old best of 21 pts on 2026-11-03 12:26:11)",
       "records": {
         "easy": 53,
@@ -346,6 +358,12 @@
       "adminLockedSkins": [],
       "loginHistory": [
         {
+          "timestamp": 1793793124125,
+          "readable": "2026-11-04 12:52:04",
+          "method": "password",
+          "loginNumber": 5
+        },
+        {
           "timestamp": 1793784799212,
           "readable": "2026-11-04 09:33:19",
           "method": "password",
@@ -364,15 +382,15 @@
           "loginNumber": 2
         }
       ],
-      "loginCount": 4,
-      "lastLoginAtReadable": "2026-11-04 09:33:19",
-      "lastNewBestAtReadable": "2026-11-03 12:26:11",
-      "createdAtReadable": "2026-10-29 09:54:54"
+      "loginCount": 5,
+      "lastLoginAtReadable": "2026-11-04 12:52:04",
+      "lastNewBestAtReadable": "2026-11-03 13:26:11",
+      "createdAtReadable": "2026-10-29 10:54:54"
     },
     "IHATESUPERMAN": {
       "username": "IHATESUPERMAN",
       "summary": "🏆 Best: 51 pts (Easy: 51 | Medium: 40 | Hard: 10)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:22:32",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 13:22:32",
       "newBestStatus": "🔥 NEW BEST in HARD: 10 pts (beat old best of 5 pts on 2026-11-04 10:13:13)",
       "records": {
         "easy": 51,
@@ -381,11 +399,11 @@
       },
       "allTimeBest": 51,
       "leaderboardPlacements": {
-        "total": 49,
+        "total": 50,
         "easy": 14,
         "medium": 35,
-        "hard": 0,
-        "totalRecordedRuns": 49,
+        "hard": 1,
+        "totalRecordedRuns": 50,
         "hiddenRuns": 0
       },
       "selectedSkin": "penguin",
@@ -401,14 +419,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 12:22:32",
-      "lastNewBestAtReadable": "2026-11-04 10:13:13",
-      "createdAtReadable": "2026-11-03 12:22:32"
+      "lastLoginAtReadable": "2026-11-03 13:22:32",
+      "lastNewBestAtReadable": "2026-11-04 11:13:13",
+      "createdAtReadable": "2026-11-03 13:22:32"
     },
     "superwoman": {
       "username": "superwoman",
       "summary": "🏆 Best: 49 pts (Easy: 49 | Medium: 40 | Hard: 22)",
-      "loginStatus": "🔑 Logged in 3 time(s) • Last login: 2026-11-04 10:35:35",
+      "loginStatus": "🔑 Logged in 6 time(s) • Last login: 2026-11-04 12:51:47",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 40 pts (beat old best of 37 pts on 2026-11-04 10:37:52)",
       "records": {
         "easy": 49,
@@ -432,6 +450,24 @@
       "adminLockedSkins": [],
       "loginHistory": [
         {
+          "timestamp": 1793793107728,
+          "readable": "2026-11-04 12:51:47",
+          "method": "password",
+          "loginNumber": 6
+        },
+        {
+          "timestamp": 1793793098733,
+          "readable": "2026-11-04 12:51:38",
+          "method": "password",
+          "loginNumber": 5
+        },
+        {
+          "timestamp": 1793793096534,
+          "readable": "2026-11-04 12:51:36",
+          "method": "password",
+          "loginNumber": 4
+        },
+        {
           "timestamp": 1793788535003,
           "readable": "2026-11-04 10:35:35",
           "method": "password",
@@ -444,15 +480,15 @@
           "loginNumber": 2
         }
       ],
-      "loginCount": 3,
-      "lastLoginAtReadable": "2026-11-04 10:35:35",
-      "lastNewBestAtReadable": "2026-11-04 10:37:52",
-      "createdAtReadable": "2026-10-29 09:55:11"
+      "loginCount": 6,
+      "lastLoginAtReadable": "2026-11-04 12:51:47",
+      "lastNewBestAtReadable": "2026-11-04 11:37:52",
+      "createdAtReadable": "2026-10-29 10:55:11"
     },
     "REJE": {
       "username": "REJE",
       "summary": "🏆 Best: 49 pts (Easy: 49 | Medium: 38 | Hard: 19)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:27:41",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:27:41",
       "newBestStatus": "✏️ Records updated (EASY: 949 -> 49, HARD: 119 -> 19) on 2026-11-03 12:15:06",
       "records": {
         "easy": 49,
@@ -481,15 +517,15 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:27:41",
-      "lastNewBestAtReadable": "2026-11-03 12:15:06",
-      "createdAtReadable": "2026-11-03 11:27:41"
+      "lastLoginAtReadable": "2026-11-03 12:27:41",
+      "lastNewBestAtReadable": "2026-11-03 13:15:06",
+      "createdAtReadable": "2026-11-03 12:27:41"
     },
     "IHATESUPERMANDTOO": {
       "username": "IHATESUPERMANDTOO",
       "summary": "🏆 Best: 47 pts (Easy: 47 | Medium: 43 | Hard: 20)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-04 10:33:23",
-      "newBestStatus": "���� NEW BEST in HARD: 20 pts (beat old best of 15 pts on 2026-11-04 10:38:59)",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-04 11:33:23",
+      "newBestStatus": "🔥 NEW BEST in HARD: 20 pts (beat old best of 15 pts on 2026-11-04 10:38:59)",
       "records": {
         "easy": 47,
         "medium": 43,
@@ -517,14 +553,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-04 10:33:23",
-      "lastNewBestAtReadable": "2026-11-04 10:38:59",
-      "createdAtReadable": "2026-11-04 10:33:23"
+      "lastLoginAtReadable": "2026-11-04 11:33:23",
+      "lastNewBestAtReadable": "2026-11-04 11:38:59",
+      "createdAtReadable": "2026-11-04 11:33:23"
     },
     "Dumlegomand": {
       "username": "Dumlegomand",
       "summary": "🏆 Best: 45 pts (Easy: 45 | Medium: 35 | Hard: 22)",
-      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 11:39:02",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 12:39:02",
       "newBestStatus": "🔥 NEW BEST in EASY: 45 pts (beat old best of 37 pts on 2026-11-03 12:22:13)",
       "records": {
         "easy": 45,
@@ -555,14 +591,14 @@
         }
       ],
       "loginCount": 2,
-      "lastLoginAtReadable": "2026-11-03 11:39:02",
-      "lastNewBestAtReadable": "2026-11-03 12:22:13",
-      "createdAtReadable": "2026-10-29 09:54:35"
+      "lastLoginAtReadable": "2026-11-03 12:39:02",
+      "lastNewBestAtReadable": "2026-11-03 13:22:13",
+      "createdAtReadable": "2026-10-29 10:54:35"
     },
     "Bexso": {
       "username": "Bexso",
       "summary": "🏆 Best: 43 pts (Easy: 43 | Medium: 35 | Hard: 19)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:54:31",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 13:54:31",
       "newBestStatus": "🔥 NEW BEST in HARD: 19 pts (beat old best of 14 pts on 2026-11-04 10:28:42)",
       "records": {
         "easy": 43,
@@ -591,14 +627,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 12:54:31",
-      "lastNewBestAtReadable": "2026-11-04 10:28:42",
-      "createdAtReadable": "2026-11-03 12:54:31"
+      "lastLoginAtReadable": "2026-11-03 13:54:31",
+      "lastNewBestAtReadable": "2026-11-04 11:28:42",
+      "createdAtReadable": "2026-11-03 13:54:31"
     },
     "Thomsen": {
       "username": "Thomsen",
       "summary": "🏆 Best: 40 pts (Easy: 0 | Medium: 40 | Hard: 17)",
-      "loginStatus": "🔑 Logged in 4 time(s) • Last login: 2026-11-03 11:59:06",
+      "loginStatus": "🔑 Logged in 4 time(s) • Last login: 2026-11-03 12:59:06",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 40 pts (beat old best of 35 pts on 2026-11-04 08:05:33)",
       "records": {
         "easy": 0,
@@ -636,14 +672,14 @@
         }
       ],
       "loginCount": 4,
-      "lastLoginAtReadable": "2026-11-03 11:59:06",
-      "lastNewBestAtReadable": "2026-11-04 08:05:33",
-      "createdAtReadable": "2026-10-21 06:27:54"
+      "lastLoginAtReadable": "2026-11-03 12:59:06",
+      "lastNewBestAtReadable": "2026-11-04 09:05:33",
+      "createdAtReadable": "2026-10-21 08:27:54"
     },
     "Bidoof": {
       "username": "Bidoof",
       "summary": "🏆 Best: 35 pts (Easy: 30 | Medium: 35 | Hard: 12)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:37:39",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:37:39",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 35 pts (beat old best of 32 pts on 2026-11-04 08:47:18)",
       "records": {
         "easy": 30,
@@ -659,7 +695,7 @@
         "totalRecordedRuns": 16,
         "hiddenRuns": 0
       },
-      "selectedSkin": "poke_bidoof",
+      "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [
         "eden_titan_easy"
@@ -674,14 +710,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:37:39",
-      "lastNewBestAtReadable": "2026-11-04 08:47:18",
-      "createdAtReadable": "2026-11-03 11:37:39"
+      "lastLoginAtReadable": "2026-11-03 12:37:39",
+      "lastNewBestAtReadable": "2026-11-04 09:47:18",
+      "createdAtReadable": "2026-11-03 12:37:39"
     },
     "P0lsehorn": {
       "username": "P0lsehorn",
       "summary": "🏆 Best: 34 pts (Easy: 34 | Medium: 29 | Hard: 20)",
-      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 11:39:55",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 12:39:55",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 29 pts (beat old best of 28 pts on 2026-11-03 11:54:54)",
       "records": {
         "easy": 34,
@@ -710,14 +746,14 @@
         }
       ],
       "loginCount": 2,
-      "lastLoginAtReadable": "2026-11-03 11:39:55",
-      "lastNewBestAtReadable": "2026-11-03 11:54:54",
-      "createdAtReadable": "2026-10-29 09:55:06"
+      "lastLoginAtReadable": "2026-11-03 12:39:55",
+      "lastNewBestAtReadable": "2026-11-03 12:54:54",
+      "createdAtReadable": "2026-10-29 10:55:06"
     },
     "bastian": {
       "username": "bastian",
       "summary": "🏆 Best: 33 pts (Easy: 0 | Medium: 33 | Hard: 20)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:33:35",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:33:35",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 33 pts (beat old best of 30 pts on 2026-11-04 10:41:30)",
       "records": {
         "easy": 0,
@@ -733,8 +769,8 @@
         "totalRecordedRuns": 7,
         "hiddenRuns": 0
       },
-      "selectedSkin": "poke_gengar",
-      "selectedPipeSkin": "pipe_bidoof_dam",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [
@@ -746,14 +782,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:33:35",
-      "lastNewBestAtReadable": "2026-11-04 10:41:30",
-      "createdAtReadable": "2026-11-03 11:33:35"
+      "lastLoginAtReadable": "2026-11-03 12:33:35",
+      "lastNewBestAtReadable": "2026-11-04 11:41:30",
+      "createdAtReadable": "2026-11-03 12:33:35"
     },
     "Oliver": {
       "username": "Oliver",
       "summary": "🏆 Best: 32 pts (Easy: 32 | Medium: 28 | Hard: 13)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:47:30",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:47:30",
       "newBestStatus": "🔥 NEW BEST in EASY: 32 pts (beat old best of 19 pts on 2026-11-04 09:28:38)",
       "records": {
         "easy": 32,
@@ -763,14 +799,14 @@
       "allTimeBest": 32,
       "leaderboardPlacements": {
         "total": 12,
-        "easy": 10,
-        "medium": 0,
+        "easy": 9,
+        "medium": 1,
         "hard": 2,
-        "totalRecordedRuns": 12,
-        "hiddenRuns": 0
+        "totalRecordedRuns": 13,
+        "hiddenRuns": 1
       },
-      "selectedSkin": "poke_meowth",
-      "selectedPipeSkin": "pipe_bidoof_dam",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [
@@ -782,14 +818,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:47:30",
-      "lastNewBestAtReadable": "2026-11-04 09:28:38",
-      "createdAtReadable": "2026-11-03 11:47:30"
+      "lastLoginAtReadable": "2026-11-03 12:47:30",
+      "lastNewBestAtReadable": "2026-11-04 10:28:38",
+      "createdAtReadable": "2026-11-03 12:47:30"
     },
     "vik24": {
       "username": "vik24",
       "summary": "🏆 Best: 31 pts (Easy: 31 | Medium: 22 | Hard: 19)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:32:33",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:32:33",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 22 pts (beat old best of 21 pts on 2026-11-04 07:38:11)",
       "records": {
         "easy": 31,
@@ -798,11 +834,11 @@
       },
       "allTimeBest": 31,
       "leaderboardPlacements": {
-        "total": 15,
+        "total": 16,
         "easy": 10,
-        "medium": 0,
+        "medium": 1,
         "hard": 5,
-        "totalRecordedRuns": 15,
+        "totalRecordedRuns": 16,
         "hiddenRuns": 0
       },
       "selectedSkin": "classic",
@@ -818,14 +854,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:32:33",
-      "lastNewBestAtReadable": "2026-11-04 07:38:11",
-      "createdAtReadable": "2026-11-03 11:32:33"
+      "lastLoginAtReadable": "2026-11-03 12:32:33",
+      "lastNewBestAtReadable": "2026-11-04 08:38:11",
+      "createdAtReadable": "2026-11-03 12:32:33"
     },
     "ostehapss": {
       "username": "ostehapss",
       "summary": "🏆 Best: 31 pts (Easy: 31 | Medium: 22 | Hard: 18)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:39:17",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:39:17",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 22 pts (beat old best of 5 pts on 2026-11-04 08:05:37)",
       "records": {
         "easy": 31,
@@ -835,11 +871,11 @@
       "allTimeBest": 31,
       "leaderboardPlacements": {
         "total": 44,
-        "easy": 41,
-        "medium": 0,
+        "easy": 40,
+        "medium": 1,
         "hard": 3,
-        "totalRecordedRuns": 44,
-        "hiddenRuns": 0
+        "totalRecordedRuns": 45,
+        "hiddenRuns": 1
       },
       "selectedSkin": "emerald",
       "selectedPipeSkin": "void_pipe_hard",
@@ -856,14 +892,56 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:39:17",
-      "lastNewBestAtReadable": "2026-11-04 08:05:37",
-      "createdAtReadable": "2026-11-03 11:39:17"
+      "lastLoginAtReadable": "2026-11-03 12:39:17",
+      "lastNewBestAtReadable": "2026-11-04 09:05:37",
+      "createdAtReadable": "2026-11-03 12:39:17"
+    },
+    "Wad1234": {
+      "username": "Wad1234",
+      "summary": "🏆 Best: 31 pts (Easy: 31 | Medium: 28 | Hard: 13)",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-04 12:51:53",
+      "newBestStatus": "🔥 NEW BEST in EASY: 31 pts (beat old best of 30 pts on 2026-11-04 12:56:51)",
+      "records": {
+        "easy": 31,
+        "medium": 28,
+        "hard": 13
+      },
+      "allTimeBest": 31,
+      "leaderboardPlacements": {
+        "total": 25,
+        "easy": 16,
+        "medium": 1,
+        "hard": 8,
+        "totalRecordedRuns": 25,
+        "hiddenRuns": 0
+      },
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "cloud_pipe_easy",
+      "grantedSkins": [],
+      "adminLockedSkins": [],
+      "loginHistory": [
+        {
+          "timestamp": 1793793113233,
+          "readable": "2026-11-04 12:51:53",
+          "method": "password",
+          "loginNumber": 2
+        },
+        {
+          "timestamp": 1793706137422,
+          "readable": "2026-11-03 11:42:17",
+          "method": "register",
+          "loginNumber": 1
+        }
+      ],
+      "loginCount": 2,
+      "lastLoginAtReadable": "2026-11-04 12:51:53",
+      "lastNewBestAtReadable": "2026-11-04 12:56:51",
+      "createdAtReadable": "2026-11-03 12:42:17"
     },
     "ella111199": {
       "username": "ella111199",
       "summary": "🏆 Best: 31 pts (Easy: 31 | Medium: 31 | Hard: 14)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:14:35",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 13:14:35",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 31 pts (beat old best of 25 pts on 2026-11-04 09:33:29)",
       "records": {
         "easy": 31,
@@ -892,14 +970,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 12:14:35",
-      "lastNewBestAtReadable": "2026-11-04 09:33:29",
-      "createdAtReadable": "2026-11-03 12:14:35"
+      "lastLoginAtReadable": "2026-11-03 13:14:35",
+      "lastNewBestAtReadable": "2026-11-04 10:33:29",
+      "createdAtReadable": "2026-11-03 13:14:35"
     },
     "Rahbæk1": {
       "username": "Rahbæk1",
       "summary": "🏆 Best: 30 pts (Easy: 29 | Medium: 30 | Hard: 13)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:41:50",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:41:50",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 30 pts (beat old best of 28 pts on 2026-11-04 09:23:25)",
       "records": {
         "easy": 29,
@@ -928,50 +1006,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:41:50",
-      "lastNewBestAtReadable": "2026-11-04 09:23:25",
-      "createdAtReadable": "2026-11-03 11:41:50"
-    },
-    "Wad1234": {
-      "username": "Wad1234",
-      "summary": "🏆 Best: 30 pts (Easy: 30 | Medium: 28 | Hard: 13)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:42:17",
-      "newBestStatus": "🔥 NEW BEST in MEDIUM: 28 pts (beat old best of 26 pts on 2026-11-04 10:10:48)",
-      "records": {
-        "easy": 30,
-        "medium": 28,
-        "hard": 13
-      },
-      "allTimeBest": 30,
-      "leaderboardPlacements": {
-        "total": 15,
-        "easy": 11,
-        "medium": 0,
-        "hard": 4,
-        "totalRecordedRuns": 15,
-        "hiddenRuns": 0
-      },
-      "selectedSkin": "classic",
-      "selectedPipeSkin": "classic_pipe",
-      "grantedSkins": [],
-      "adminLockedSkins": [],
-      "loginHistory": [
-        {
-          "timestamp": 1793706137422,
-          "readable": "2026-11-03 11:42:17",
-          "method": "register",
-          "loginNumber": 1
-        }
-      ],
-      "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:42:17",
-      "lastNewBestAtReadable": "2026-11-04 10:10:48",
-      "createdAtReadable": "2026-11-03 11:42:17"
+      "lastLoginAtReadable": "2026-11-03 12:41:50",
+      "lastNewBestAtReadable": "2026-11-04 10:23:25",
+      "createdAtReadable": "2026-11-03 12:41:50"
     },
     "ihatesupermandextra": {
       "username": "ihatesupermandextra",
       "summary": "🏆 Best: 30 pts (Easy: 0 | Medium: 30 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-04 10:31:45",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-04 11:31:45",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 30 pts (beat old best of 27 pts on 2026-11-04 10:34:32)",
       "records": {
         "easy": 0,
@@ -1000,14 +1042,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-04 10:31:45",
-      "lastNewBestAtReadable": "2026-11-04 10:34:32",
-      "createdAtReadable": "2026-11-04 10:31:45"
+      "lastLoginAtReadable": "2026-11-04 11:31:45",
+      "lastNewBestAtReadable": "2026-11-04 11:34:32",
+      "createdAtReadable": "2026-11-04 11:31:45"
     },
     "Zander": {
       "username": "Zander",
       "summary": "🏆 Best: 25 pts (Easy: 0 | Medium: 25 | Hard: 14)",
-      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 11:35:54",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 12:35:54",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 25 pts (beat old best of 0 pts on 2026-11-03 11:39:48)",
       "records": {
         "easy": 0,
@@ -1016,15 +1058,15 @@
       },
       "allTimeBest": 25,
       "leaderboardPlacements": {
-        "total": 1,
+        "total": 2,
         "easy": 0,
-        "medium": 0,
+        "medium": 1,
         "hard": 1,
-        "totalRecordedRuns": 1,
+        "totalRecordedRuns": 2,
         "hiddenRuns": 0
       },
       "selectedSkin": "sakura",
-      "selectedPipeSkin": "pipe_bidoof_dam",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [
@@ -1036,14 +1078,14 @@
         }
       ],
       "loginCount": 2,
-      "lastLoginAtReadable": "2026-11-03 11:35:54",
-      "lastNewBestAtReadable": "2026-11-03 11:39:48",
-      "createdAtReadable": "2026-10-26 07:48:42"
+      "lastLoginAtReadable": "2026-11-03 12:35:54",
+      "lastNewBestAtReadable": "2026-11-03 12:39:48",
+      "createdAtReadable": "2026-10-26 08:48:42"
     },
     "Allan": {
       "username": "Allan",
       "summary": "🏆 Best: 24 pts (Easy: 0 | Medium: 0 | Hard: 24)",
-      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-03 11:35:28",
+      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-03 12:35:28",
       "newBestStatus": "🔥 NEW BEST in HARD: 24 pts (beat old best of 16 pts on 2026-11-03 11:47:37)",
       "records": {
         "easy": 0,
@@ -1059,8 +1101,8 @@
         "totalRecordedRuns": 21,
         "hiddenRuns": 0
       },
-      "selectedSkin": "poke_meowth",
-      "selectedPipeSkin": "pipe_caution_bonk",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [
@@ -1072,14 +1114,14 @@
         }
       ],
       "loginCount": 5,
-      "lastLoginAtReadable": "2026-11-03 11:35:28",
-      "lastNewBestAtReadable": "2026-11-03 11:47:37",
-      "createdAtReadable": "2026-10-26 07:48:53"
+      "lastLoginAtReadable": "2026-11-03 12:35:28",
+      "lastNewBestAtReadable": "2026-11-03 12:47:37",
+      "createdAtReadable": "2026-10-26 08:48:53"
     },
     "superman": {
       "username": "superman",
       "summary": "🏆 Best: 24 pts (Easy: 0 | Medium: 24 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-04 08:31:27",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-04 09:31:27",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 24 pts (beat old best of 0 pts on 2026-11-04 09:32:47)",
       "records": {
         "easy": 0,
@@ -1088,11 +1130,11 @@
       },
       "allTimeBest": 24,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 1,
         "easy": 0,
-        "medium": 0,
+        "medium": 1,
         "hard": 0,
-        "totalRecordedRuns": 0,
+        "totalRecordedRuns": 1,
         "hiddenRuns": 0
       },
       "selectedSkin": "classic",
@@ -1108,14 +1150,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-04 08:31:27",
-      "lastNewBestAtReadable": "2026-11-04 09:32:47",
-      "createdAtReadable": "2026-11-04 08:31:27"
+      "lastLoginAtReadable": "2026-11-04 09:31:27",
+      "lastNewBestAtReadable": "2026-11-04 10:32:47",
+      "createdAtReadable": "2026-11-04 09:31:27"
     },
     "vik": {
       "username": "vik",
       "summary": "🏆 Best: 22 pts (Easy: 0 | Medium: 22 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-26 07:49:23",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-26 08:49:23",
       "newBestStatus": "✏️ Records updated (EASY: 560 -> 0) on 2026-11-04 09:05:50",
       "records": {
         "easy": 0,
@@ -1124,11 +1166,11 @@
       },
       "allTimeBest": 22,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 1,
         "easy": 0,
-        "medium": 0,
+        "medium": 1,
         "hard": 0,
-        "totalRecordedRuns": 0,
+        "totalRecordedRuns": 1,
         "hiddenRuns": 0
       },
       "selectedSkin": "classic",
@@ -1137,14 +1179,14 @@
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-10-26 07:49:23",
-      "lastNewBestAtReadable": "2026-11-04 09:05:50",
-      "createdAtReadable": "2026-10-26 07:49:23"
+      "lastLoginAtReadable": "2026-10-26 08:49:23",
+      "lastNewBestAtReadable": "2026-11-04 10:05:50",
+      "createdAtReadable": "2026-10-26 08:49:23"
     },
     "mrbeast": {
       "username": "mrbeast",
       "summary": "🏆 Best: 22 pts (Easy: 0 | Medium: 20 | Hard: 22)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:33:01",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:33:01",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 20 pts (beat old best of 9 pts on 2026-11-03 12:55:35)",
       "records": {
         "easy": 0,
@@ -1153,11 +1195,11 @@
       },
       "allTimeBest": 22,
       "leaderboardPlacements": {
-        "total": 36,
+        "total": 37,
         "easy": 0,
-        "medium": 0,
+        "medium": 1,
         "hard": 36,
-        "totalRecordedRuns": 36,
+        "totalRecordedRuns": 37,
         "hiddenRuns": 0
       },
       "selectedSkin": "classic",
@@ -1173,14 +1215,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:33:01",
-      "lastNewBestAtReadable": "2026-11-03 12:55:35",
-      "createdAtReadable": "2026-11-03 11:33:01"
+      "lastLoginAtReadable": "2026-11-03 12:33:01",
+      "lastNewBestAtReadable": "2026-11-03 13:55:35",
+      "createdAtReadable": "2026-11-03 12:33:01"
     },
     "ejstrup": {
       "username": "ejstrup",
       "summary": "🏆 Best: 19 pts (Easy: 19 | Medium: 0 | Hard: 12)",
-      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-03 11:23:53",
+      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-03 12:23:53",
       "newBestStatus": "🔥 NEW BEST in HARD: 12 pts (beat old best of 0 pts on 2026-11-03 12:23:53)",
       "records": {
         "easy": 19,
@@ -1227,14 +1269,14 @@
         }
       ],
       "loginCount": 5,
-      "lastLoginAtReadable": "2026-11-03 11:23:53",
-      "lastNewBestAtReadable": "2026-11-03 11:23:53",
-      "createdAtReadable": "2026-10-19 11:54:11"
+      "lastLoginAtReadable": "2026-11-03 12:23:53",
+      "lastNewBestAtReadable": "2026-11-03 12:23:53",
+      "createdAtReadable": "2026-10-19 13:54:11"
     },
     "Bigmack": {
       "username": "Bigmack",
       "summary": "🏆 Best: 15 pts (Easy: 0 | Medium: 15 | Hard: 8)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 11:59:40",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 12:59:40",
       "newBestStatus": "🔥 NEW BEST in HARD: 8 pts (beat old best of 7 pts on 2026-11-04 07:35:05)",
       "records": {
         "easy": 0,
@@ -1243,11 +1285,11 @@
       },
       "allTimeBest": 15,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 2,
         "easy": 0,
-        "medium": 0,
-        "hard": 0,
-        "totalRecordedRuns": 0,
+        "medium": 1,
+        "hard": 1,
+        "totalRecordedRuns": 2,
         "hiddenRuns": 0
       },
       "selectedSkin": "pacifist_gravity_drop",
@@ -1263,14 +1305,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 11:59:40",
-      "lastNewBestAtReadable": "2026-11-04 07:35:05",
-      "createdAtReadable": "2026-11-03 11:59:40"
+      "lastLoginAtReadable": "2026-11-03 12:59:40",
+      "lastNewBestAtReadable": "2026-11-04 08:35:05",
+      "createdAtReadable": "2026-11-03 12:59:40"
     },
     "kani": {
       "username": "kani",
       "summary": "🏆 Best: 14 pts (Easy: 0 | Medium: 14 | Hard: 9)",
-      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 12:17:49",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 13:17:49",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 14 pts (beat old best of 3 pts on 2026-11-04 07:59:53)",
       "records": {
         "easy": 0,
@@ -1279,11 +1321,11 @@
       },
       "allTimeBest": 14,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 2,
         "easy": 0,
-        "medium": 0,
-        "hard": 0,
-        "totalRecordedRuns": 0,
+        "medium": 1,
+        "hard": 1,
+        "totalRecordedRuns": 2,
         "hiddenRuns": 0
       },
       "selectedSkin": "classic",
@@ -1299,14 +1341,14 @@
         }
       ],
       "loginCount": 2,
-      "lastLoginAtReadable": "2026-11-03 12:17:49",
-      "lastNewBestAtReadable": "2026-11-04 07:59:53",
-      "createdAtReadable": "2026-10-30 09:47:48"
+      "lastLoginAtReadable": "2026-11-03 13:17:49",
+      "lastNewBestAtReadable": "2026-11-04 08:59:53",
+      "createdAtReadable": "2026-10-30 10:47:48"
     },
     "hh": {
       "username": "hh",
       "summary": "🏆 Best: 14 pts (Easy: 0 | Medium: 14 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 13:57:33",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-11-03 14:57:33",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 14 pts (beat old best of 0 pts on 2026-11-03 13:57:57)",
       "records": {
         "easy": 0,
@@ -1319,8 +1361,8 @@
         "easy": 0,
         "medium": 0,
         "hard": 0,
-        "totalRecordedRuns": 0,
-        "hiddenRuns": 0
+        "totalRecordedRuns": 1,
+        "hiddenRuns": 1
       },
       "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
@@ -1335,14 +1377,14 @@
         }
       ],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-11-03 13:57:33",
-      "lastNewBestAtReadable": "2026-11-03 13:57:57",
-      "createdAtReadable": "2026-11-03 13:57:33"
+      "lastLoginAtReadable": "2026-11-03 14:57:33",
+      "lastNewBestAtReadable": "2026-11-03 14:57:57",
+      "createdAtReadable": "2026-11-03 14:57:33"
     },
     "Hej123": {
       "username": "Hej123",
       "summary": "🏆 Best: 8 pts (Easy: 0 | Medium: 8 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 12:16:43",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-11-03 13:16:43",
       "newBestStatus": "🔥 NEW BEST in MEDIUM: 8 pts (beat old best of 1 pts on 2026-11-03 12:17:07)",
       "records": {
         "easy": 0,
@@ -1351,11 +1393,11 @@
       },
       "allTimeBest": 8,
       "leaderboardPlacements": {
-        "total": 0,
+        "total": 1,
         "easy": 0,
-        "medium": 0,
+        "medium": 1,
         "hard": 0,
-        "totalRecordedRuns": 0,
+        "totalRecordedRuns": 1,
         "hiddenRuns": 0
       },
       "selectedSkin": "classic",
@@ -1371,14 +1413,14 @@
         }
       ],
       "loginCount": 2,
-      "lastLoginAtReadable": "2026-11-03 12:16:43",
-      "lastNewBestAtReadable": "2026-11-03 12:17:07",
-      "createdAtReadable": "2026-10-30 12:35:25"
+      "lastLoginAtReadable": "2026-11-03 13:16:43",
+      "lastNewBestAtReadable": "2026-11-03 13:17:07",
+      "createdAtReadable": "2026-10-30 13:35:25"
     },
     "SkyAce": {
       "username": "SkyAce",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-03 11:23:53",
+      "loginStatus": "🔑 Logged in 5 time(s) • Last login: 2026-11-03 12:23:53",
       "newBestStatus": "✏️ Records updated (EASY: 31 -> 0, MEDIUM: 18 -> 0) on 2026-11-03 11:31:16",
       "records": {
         "easy": 0,
@@ -1395,7 +1437,7 @@
         "hiddenRuns": 0
       },
       "selectedSkin": "shadow_gengar",
-      "selectedPipeSkin": "rainbow_pipe",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [
         "shadow_gengar"
       ],
@@ -1427,14 +1469,14 @@
         }
       ],
       "loginCount": 5,
-      "lastLoginAtReadable": "2026-11-03 11:23:53",
-      "lastNewBestAtReadable": "2026-11-03 11:31:16",
-      "createdAtReadable": "2026-10-19 11:40:30"
+      "lastLoginAtReadable": "2026-11-03 12:23:53",
+      "lastNewBestAtReadable": "2026-11-03 12:31:16",
+      "createdAtReadable": "2026-10-19 13:40:30"
     },
     "Hadi": {
       "username": "Hadi",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-10-29 09:46:25",
+      "loginStatus": "🔑 Logged in 2 time(s) • Last login: 2026-10-29 10:46:25",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -1451,19 +1493,19 @@
         "hiddenRuns": 0
       },
       "selectedSkin": "classic",
-      "selectedPipeSkin": "shogun_pipe_med",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 2,
-      "lastLoginAtReadable": "2026-10-29 09:46:25",
+      "lastLoginAtReadable": "2026-10-29 10:46:25",
       "lastNewBestAtReadable": "Never",
-      "createdAtReadable": "2026-10-27 07:34:06"
+      "createdAtReadable": "2026-10-27 08:34:06"
     },
     "ostehaps": {
       "username": "ostehaps",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 08:09:58",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 09:09:58",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -1479,20 +1521,20 @@
         "totalRecordedRuns": 0,
         "hiddenRuns": 0
       },
-      "selectedSkin": "frost_medium",
-      "selectedPipeSkin": "shogun_pipe_med",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-10-29 08:09:58",
+      "lastLoginAtReadable": "2026-10-29 09:09:58",
       "lastNewBestAtReadable": "Never",
-      "createdAtReadable": "2026-10-29 08:09:58"
+      "createdAtReadable": "2026-10-29 09:09:58"
     },
     "Mort": {
       "username": "Mort",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 10:06:38",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 11:06:38",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -1508,20 +1550,20 @@
         "totalRecordedRuns": 0,
         "hiddenRuns": 0
       },
-      "selectedSkin": "poke_bidoof",
+      "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-10-29 10:06:38",
+      "lastLoginAtReadable": "2026-10-29 11:06:38",
       "lastNewBestAtReadable": "Never",
-      "createdAtReadable": "2026-10-29 10:06:38"
+      "createdAtReadable": "2026-10-29 11:06:38"
     },
     "Bassemand": {
       "username": "Bassemand",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 10:07:27",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-29 11:07:27",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -1537,20 +1579,20 @@
         "totalRecordedRuns": 0,
         "hiddenRuns": 0
       },
-      "selectedSkin": "poke_meowth",
-      "selectedPipeSkin": "pipe_banana_slip",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-10-29 10:07:27",
+      "lastLoginAtReadable": "2026-10-29 11:07:27",
       "lastNewBestAtReadable": "Never",
-      "createdAtReadable": "2026-10-29 10:07:27"
+      "createdAtReadable": "2026-10-29 11:07:27"
     },
     "vik11": {
       "username": "vik11",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 11:14:12",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 12:14:12",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -1572,14 +1614,14 @@
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-10-30 11:14:12",
+      "lastLoginAtReadable": "2026-10-30 12:14:12",
       "lastNewBestAtReadable": "Never",
-      "createdAtReadable": "2026-10-30 11:14:12"
+      "createdAtReadable": "2026-10-30 12:14:12"
     },
     "puhbigmack": {
       "username": "puhbigmack",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 12:30:16",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 13:30:16",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -1601,14 +1643,14 @@
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-10-30 12:30:16",
+      "lastLoginAtReadable": "2026-10-30 13:30:16",
       "lastNewBestAtReadable": "Never",
-      "createdAtReadable": "2026-10-30 12:30:16"
+      "createdAtReadable": "2026-10-30 13:30:16"
     },
     "Sejesara": {
       "username": "Sejesara",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 12:31:25",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 13:31:25",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -1630,14 +1672,14 @@
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-10-30 12:31:25",
+      "lastLoginAtReadable": "2026-10-30 13:31:25",
       "lastNewBestAtReadable": "Never",
-      "createdAtReadable": "2026-10-30 12:31:25"
+      "createdAtReadable": "2026-10-30 13:31:25"
     },
     "Ella332340": {
       "username": "Ella332340",
       "summary": "🏆 Best: 0 pts (Easy: 0 | Medium: 0 | Hard: 0)",
-      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 12:33:18",
+      "loginStatus": "🔑 Logged in 1 time(s) • Last login: 2026-10-30 13:33:18",
       "newBestStatus": "No personal best set yet",
       "records": {
         "easy": 0,
@@ -1659,12 +1701,357 @@
       "adminLockedSkins": [],
       "loginHistory": [],
       "loginCount": 1,
-      "lastLoginAtReadable": "2026-10-30 12:33:18",
+      "lastLoginAtReadable": "2026-10-30 13:33:18",
       "lastNewBestAtReadable": "Never",
-      "createdAtReadable": "2026-10-30 12:33:18"
+      "createdAtReadable": "2026-10-30 13:33:18"
     }
   },
   "activityFeed": [
+    {
+      "id": "f6ee8d86f6ea",
+      "timestampMs": 1793793654634,
+      "time": "2026-11-04 13:00:54",
+      "type": "LOGIN",
+      "username": "MeDonut",
+      "message": "🔑 MeDonut logged in (Password Login #22) — Current Bests: Easy 68 | Medium 36 | Hard 26",
+      "loginCount": 22,
+      "records": {
+        "easy": 68,
+        "medium": 36,
+        "hard": 26
+      }
+    },
+    {
+      "id": "c16241a328c2",
+      "timestampMs": 1793793644327,
+      "time": "2026-11-04 13:00:44",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified HARD run with 0 pts (Personal Best: 13 pts)",
+      "difficulty": "hard",
+      "score": 0,
+      "personalBest": 13
+    },
+    {
+      "id": "0dc36e1e19a2",
+      "timestampMs": 1793793592425,
+      "time": "2026-11-04 12:59:52",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified HARD run with 5 pts (Personal Best: 13 pts)",
+      "difficulty": "hard",
+      "score": 5,
+      "personalBest": 13
+    },
+    {
+      "id": "f9334ed6c7e0",
+      "timestampMs": 1793793575833,
+      "time": "2026-11-04 12:59:35",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified HARD run with 3 pts (Personal Best: 13 pts)",
+      "difficulty": "hard",
+      "score": 3,
+      "personalBest": 13
+    },
+    {
+      "id": "59480ffa28fc",
+      "timestampMs": 1793793571329,
+      "time": "2026-11-04 12:59:31",
+      "type": "VERIFIED_RUN",
+      "username": "bennersgoat",
+      "message": "🎮 bennersgoat finished a verified MEDIUM run with 23 pts (Personal Best: 44 pts)",
+      "difficulty": "medium",
+      "score": 23,
+      "personalBest": 44
+    },
+    {
+      "id": "abae7c0bb27b",
+      "timestampMs": 1793793564124,
+      "time": "2026-11-04 12:59:24",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified HARD run with 6 pts (Personal Best: 13 pts)",
+      "difficulty": "hard",
+      "score": 6,
+      "personalBest": 13
+    },
+    {
+      "id": "a7c91ffe51f9",
+      "timestampMs": 1793793549829,
+      "time": "2026-11-04 12:59:09",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified HARD run with 2 pts (Personal Best: 13 pts)",
+      "difficulty": "hard",
+      "score": 2,
+      "personalBest": 13
+    },
+    {
+      "id": "1dbe037d0972",
+      "timestampMs": 1793793539121,
+      "time": "2026-11-04 12:58:59",
+      "type": "VERIFIED_RUN",
+      "username": "bennersgoat",
+      "message": "🎮 bennersgoat finished a verified MEDIUM run with 0 pts (Personal Best: 44 pts)",
+      "difficulty": "medium",
+      "score": 0,
+      "personalBest": 44
+    },
+    {
+      "id": "595def09b468",
+      "timestampMs": 1793793517586,
+      "time": "2026-11-04 12:58:37",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified HARD run with 0 pts (Personal Best: 13 pts)",
+      "difficulty": "hard",
+      "score": 0,
+      "personalBest": 13
+    },
+    {
+      "id": "cce521e21364",
+      "timestampMs": 1793793460729,
+      "time": "2026-11-04 12:57:40",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified EASY run with 27 pts (Personal Best: 31 pts)",
+      "difficulty": "easy",
+      "score": 27,
+      "personalBest": 31
+    },
+    {
+      "id": "989f59f121fe",
+      "timestampMs": 1793793411032,
+      "time": "2026-11-04 12:56:51",
+      "type": "NEW_BEST",
+      "username": "Wad1234",
+      "message": "🏆 NEW BEST! Wad1234 achieved a new EASY record of 31 pts! (Previous best: 30 pts)",
+      "difficulty": "easy",
+      "newBest": 31,
+      "previousBest": 30,
+      "records": {
+        "easy": 31,
+        "medium": 28,
+        "hard": 13
+      }
+    },
+    {
+      "id": "90de87f6e9b9",
+      "timestampMs": 1793793389344,
+      "time": "2026-11-04 12:56:29",
+      "type": "VERIFIED_RUN",
+      "username": "bennersgoat",
+      "message": "🎮 bennersgoat finished a verified MEDIUM run with 4 pts (Personal Best: 44 pts)",
+      "difficulty": "medium",
+      "score": 4,
+      "personalBest": 44
+    },
+    {
+      "id": "39262db3ec65",
+      "timestampMs": 1793793378829,
+      "time": "2026-11-04 12:56:18",
+      "type": "VERIFIED_RUN",
+      "username": "bennersgoat",
+      "message": "🎮 bennersgoat finished a verified MEDIUM run with 3 pts (Personal Best: 44 pts)",
+      "difficulty": "medium",
+      "score": 3,
+      "personalBest": 44
+    },
+    {
+      "id": "eba169dd5f55",
+      "timestampMs": 1793793369234,
+      "time": "2026-11-04 12:56:09",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified EASY run with 0 pts (Personal Best: 30 pts)",
+      "difficulty": "easy",
+      "score": 0,
+      "personalBest": 30
+    },
+    {
+      "id": "9ce7994c0abf",
+      "timestampMs": 1793793361848,
+      "time": "2026-11-04 12:56:01",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified EASY run with 19 pts (Personal Best: 30 pts)",
+      "difficulty": "easy",
+      "score": 19,
+      "personalBest": 30
+    },
+    {
+      "id": "b43358fbbbb9",
+      "timestampMs": 1793793335263,
+      "time": "2026-11-04 12:55:35",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified EASY run with 21 pts (Personal Best: 30 pts)",
+      "difficulty": "easy",
+      "score": 21,
+      "personalBest": 30
+    },
+    {
+      "id": "42e01bc59982",
+      "timestampMs": 1793793281534,
+      "time": "2026-11-04 12:54:41",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified EASY run with 17 pts (Personal Best: 30 pts)",
+      "difficulty": "easy",
+      "score": 17,
+      "personalBest": 30
+    },
+    {
+      "id": "54e1e822d8ed",
+      "timestampMs": 1793793193436,
+      "time": "2026-11-04 12:53:13",
+      "type": "VERIFIED_RUN",
+      "username": "bennersgoat",
+      "message": "🎮 bennersgoat finished a verified MEDIUM run with 32 pts (Personal Best: 44 pts)",
+      "difficulty": "medium",
+      "score": 32,
+      "personalBest": 44
+    },
+    {
+      "id": "880850aa3c89",
+      "timestampMs": 1793793176029,
+      "time": "2026-11-04 12:52:56",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified MEDIUM run with 0 pts (Personal Best: 28 pts)",
+      "difficulty": "medium",
+      "score": 0,
+      "personalBest": 28
+    },
+    {
+      "id": "54c16908c5b2",
+      "timestampMs": 1793793164029,
+      "time": "2026-11-04 12:52:44",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified MEDIUM run with 0 pts (Personal Best: 28 pts)",
+      "difficulty": "medium",
+      "score": 0,
+      "personalBest": 28
+    },
+    {
+      "id": "a35390312f53",
+      "timestampMs": 1793793154827,
+      "time": "2026-11-04 12:52:34",
+      "type": "VERIFIED_RUN",
+      "username": "Wad1234",
+      "message": "🎮 Wad1234 finished a verified MEDIUM run with 0 pts (Personal Best: 28 pts)",
+      "difficulty": "medium",
+      "score": 0,
+      "personalBest": 28
+    },
+    {
+      "id": "3a495edead4e",
+      "timestampMs": 1793793152532,
+      "time": "2026-11-04 12:52:32",
+      "type": "VERIFIED_RUN",
+      "username": "bennersgoat",
+      "message": "🎮 bennersgoat finished a verified MEDIUM run with 0 pts (Personal Best: 44 pts)",
+      "difficulty": "medium",
+      "score": 0,
+      "personalBest": 44
+    },
+    {
+      "id": "489034f0cc14",
+      "timestampMs": 1793793146424,
+      "time": "2026-11-04 12:52:26",
+      "type": "LOGIN",
+      "username": "bennersgoat",
+      "message": "🔑 bennersgoat logged in (Password Login #3) — Current Bests: Easy 56 | Medium 44 | Hard 25",
+      "loginCount": 3,
+      "records": {
+        "easy": 56,
+        "medium": 44,
+        "hard": 25
+      }
+    },
+    {
+      "id": "e16137d8f5c0",
+      "timestampMs": 1793793140431,
+      "time": "2026-11-04 12:52:20",
+      "type": "VERIFIED_RUN",
+      "username": "supermand",
+      "message": "🎮 supermand finished a verified MEDIUM run with 0 pts (Personal Best: 41 pts)",
+      "difficulty": "medium",
+      "score": 0,
+      "personalBest": 41
+    },
+    {
+      "id": "c4911ba6a463",
+      "timestampMs": 1793793124125,
+      "time": "2026-11-04 12:52:04",
+      "type": "LOGIN",
+      "username": "supermand",
+      "message": "🔑 supermand logged in (Password Login #5) — Current Bests: Easy 53 | Medium 41 | Hard 22",
+      "loginCount": 5,
+      "records": {
+        "easy": 53,
+        "medium": 41,
+        "hard": 22
+      }
+    },
+    {
+      "id": "70c15e1b3baa",
+      "timestampMs": 1793793113234,
+      "time": "2026-11-04 12:51:53",
+      "type": "LOGIN",
+      "username": "Wad1234",
+      "message": "🔑 Wad1234 logged in (Password Login #2) — Current Bests: Easy 30 | Medium 28 | Hard 13",
+      "loginCount": 2,
+      "records": {
+        "easy": 30,
+        "medium": 28,
+        "hard": 13
+      }
+    },
+    {
+      "id": "115ecbe9db29",
+      "timestampMs": 1793793107729,
+      "time": "2026-11-04 12:51:47",
+      "type": "LOGIN",
+      "username": "superwoman",
+      "message": "🔑 superwoman logged in (Password Login #6) — Current Bests: Easy 49 | Medium 40 | Hard 22",
+      "loginCount": 6,
+      "records": {
+        "easy": 49,
+        "medium": 40,
+        "hard": 22
+      }
+    },
+    {
+      "id": "a7d838c1feff",
+      "timestampMs": 1793793098734,
+      "time": "2026-11-04 12:51:38",
+      "type": "LOGIN",
+      "username": "superwoman",
+      "message": "🔑 superwoman logged in (Password Login #5) — Current Bests: Easy 49 | Medium 40 | Hard 22",
+      "loginCount": 5,
+      "records": {
+        "easy": 49,
+        "medium": 40,
+        "hard": 22
+      }
+    },
+    {
+      "id": "0da121fa3b92",
+      "timestampMs": 1793793096535,
+      "time": "2026-11-04 12:51:36",
+      "type": "LOGIN",
+      "username": "superwoman",
+      "message": "🔑 superwoman logged in (Password Login #4) — Current Bests: Easy 49 | Medium 40 | Hard 22",
+      "loginCount": 4,
+      "records": {
+        "easy": 49,
+        "medium": 40,
+        "hard": 22
+      }
+    },
     {
       "id": "36738f155138",
       "timestampMs": 1793791532108,
@@ -3087,7 +3474,7 @@
       "time": "2026-11-04 10:53:10",
       "type": "VERIFIED_RUN",
       "username": "IHATESUPERMANDTOO",
-      "message": "🎮 IHATESUPERMANDTOO finished a verified HARD run with 9 pts (Personal Best: 20 pts)",
+      "message": "�� IHATESUPERMANDTOO finished a verified HARD run with 9 pts (Personal Best: 20 pts)",
       "difficulty": "hard",
       "score": 9,
       "personalBest": 20
@@ -4103,328 +4490,100 @@
       "difficulty": "medium",
       "score": 2,
       "personalBest": 41
-    },
-    {
-      "id": "c72c11107916",
-      "timestampMs": 1793789335424,
-      "time": "2026-11-04 10:48:55",
-      "type": "VERIFIED_RUN",
-      "username": "superwoman",
-      "message": "🎮 superwoman finished a verified MEDIUM run with 0 pts (Personal Best: 40 pts)",
-      "difficulty": "medium",
-      "score": 0,
-      "personalBest": 40
-    },
-    {
-      "id": "03530af3faef",
-      "timestampMs": 1793789333679,
-      "time": "2026-11-04 10:48:53",
-      "type": "VERIFIED_RUN",
-      "username": "superwoman",
-      "message": "🎮 superwoman finished a verified MEDIUM run with 7 pts (Personal Best: 40 pts)",
-      "difficulty": "medium",
-      "score": 7,
-      "personalBest": 40
-    },
-    {
-      "id": "9525543c52ce",
-      "timestampMs": 1793789332252,
-      "time": "2026-11-04 10:48:52",
-      "type": "VERIFIED_RUN",
-      "username": "bastian",
-      "message": "🎮 bastian finished a verified MEDIUM run with 13 pts (Personal Best: 33 pts)",
-      "difficulty": "medium",
-      "score": 13,
-      "personalBest": 33
-    },
-    {
-      "id": "03f47a09cb17",
-      "timestampMs": 1793789331470,
-      "time": "2026-11-04 10:48:51",
-      "type": "VERIFIED_RUN",
-      "username": "supermand",
-      "message": "🎮 supermand finished a verified MEDIUM run with 1 pts (Personal Best: 41 pts)",
-      "difficulty": "medium",
-      "score": 1,
-      "personalBest": 41
-    },
-    {
-      "id": "ba9a11f76e63",
-      "timestampMs": 1793789329675,
-      "time": "2026-11-04 10:48:49",
-      "type": "VERIFIED_RUN",
-      "username": "IHATESUPERMANDTOO",
-      "message": "🎮 IHATESUPERMANDTOO finished a verified MEDIUM run with 5 pts (Personal Best: 43 pts)",
-      "difficulty": "medium",
-      "score": 5,
-      "personalBest": 43
-    },
-    {
-      "id": "e99c47088a04",
-      "timestampMs": 1793789327027,
-      "time": "2026-11-04 10:48:47",
-      "type": "VERIFIED_RUN",
-      "username": "supermand",
-      "message": "🎮 supermand finished a verified MEDIUM run with 25 pts (Personal Best: 41 pts)",
-      "difficulty": "medium",
-      "score": 25,
-      "personalBest": 41
-    },
-    {
-      "id": "cf0dac861d55",
-      "timestampMs": 1793789322979,
-      "time": "2026-11-04 10:48:42",
-      "type": "VERIFIED_RUN",
-      "username": "Bexso",
-      "message": "🎮 Bexso finished a verified EASY run with 1 pts (Personal Best: 43 pts)",
-      "difficulty": "easy",
-      "score": 1,
-      "personalBest": 43
-    },
-    {
-      "id": "722528615aa0",
-      "timestampMs": 1793789322850,
-      "time": "2026-11-04 10:48:42",
-      "type": "VERIFIED_RUN",
-      "username": "superwoman",
-      "message": "🎮 superwoman finished a verified MEDIUM run with 7 pts (Personal Best: 40 pts)",
-      "difficulty": "medium",
-      "score": 7,
-      "personalBest": 40
-    },
-    {
-      "id": "9ba37f8078cb",
-      "timestampMs": 1793789322341,
-      "time": "2026-11-04 10:48:42",
-      "type": "VERIFIED_RUN",
-      "username": "IHATESUPERMANDTOO",
-      "message": "🎮 IHATESUPERMANDTOO finished a verified MEDIUM run with 3 pts (Personal Best: 43 pts)",
-      "difficulty": "medium",
-      "score": 3,
-      "personalBest": 43
-    },
-    {
-      "id": "5480104b550d",
-      "timestampMs": 1793789319904,
-      "time": "2026-11-04 10:48:39",
-      "type": "VERIFIED_RUN",
-      "username": "Bexso",
-      "message": "🎮 Bexso finished a verified EASY run with 19 pts (Personal Best: 43 pts)",
-      "difficulty": "easy",
-      "score": 19,
-      "personalBest": 43
-    },
-    {
-      "id": "20efc558ed0b",
-      "timestampMs": 1793789312634,
-      "time": "2026-11-04 10:48:32",
-      "type": "VERIFIED_RUN",
-      "username": "superwoman",
-      "message": "🎮 superwoman finished a verified MEDIUM run with 26 pts (Personal Best: 40 pts)",
-      "difficulty": "medium",
-      "score": 26,
-      "personalBest": 40
-    },
-    {
-      "id": "533064726ebb",
-      "timestampMs": 1793789309195,
-      "time": "2026-11-04 10:48:29",
-      "type": "VERIFIED_RUN",
-      "username": "bastian",
-      "message": "🎮 bastian finished a verified MEDIUM run with 2 pts (Personal Best: 33 pts)",
-      "difficulty": "medium",
-      "score": 2,
-      "personalBest": 33
-    },
-    {
-      "id": "241872ed7e54",
-      "timestampMs": 1793789306306,
-      "time": "2026-11-04 10:48:26",
-      "type": "VERIFIED_RUN",
-      "username": "bastian",
-      "message": "🎮 bastian finished a verified MEDIUM run with 9 pts (Personal Best: 33 pts)",
-      "difficulty": "medium",
-      "score": 9,
-      "personalBest": 33
-    },
-    {
-      "id": "62b2745020a5",
-      "timestampMs": 1793789305556,
-      "time": "2026-11-04 10:48:25",
-      "type": "VERIFIED_RUN",
-      "username": "IHATESUPERMANDTOO",
-      "message": "🎮 IHATESUPERMANDTOO finished a verified MEDIUM run with 18 pts (Personal Best: 43 pts)",
-      "difficulty": "medium",
-      "score": 18,
-      "personalBest": 43
-    },
-    {
-      "id": "532d74ce4064",
-      "timestampMs": 1793789297514,
-      "time": "2026-11-04 10:48:17",
-      "type": "VERIFIED_RUN",
-      "username": "supermand",
-      "message": "🎮 supermand finished a verified MEDIUM run with 16 pts (Personal Best: 41 pts)",
-      "difficulty": "medium",
-      "score": 16,
-      "personalBest": 41
-    },
-    {
-      "id": "d84ec0341888",
-      "timestampMs": 1793789296938,
-      "time": "2026-11-04 10:48:16",
-      "type": "VERIFIED_RUN",
-      "username": "Bexso",
-      "message": "🎮 Bexso finished a verified EASY run with 0 pts (Personal Best: 43 pts)",
-      "difficulty": "easy",
-      "score": 0,
-      "personalBest": 43
-    },
-    {
-      "id": "23e63ced002f",
-      "timestampMs": 1793789295669,
-      "time": "2026-11-04 10:48:15",
-      "type": "VERIFIED_RUN",
-      "username": "Bexso",
-      "message": "🎮 Bexso finished a verified EASY run with 0 pts (Personal Best: 43 pts)",
-      "difficulty": "easy",
-      "score": 0,
-      "personalBest": 43
-    },
-    {
-      "id": "9ad66ee238d6",
-      "timestampMs": 1793789294095,
-      "time": "2026-11-04 10:48:14",
-      "type": "VERIFIED_RUN",
-      "username": "bastian",
-      "message": "🎮 bastian finished a verified MEDIUM run with 13 pts (Personal Best: 33 pts)",
-      "difficulty": "medium",
-      "score": 13,
-      "personalBest": 33
-    },
-    {
-      "id": "9eeda6bbfb35",
-      "timestampMs": 1793789294059,
-      "time": "2026-11-04 10:48:14",
-      "type": "VERIFIED_RUN",
-      "username": "Bexso",
-      "message": "🎮 Bexso finished a verified EASY run with 0 pts (Personal Best: 43 pts)",
-      "difficulty": "easy",
-      "score": 0,
-      "personalBest": 43
-    },
-    {
-      "id": "ccc1bf1389f5",
-      "timestampMs": 1793789292675,
-      "time": "2026-11-04 10:48:12",
-      "type": "VERIFIED_RUN",
-      "username": "Bexso",
-      "message": "🎮 Bexso finished a verified EASY run with 28 pts (Personal Best: 43 pts)",
-      "difficulty": "easy",
-      "score": 28,
-      "personalBest": 43
-    },
-    {
-      "id": "309e01e29bca",
-      "timestampMs": 1793789288256,
-      "time": "2026-11-04 10:48:08",
-      "type": "VERIFIED_RUN",
-      "username": "ostehapss",
-      "message": "🎮 ostehapss finished a verified EASY run with 1 pts (Personal Best: 31 pts)",
-      "difficulty": "easy",
-      "score": 1,
-      "personalBest": 31
-    },
-    {
-      "id": "d905923b9fb1",
-      "timestampMs": 1793789284403,
-      "time": "2026-11-04 10:48:04",
-      "type": "VERIFIED_RUN",
-      "username": "ostehapss",
-      "message": "🎮 ostehapss finished a verified EASY run with 0 pts (Personal Best: 31 pts)",
-      "difficulty": "easy",
-      "score": 0,
-      "personalBest": 31
-    },
-    {
-      "id": "6aa9136dab33",
-      "timestampMs": 1793789282714,
-      "time": "2026-11-04 10:48:02",
-      "type": "VERIFIED_RUN",
-      "username": "superwoman",
-      "message": "🎮 superwoman finished a verified MEDIUM run with 1 pts (Personal Best: 40 pts)",
-      "difficulty": "medium",
-      "score": 1,
-      "personalBest": 40
-    },
-    {
-      "id": "0e4a7410cc17",
-      "timestampMs": 1793789276463,
-      "time": "2026-11-04 10:47:56",
-      "type": "VERIFIED_RUN",
-      "username": "bastian",
-      "message": "🎮 bastian finished a verified MEDIUM run with 8 pts (Personal Best: 33 pts)",
-      "difficulty": "medium",
-      "score": 8,
-      "personalBest": 33
-    },
-    {
-      "id": "e0cda93aab11",
-      "timestampMs": 1793789274773,
-      "time": "2026-11-04 10:47:54",
-      "type": "VERIFIED_RUN",
-      "username": "ostehapss",
-      "message": "🎮 ostehapss finished a verified EASY run with 3 pts (Personal Best: 31 pts)",
-      "difficulty": "easy",
-      "score": 3,
-      "personalBest": 31
-    },
-    {
-      "id": "5b233f9b0915",
-      "timestampMs": 1793789272882,
-      "time": "2026-11-04 10:47:52",
-      "type": "VERIFIED_RUN",
-      "username": "superwoman",
-      "message": "🎮 superwoman finished a verified MEDIUM run with 6 pts (Personal Best: 40 pts)",
-      "difficulty": "medium",
-      "score": 6,
-      "personalBest": 40
-    },
-    {
-      "id": "8a6e0b3bd5fc",
-      "timestampMs": 1793789272245,
-      "time": "2026-11-04 10:47:52",
-      "type": "VERIFIED_RUN",
-      "username": "IHATESUPERMANDTOO",
-      "message": "🎮 IHATESUPERMANDTOO finished a verified MEDIUM run with 27 pts (Personal Best: 43 pts)",
-      "difficulty": "medium",
-      "score": 27,
-      "personalBest": 43
-    },
-    {
-      "id": "ee4c2f84dd4c",
-      "timestampMs": 1793789269642,
-      "time": "2026-11-04 10:47:49",
-      "type": "VERIFIED_RUN",
-      "username": "ostehapss",
-      "message": "🎮 ostehapss finished a verified EASY run with 16 pts (Personal Best: 31 pts)",
-      "difficulty": "easy",
-      "score": 16,
-      "personalBest": 31
-    },
-    {
-      "id": "e0e01c1a7a56",
-      "timestampMs": 1793789264758,
-      "time": "2026-11-04 10:47:44",
-      "type": "VERIFIED_RUN",
-      "username": "bastian",
-      "message": "🎮 bastian finished a verified MEDIUM run with 11 pts (Personal Best: 33 pts)",
-      "difficulty": "medium",
-      "score": 11,
-      "personalBest": 33
     }
   ],
   "loginHistory": [
+    {
+      "id": "login_1793793654633_klylx1",
+      "username": "MeDonut",
+      "timestamp": 1793793654633,
+      "readable": "2026-11-04 13:00:54",
+      "method": "password",
+      "loginCount": 22,
+      "records": {
+        "easy": 68,
+        "medium": 36,
+        "hard": 26
+      }
+    },
+    {
+      "id": "login_1793793146423_dmitt3",
+      "username": "bennersgoat",
+      "timestamp": 1793793146423,
+      "readable": "2026-11-04 12:52:26",
+      "method": "password",
+      "loginCount": 3,
+      "records": {
+        "easy": 56,
+        "medium": 44,
+        "hard": 25
+      }
+    },
+    {
+      "id": "login_1793793124125_700ptn",
+      "username": "supermand",
+      "timestamp": 1793793124125,
+      "readable": "2026-11-04 12:52:04",
+      "method": "password",
+      "loginCount": 5,
+      "records": {
+        "easy": 53,
+        "medium": 41,
+        "hard": 22
+      }
+    },
+    {
+      "id": "login_1793793113233_sv5ola",
+      "username": "Wad1234",
+      "timestamp": 1793793113233,
+      "readable": "2026-11-04 12:51:53",
+      "method": "password",
+      "loginCount": 2,
+      "records": {
+        "easy": 30,
+        "medium": 28,
+        "hard": 13
+      }
+    },
+    {
+      "id": "login_1793793107728_rt796w",
+      "username": "superwoman",
+      "timestamp": 1793793107728,
+      "readable": "2026-11-04 12:51:47",
+      "method": "password",
+      "loginCount": 6,
+      "records": {
+        "easy": 49,
+        "medium": 40,
+        "hard": 22
+      }
+    },
+    {
+      "id": "login_1793793098733_3fke0r",
+      "username": "superwoman",
+      "timestamp": 1793793098733,
+      "readable": "2026-11-04 12:51:38",
+      "method": "password",
+      "loginCount": 5,
+      "records": {
+        "easy": 49,
+        "medium": 40,
+        "hard": 22
+      }
+    },
+    {
+      "id": "login_1793793096534_q7a4u6",
+      "username": "superwoman",
+      "timestamp": 1793793096534,
+      "readable": "2026-11-04 12:51:36",
+      "method": "password",
+      "loginCount": 4,
+      "records": {
+        "easy": 49,
+        "medium": 40,
+        "hard": 22
+      }
+    },
     {
       "id": "login_1793791532108_nq92t5",
       "username": "MeDonut",
@@ -5250,10 +5409,10 @@
         "hard": 0
       },
       "selectedSkin": "shadow_gengar",
-      "selectedPipeSkin": "rainbow_pipe",
+      "selectedPipeSkin": "classic_pipe",
       "loginCount": 5,
       "lastLoginAt": 1793705033645,
-      "lastLoginReadable": "2026-11-03 11:23:53",
+      "lastLoginReadable": "2026-11-03 12:23:53",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -5314,9 +5473,9 @@
       },
       "selectedSkin": "poke_gengar",
       "selectedPipeSkin": "pipe_pokeball",
-      "loginCount": 21,
-      "lastLoginAt": 1793791532108,
-      "lastLoginReadable": "2026-11-04 11:25:32",
+      "loginCount": 22,
+      "lastLoginAt": 1793793654633,
+      "lastLoginReadable": "2026-11-04 13:00:54",
       "_lastSyncedRecords": {
         "easy": 68,
         "medium": 36,
@@ -5328,6 +5487,12 @@
       ],
       "adminLockedSkins": [],
       "loginHistory": [
+        {
+          "timestamp": 1793793654633,
+          "readable": "2026-11-04 13:00:54",
+          "method": "password",
+          "loginNumber": 22
+        },
         {
           "timestamp": 1793791532108,
           "readable": "2026-11-04 11:25:32",
@@ -5464,7 +5629,7 @@
       "selectedPipeSkin": "steel_pipe",
       "loginCount": 5,
       "lastLoginAt": 1793705033649,
-      "lastLoginReadable": "2026-11-03 11:23:53",
+      "lastLoginReadable": "2026-11-03 12:23:53",
       "_lastSyncedRecords": {
         "easy": 19,
         "medium": 0,
@@ -5525,7 +5690,7 @@
       "selectedPipeSkin": "glacier_pipe",
       "loginCount": 4,
       "lastLoginAt": 1793707146863,
-      "lastLoginReadable": "2026-11-03 11:59:06",
+      "lastLoginReadable": "2026-11-03 12:59:06",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 40,
@@ -5573,11 +5738,11 @@
         "medium": 1793784824749,
         "hard": 1793712740912
       },
-      "selectedSkin": "poke_gengar",
+      "selectedSkin": "classic",
       "selectedPipeSkin": "pipe_9_10_21",
       "loginCount": 5,
       "lastLoginAt": 1793709557483,
-      "lastLoginReadable": "2026-11-03 12:39:17",
+      "lastLoginReadable": "2026-11-03 13:39:17",
       "_lastSyncedRecords": {
         "easy": 70,
         "medium": 41,
@@ -5629,10 +5794,10 @@
         "hard": 1793705896653
       },
       "selectedSkin": "sakura",
-      "selectedPipeSkin": "pipe_bidoof_dam",
+      "selectedPipeSkin": "classic_pipe",
       "loginCount": 2,
       "lastLoginAt": 1793705754982,
-      "lastLoginReadable": "2026-11-03 11:35:54",
+      "lastLoginReadable": "2026-11-03 12:35:54",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 25,
@@ -5671,11 +5836,11 @@
         "medium": 0,
         "hard": 1793706457034
       },
-      "selectedSkin": "poke_meowth",
-      "selectedPipeSkin": "pipe_caution_bonk",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "loginCount": 5,
       "lastLoginAt": 1793705728103,
-      "lastLoginReadable": "2026-11-03 11:35:28",
+      "lastLoginReadable": "2026-11-03 12:35:28",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -5718,7 +5883,7 @@
       "selectedPipeSkin": "temple_pipe",
       "loginCount": 1,
       "lastLoginAt": 1793000963767,
-      "lastLoginReadable": "2026-10-26 07:49:23",
+      "lastLoginReadable": "2026-10-26 08:49:23",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 22,
@@ -5750,10 +5915,10 @@
         "hard": 0
       },
       "selectedSkin": "classic",
-      "selectedPipeSkin": "shogun_pipe_med",
+      "selectedPipeSkin": "classic_pipe",
       "loginCount": 2,
       "lastLoginAt": 1793267185100,
-      "lastLoginReadable": "2026-10-29 09:46:25",
+      "lastLoginReadable": "2026-10-29 10:46:25",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -5783,7 +5948,7 @@
       "selectedPipeSkin": "pipe_squirtle_shell",
       "loginCount": 2,
       "lastLoginAt": 1793705439766,
-      "lastLoginReadable": "2026-11-03 11:30:39",
+      "lastLoginReadable": "2026-11-03 12:30:39",
       "_lastSyncedRecords": {
         "easy": 77,
         "medium": 43,
@@ -5825,11 +5990,11 @@
         "medium": 0,
         "hard": 0
       },
-      "selectedSkin": "frost_medium",
-      "selectedPipeSkin": "shogun_pipe_med",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "loginCount": 1,
       "lastLoginAt": 1793261398300,
-      "lastLoginReadable": "2026-10-29 08:09:58",
+      "lastLoginReadable": "2026-10-29 09:09:58",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -5859,7 +6024,7 @@
       "selectedPipeSkin": "pipe_toilet_plunger",
       "loginCount": 2,
       "lastLoginAt": 1793705942086,
-      "lastLoginReadable": "2026-11-03 11:39:02",
+      "lastLoginReadable": "2026-11-03 12:39:02",
       "_lastSyncedRecords": {
         "easy": 45,
         "medium": 35,
@@ -5902,9 +6067,9 @@
       },
       "selectedSkin": "frost_medium",
       "selectedPipeSkin": "steel_pipe",
-      "loginCount": 4,
-      "lastLoginAt": 1793784799212,
-      "lastLoginReadable": "2026-11-04 09:33:19",
+      "loginCount": 5,
+      "lastLoginAt": 1793793124125,
+      "lastLoginReadable": "2026-11-04 12:52:04",
       "_lastSyncedRecords": {
         "easy": 53,
         "medium": 41,
@@ -5913,6 +6078,12 @@
       "grantedSkins": [],
       "adminLockedSkins": [],
       "loginHistory": [
+        {
+          "timestamp": 1793793124125,
+          "readable": "2026-11-04 12:52:04",
+          "method": "password",
+          "loginNumber": 5
+        },
         {
           "timestamp": 1793784799212,
           "readable": "2026-11-04 09:33:19",
@@ -5959,7 +6130,7 @@
       "selectedPipeSkin": "temple_pipe",
       "loginCount": 2,
       "lastLoginAt": 1793705995913,
-      "lastLoginReadable": "2026-11-03 11:39:55",
+      "lastLoginReadable": "2026-11-03 12:39:55",
       "_lastSyncedRecords": {
         "easy": 34,
         "medium": 29,
@@ -6000,9 +6171,9 @@
       },
       "selectedSkin": "cardinal",
       "selectedPipeSkin": "candy_pipe",
-      "loginCount": 3,
-      "lastLoginAt": 1793788535003,
-      "lastLoginReadable": "2026-11-04 10:35:35",
+      "loginCount": 6,
+      "lastLoginAt": 1793793107728,
+      "lastLoginReadable": "2026-11-04 12:51:47",
       "_lastSyncedRecords": {
         "easy": 49,
         "medium": 40,
@@ -6013,6 +6184,24 @@
       ],
       "adminLockedSkins": [],
       "loginHistory": [
+        {
+          "timestamp": 1793793107728,
+          "readable": "2026-11-04 12:51:47",
+          "method": "password",
+          "loginNumber": 6
+        },
+        {
+          "timestamp": 1793793098733,
+          "readable": "2026-11-04 12:51:38",
+          "method": "password",
+          "loginNumber": 5
+        },
+        {
+          "timestamp": 1793793096534,
+          "readable": "2026-11-04 12:51:36",
+          "method": "password",
+          "loginNumber": 4
+        },
         {
           "timestamp": 1793788535003,
           "readable": "2026-11-04 10:35:35",
@@ -6049,11 +6238,11 @@
         "medium": 0,
         "hard": 0
       },
-      "selectedSkin": "poke_bidoof",
+      "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
       "loginCount": 1,
       "lastLoginAt": 1793268398207,
-      "lastLoginReadable": "2026-10-29 10:06:38",
+      "lastLoginReadable": "2026-10-29 11:06:38",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -6079,11 +6268,11 @@
         "medium": 0,
         "hard": 0
       },
-      "selectedSkin": "poke_meowth",
-      "selectedPipeSkin": "pipe_banana_slip",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "loginCount": 1,
       "lastLoginAt": 1793268447996,
-      "lastLoginReadable": "2026-10-29 10:07:27",
+      "lastLoginReadable": "2026-10-29 11:07:27",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -6109,11 +6298,11 @@
         "medium": 1793785582884,
         "hard": 1793709589452
       },
-      "selectedSkin": "poke_meowth",
-      "selectedPipeSkin": "pipe_bulbasaur_vine",
-      "loginCount": 2,
-      "lastLoginAt": 1793706382681,
-      "lastLoginReadable": "2026-11-03 11:46:22",
+      "selectedSkin": "phoenix",
+      "selectedPipeSkin": "void_pipe_hard",
+      "loginCount": 3,
+      "lastLoginAt": 1793793146423,
+      "lastLoginReadable": "2026-11-04 12:52:26",
       "_lastSyncedRecords": {
         "easy": 56,
         "medium": 44,
@@ -6124,6 +6313,12 @@
       ],
       "adminLockedSkins": [],
       "loginHistory": [
+        {
+          "timestamp": 1793793146423,
+          "readable": "2026-11-04 12:52:26",
+          "method": "password",
+          "loginNumber": 3
+        },
         {
           "timestamp": 1793706382681,
           "readable": "2026-11-03 11:46:22",
@@ -6158,7 +6353,7 @@
       "selectedPipeSkin": "classic_pipe",
       "loginCount": 2,
       "lastLoginAt": 1793708269488,
-      "lastLoginReadable": "2026-11-03 12:17:49",
+      "lastLoginReadable": "2026-11-03 13:17:49",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 14,
@@ -6201,7 +6396,7 @@
       "selectedPipeSkin": "classic_pipe",
       "loginCount": 1,
       "lastLoginAt": 1793358852274,
-      "lastLoginReadable": "2026-10-30 11:14:12",
+      "lastLoginReadable": "2026-10-30 12:14:12",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -6231,7 +6426,7 @@
       "selectedPipeSkin": "classic_pipe",
       "loginCount": 1,
       "lastLoginAt": 1793363416958,
-      "lastLoginReadable": "2026-10-30 12:30:16",
+      "lastLoginReadable": "2026-10-30 13:30:16",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -6261,7 +6456,7 @@
       "selectedPipeSkin": "classic_pipe",
       "loginCount": 1,
       "lastLoginAt": 1793363485099,
-      "lastLoginReadable": "2026-10-30 12:31:25",
+      "lastLoginReadable": "2026-10-30 13:31:25",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -6291,7 +6486,7 @@
       "selectedPipeSkin": "classic_pipe",
       "loginCount": 1,
       "lastLoginAt": 1793363598121,
-      "lastLoginReadable": "2026-10-30 12:33:18",
+      "lastLoginReadable": "2026-10-30 13:33:18",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 0,
@@ -6321,7 +6516,7 @@
       "selectedPipeSkin": "classic_pipe",
       "loginCount": 2,
       "lastLoginAt": 1793708203549,
-      "lastLoginReadable": "2026-11-03 12:16:43",
+      "lastLoginReadable": "2026-11-03 13:16:43",
       "_lastSyncedRecords": {
         "easy": 0,
         "medium": 8,
@@ -6352,7 +6547,7 @@
       "createdAt": 1793705261630,
       "loginCount": 1,
       "lastLoginAt": 1793705261630,
-      "lastLoginReadable": "2026-11-03 11:27:41",
+      "lastLoginReadable": "2026-11-03 12:27:41",
       "lastNewBestAt": 1793708106686,
       "lastNewBestText": "✏️ Records updated (EASY: 949 -> 49, HARD: 119 -> 19) on 2026-11-03 12:15:06",
       "selectedSkin": "penguin",
@@ -6395,7 +6590,7 @@
       "createdAt": 1793705286379,
       "loginCount": 1,
       "lastLoginAt": 1793705286379,
-      "lastLoginReadable": "2026-11-03 11:28:06",
+      "lastLoginReadable": "2026-11-03 12:28:06",
       "lastNewBestAt": 1793791495520,
       "lastNewBestText": "✏️ Records updated (HARD: 0 -> 800) on 2026-11-04 11:24:55",
       "selectedSkin": "classic",
@@ -6435,7 +6630,7 @@
       "createdAt": 1793705553040,
       "loginCount": 1,
       "lastLoginAt": 1793705553040,
-      "lastLoginReadable": "2026-11-03 11:32:33",
+      "lastLoginReadable": "2026-11-03 12:32:33",
       "lastNewBestAt": 1793777891962,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 22 pts (beat old best of 21 pts on 2026-11-04 07:38:11)",
       "selectedSkin": "classic",
@@ -6478,7 +6673,7 @@
       "createdAt": 1793705581885,
       "loginCount": 1,
       "lastLoginAt": 1793705581885,
-      "lastLoginReadable": "2026-11-03 11:33:01",
+      "lastLoginReadable": "2026-11-03 12:33:01",
       "lastNewBestAt": 1793710535318,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 20 pts (beat old best of 9 pts on 2026-11-03 12:55:35)",
       "selectedSkin": "classic",
@@ -6521,11 +6716,11 @@
       "createdAt": 1793705615002,
       "loginCount": 1,
       "lastLoginAt": 1793705615002,
-      "lastLoginReadable": "2026-11-03 11:33:35",
+      "lastLoginReadable": "2026-11-03 12:33:35",
       "lastNewBestAt": 1793788890560,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 33 pts (beat old best of 30 pts on 2026-11-04 10:41:30)",
-      "selectedSkin": "poke_gengar",
-      "selectedPipeSkin": "pipe_bidoof_dam",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "records": {
@@ -6564,10 +6759,10 @@
       "createdAt": 1793705859762,
       "loginCount": 1,
       "lastLoginAt": 1793705859763,
-      "lastLoginReadable": "2026-11-03 11:37:39",
+      "lastLoginReadable": "2026-11-03 12:37:39",
       "lastNewBestAt": 1793782038441,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 35 pts (beat old best of 32 pts on 2026-11-04 08:47:18)",
-      "selectedSkin": "poke_bidoof",
+      "selectedSkin": "classic",
       "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [
         "eden_titan_easy"
@@ -6610,7 +6805,7 @@
       "createdAt": 1793705957810,
       "loginCount": 1,
       "lastLoginAt": 1793705957810,
-      "lastLoginReadable": "2026-11-03 11:39:17",
+      "lastLoginReadable": "2026-11-03 12:39:17",
       "lastNewBestAt": 1793779537091,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 22 pts (beat old best of 5 pts on 2026-11-04 08:05:37)",
       "selectedSkin": "emerald",
@@ -6655,7 +6850,7 @@
       "createdAt": 1793706110551,
       "loginCount": 1,
       "lastLoginAt": 1793706110551,
-      "lastLoginReadable": "2026-11-03 11:41:50",
+      "lastLoginReadable": "2026-11-03 12:41:50",
       "lastNewBestAt": 1793784205213,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 30 pts (beat old best of 28 pts on 2026-11-04 09:23:25)",
       "selectedSkin": "penguin",
@@ -6697,27 +6892,33 @@
       "salt": "124fc9c4d58b3584b71499607c0fe185",
       "passwordHash": "3aa5ae6701b6d5050d789bbb7f5a8764e074a93ad4371414f60c631f53dabaa9dbf526fc2b7ae2edaa8e7fb197b40d78adf385ce3105f3cfdfc9196c706d1ab7",
       "createdAt": 1793706137422,
-      "loginCount": 1,
-      "lastLoginAt": 1793706137422,
-      "lastLoginReadable": "2026-11-03 11:42:17",
-      "lastNewBestAt": 1793787048036,
-      "lastNewBestText": "🔥 NEW BEST in MEDIUM: 28 pts (beat old best of 26 pts on 2026-11-04 10:10:48)",
+      "loginCount": 2,
+      "lastLoginAt": 1793793113233,
+      "lastLoginReadable": "2026-11-04 12:51:53",
+      "lastNewBestAt": 1793793411031,
+      "lastNewBestText": "🔥 NEW BEST in EASY: 31 pts (beat old best of 30 pts on 2026-11-04 12:56:51)",
       "selectedSkin": "classic",
-      "selectedPipeSkin": "classic_pipe",
+      "selectedPipeSkin": "cloud_pipe_easy",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "records": {
-        "easy": 30,
+        "easy": 31,
         "medium": 28,
         "hard": 13
       },
       "recordTimestamps": {
-        "easy": 1793706828420,
+        "easy": 1793793411031,
         "medium": 1793787048036,
         "hard": 1793708058520
       },
-      "lastLoginMethod": "register",
+      "lastLoginMethod": "password",
       "loginHistory": [
+        {
+          "timestamp": 1793793113233,
+          "readable": "2026-11-04 12:51:53",
+          "method": "password",
+          "loginNumber": 2
+        },
         {
           "timestamp": 1793706137422,
           "readable": "2026-11-03 11:42:17",
@@ -6726,14 +6927,14 @@
         }
       ],
       "_lastSyncedRecords": {
-        "easy": 30,
+        "easy": 31,
         "medium": 28,
         "hard": 13
       },
-      "lastNewBestReadable": "2026-11-04 10:10:48",
-      "lastNewBestMode": "medium",
-      "lastNewBestScore": 28,
-      "lastNewBestPrevious": 26
+      "lastNewBestReadable": "2026-11-04 12:56:51",
+      "lastNewBestMode": "easy",
+      "lastNewBestScore": 31,
+      "lastNewBestPrevious": 30
     },
     "oliver": {
       "username": "Oliver",
@@ -6742,11 +6943,11 @@
       "createdAt": 1793706450270,
       "loginCount": 1,
       "lastLoginAt": 1793706450270,
-      "lastLoginReadable": "2026-11-03 11:47:30",
+      "lastLoginReadable": "2026-11-03 12:47:30",
       "lastNewBestAt": 1793784518810,
       "lastNewBestText": "🔥 NEW BEST in EASY: 32 pts (beat old best of 19 pts on 2026-11-04 09:28:38)",
-      "selectedSkin": "poke_meowth",
-      "selectedPipeSkin": "pipe_bidoof_dam",
+      "selectedSkin": "classic",
+      "selectedPipeSkin": "classic_pipe",
       "grantedSkins": [],
       "adminLockedSkins": [],
       "records": {
@@ -6785,7 +6986,7 @@
       "createdAt": 1793707180604,
       "loginCount": 1,
       "lastLoginAt": 1793707180604,
-      "lastLoginReadable": "2026-11-03 11:59:40",
+      "lastLoginReadable": "2026-11-03 12:59:40",
       "lastNewBestAt": 1793777705864,
       "lastNewBestText": "🔥 NEW BEST in HARD: 8 pts (beat old best of 7 pts on 2026-11-04 07:35:05)",
       "selectedSkin": "pacifist_gravity_drop",
@@ -6828,7 +7029,7 @@
       "createdAt": 1793708075479,
       "loginCount": 1,
       "lastLoginAt": 1793708075479,
-      "lastLoginReadable": "2026-11-03 12:14:35",
+      "lastLoginReadable": "2026-11-03 13:14:35",
       "lastNewBestAt": 1793784809258,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 31 pts (beat old best of 25 pts on 2026-11-04 09:33:29)",
       "selectedSkin": "classic",
@@ -6871,7 +7072,7 @@
       "createdAt": 1793708552738,
       "loginCount": 1,
       "lastLoginAt": 1793708552738,
-      "lastLoginReadable": "2026-11-03 12:22:32",
+      "lastLoginReadable": "2026-11-03 13:22:32",
       "lastNewBestAt": 1793787193259,
       "lastNewBestText": "🔥 NEW BEST in HARD: 10 pts (beat old best of 5 pts on 2026-11-04 10:13:13)",
       "selectedSkin": "penguin",
@@ -6914,7 +7115,7 @@
       "createdAt": 1793710471842,
       "loginCount": 1,
       "lastLoginAt": 1793710471842,
-      "lastLoginReadable": "2026-11-03 12:54:31",
+      "lastLoginReadable": "2026-11-03 13:54:31",
       "lastNewBestAt": 1793788122464,
       "lastNewBestText": "🔥 NEW BEST in HARD: 19 pts (beat old best of 14 pts on 2026-11-04 10:28:42)",
       "selectedSkin": "bluejay",
@@ -6957,7 +7158,7 @@
       "createdAt": 1793714253252,
       "loginCount": 1,
       "lastLoginAt": 1793714253252,
-      "lastLoginReadable": "2026-11-03 13:57:33",
+      "lastLoginReadable": "2026-11-03 14:57:33",
       "lastNewBestAt": 1793714277749,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 14 pts (beat old best of 0 pts on 2026-11-03 13:57:57)",
       "selectedSkin": "classic",
@@ -7000,7 +7201,7 @@
       "createdAt": 1793781087315,
       "loginCount": 1,
       "lastLoginAt": 1793781087317,
-      "lastLoginReadable": "2026-11-04 08:31:27",
+      "lastLoginReadable": "2026-11-04 09:31:27",
       "lastNewBestAt": 1793784767677,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 24 pts (beat old best of 0 pts on 2026-11-04 09:32:47)",
       "selectedSkin": "classic",
@@ -7043,7 +7244,7 @@
       "createdAt": 1793788305994,
       "loginCount": 1,
       "lastLoginAt": 1793788305994,
-      "lastLoginReadable": "2026-11-04 10:31:45",
+      "lastLoginReadable": "2026-11-04 11:31:45",
       "lastNewBestAt": 1793788472127,
       "lastNewBestText": "🔥 NEW BEST in MEDIUM: 30 pts (beat old best of 27 pts on 2026-11-04 10:34:32)",
       "selectedSkin": "classic",
@@ -7086,7 +7287,7 @@
       "createdAt": 1793788403294,
       "loginCount": 1,
       "lastLoginAt": 1793788403294,
-      "lastLoginReadable": "2026-11-04 10:33:23",
+      "lastLoginReadable": "2026-11-04 11:33:23",
       "lastNewBestAt": 1793788739178,
       "lastNewBestText": "🔥 NEW BEST in HARD: 20 pts (beat old best of 15 pts on 2026-11-04 10:38:59)",
       "selectedSkin": "choke_artist_99",
@@ -7556,7 +7757,7 @@
         "id": "a4cf112b932ba798",
         "username": "joslor11",
         "score": 40,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735025628
       },
       {
@@ -7598,7 +7799,7 @@
         "id": "40eba4308daaf4b1",
         "username": "joslor11",
         "score": 39,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738158983
       },
       {
@@ -7703,7 +7904,7 @@
         "id": "a9612b7545addf7f",
         "username": "joslor11",
         "score": 37,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738584266
       },
       {
@@ -7745,7 +7946,7 @@
         "id": "4d7c0b74bb7f34d9",
         "username": "joslor11",
         "score": 36,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738119331
       },
       {
@@ -7773,14 +7974,14 @@
         "id": "963534da9a2aa2f3",
         "username": "joslor11",
         "score": 35,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793715455973
       },
       {
         "id": "2442ac59cb66dc6e",
         "username": "joslor11",
         "score": 35,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738624384
       },
       {
@@ -7801,7 +8002,7 @@
         "id": "f5137ead8871f938",
         "username": "joslor11",
         "score": 34,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713810531
       },
       {
@@ -7892,21 +8093,21 @@
         "id": "7e37f2427b9a3473",
         "username": "joslor11",
         "score": 32,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713713171
       },
       {
         "id": "7746f8d0bfdb4ae9",
         "username": "joslor11",
         "score": 32,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738381953
       },
       {
         "id": "3c409ff0d30de177",
         "username": "joslor11",
         "score": 32,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738835763
       },
       {
@@ -8015,6 +8216,13 @@
         "createdAt": 1793784013082
       },
       {
+        "id": "da01d79b0129770e",
+        "username": "Wad1234",
+        "score": 31,
+        "hidden": false,
+        "createdAt": 1793793411031
+      },
+      {
         "id": "fd2e355909b2aae9",
         "username": "ostehapss",
         "score": 30,
@@ -8074,14 +8282,14 @@
         "id": "fc3552e1bff69eaf",
         "username": "joslor11",
         "score": 30,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713089595
       },
       {
         "id": "955443bdae859764",
         "username": "joslor11",
         "score": 30,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793715050556
       },
       {
@@ -8165,7 +8373,7 @@
         "id": "18ecc404f54ddbf2",
         "username": "joslor11",
         "score": 29,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713841842
       },
       {
@@ -8333,14 +8541,14 @@
         "id": "8c966a70176c629a",
         "username": "joslor11",
         "score": 27,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738412366
       },
       {
         "id": "2ca1da7eb5e20660",
         "username": "joslor11",
         "score": 27,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738706239
       },
       {
@@ -8405,6 +8613,13 @@
         "score": 27,
         "hidden": false,
         "createdAt": 1793789541463
+      },
+      {
+        "id": "a0f3dd878ef76ac8",
+        "username": "Wad1234",
+        "score": 27,
+        "hidden": false,
+        "createdAt": 1793793460729
       },
       {
         "id": "09efe253974cf0a3",
@@ -8536,7 +8751,7 @@
         "id": "8d2adb94dc317a3e",
         "username": "joslor11",
         "score": 25,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793714934184
       },
       {
@@ -8648,7 +8863,7 @@
         "id": "0a9ba3af9d5f85d0",
         "username": "joslor11",
         "score": 24,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793738743201
       },
       {
@@ -8774,7 +8989,7 @@
         "id": "7751211db762e6f2",
         "username": "joslor11",
         "score": 21,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793715193008
       },
       {
@@ -8811,6 +9026,13 @@
         "score": 21,
         "hidden": false,
         "createdAt": 1793789018345
+      },
+      {
+        "id": "a3db9ea260abe319",
+        "username": "Wad1234",
+        "score": 21,
+        "hidden": false,
+        "createdAt": 1793793335262
       },
       {
         "id": "ae07d55a8b65bd0f",
@@ -8942,7 +9164,7 @@
         "id": "7cbc277328cf8ea2",
         "username": "ostehapss",
         "score": 19,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735828085
       },
       {
@@ -8972,6 +9194,13 @@
         "score": 19,
         "hidden": false,
         "createdAt": 1793789319904
+      },
+      {
+        "id": "9806c2fafefdba7d",
+        "username": "Wad1234",
+        "score": 19,
+        "hidden": false,
+        "createdAt": 1793793361848
       },
       {
         "id": "fc65f137ad39b977",
@@ -9019,7 +9248,7 @@
         "id": "43ce75432f4fbca7",
         "username": "Oliver",
         "score": 18,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793733765206
       },
       {
@@ -9082,7 +9311,7 @@
         "id": "0722b7f7fe031517",
         "username": "BlueViceee",
         "score": 17,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793736366486
       },
       {
@@ -9091,6 +9320,13 @@
         "score": 17,
         "hidden": false,
         "createdAt": 1793779190155
+      },
+      {
+        "id": "d05dadde645b9291",
+        "username": "Wad1234",
+        "score": 17,
+        "hidden": false,
+        "createdAt": 1793793281534
       },
       {
         "id": "9811fe8f55f3e594",
@@ -9308,7 +9544,7 @@
         "id": "4071ee2a321c5ac3",
         "username": "joslor11",
         "score": 39,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713978927
       },
       {
@@ -9371,21 +9607,21 @@
         "id": "af4e04f51b086c59",
         "username": "joslor11",
         "score": 37,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712985358
       },
       {
         "id": "0a9846238874064a",
         "username": "joslor11",
         "score": 37,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793734863143
       },
       {
         "id": "b8d3328bf505fbf5",
         "username": "joslor11",
         "score": 37,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737825064
       },
       {
@@ -9476,21 +9712,21 @@
         "id": "93cfc38e03dadb47",
         "username": "joslor11",
         "score": 36,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735571588
       },
       {
         "id": "ee04cae0282f17f2",
         "username": "joslor11",
         "score": 36,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735612895
       },
       {
         "id": "006713b88da206c9",
         "username": "joslor11",
         "score": 36,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737765810
       },
       {
@@ -9609,7 +9845,7 @@
         "id": "8849ff432e58cd17",
         "username": "joslor11",
         "score": 35,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713932151
       },
       {
@@ -9763,35 +9999,35 @@
         "id": "8371be5de65a0b4b",
         "username": "joslor11",
         "score": 34,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713424412
       },
       {
         "id": "1c5e53c7c1b3d242",
         "username": "joslor11",
         "score": 34,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737428049
       },
       {
         "id": "1b882a42d6c8b04f",
         "username": "joslor11",
         "score": 34,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737471051
       },
       {
         "id": "138695eb102dd770",
         "username": "joslor11",
         "score": 34,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737656545
       },
       {
         "id": "703e1e4ee6631893",
         "username": "joslor11",
         "score": 34,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737694502
       },
       {
@@ -9945,28 +10181,28 @@
         "id": "7407f9eb2b1f7fbc",
         "username": "joslor11",
         "score": 33,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713460700
       },
       {
         "id": "83cdb33678342584",
         "username": "joslor11",
         "score": 33,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713884364
       },
       {
         "id": "7936562e4c534c14",
         "username": "joslor11",
         "score": 33,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793734977133
       },
       {
         "id": "cf3dae06803fa3bc",
         "username": "joslor11",
         "score": 33,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735279095
       },
       {
@@ -9994,7 +10230,7 @@
         "id": "74a9ffb695e79f6e",
         "username": "joslor11",
         "score": 33,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737538794
       },
       {
@@ -10218,28 +10454,28 @@
         "id": "d6c1779c81eb356b",
         "username": "joslor11",
         "score": 32,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793734899222
       },
       {
         "id": "71e8ec420e0aa645",
         "username": "joslor11",
         "score": 32,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735067113
       },
       {
         "id": "750b7cea91aa753b",
         "username": "joslor11",
         "score": 32,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735139915
       },
       {
         "id": "2a3185dac791d9f4",
         "username": "joslor11",
         "score": 32,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735455825
       },
       {
@@ -10418,6 +10654,13 @@
         "createdAt": 1793789681718
       },
       {
+        "id": "1cc75426b37a2a64",
+        "username": "bennersgoat",
+        "score": 32,
+        "hidden": false,
+        "createdAt": 1793793193435
+      },
+      {
         "id": "2e0bb792e3112a08",
         "username": "joslor11",
         "score": 31,
@@ -10519,42 +10762,42 @@
         "id": "cfccaf561982ec98",
         "username": "joslor11",
         "score": 31,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712876501
       },
       {
         "id": "b5e88750ce4706e5",
         "username": "joslor11",
         "score": 31,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793714034727
       },
       {
         "id": "461267d8a520e586",
         "username": "joslor11",
         "score": 31,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735102785
       },
       {
         "id": "a85d3a879939315c",
         "username": "joslor11",
         "score": 31,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735394391
       },
       {
         "id": "1421cbd60c9e60a4",
         "username": "joslor11",
         "score": 31,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737611485
       },
       {
         "id": "f042411076a0adcd",
         "username": "joslor11",
         "score": 31,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737942736
       },
       {
@@ -10932,28 +11175,28 @@
         "id": "43e058374772af1f",
         "username": "joslor11",
         "score": 30,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712837352
       },
       {
         "id": "907650f97b3d0710",
         "username": "joslor11",
         "score": 30,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713054540
       },
       {
         "id": "41e67aaa2eb555c3",
         "username": "joslor11",
         "score": 30,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793713386416
       },
       {
         "id": "a9027cc6fde4f2ac",
         "username": "joslor11",
         "score": 30,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793734934236
       },
       {
@@ -10967,7 +11210,7 @@
         "id": "9c28e33224fc79ca",
         "username": "joslor11",
         "score": 30,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793737885221
       },
       {
@@ -11275,21 +11518,21 @@
         "id": "76b193e725289dd7",
         "username": "joslor11",
         "score": 29,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793714068342
       },
       {
         "id": "e9574237ed10a1c5",
         "username": "BlueViceee",
         "score": 29,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793714871091
       },
       {
         "id": "7071ac26823af6e6",
         "username": "joslor11",
         "score": 29,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793735173059
       },
       {
@@ -11326,6 +11569,111 @@
         "score": 29,
         "hidden": false,
         "createdAt": 1793780687060
+      },
+      {
+        "id": "08ac9f6ae72fe74e",
+        "username": "Oliver",
+        "score": 28,
+        "hidden": false,
+        "createdAt": 1793782935782
+      },
+      {
+        "id": "212696b2ad2c553a",
+        "username": "Wad1234",
+        "score": 28,
+        "hidden": false,
+        "createdAt": 1793787048036
+      },
+      {
+        "id": "e88b67ef08e54721",
+        "username": "Zander",
+        "score": 25,
+        "hidden": false,
+        "createdAt": 1793705988185
+      },
+      {
+        "id": "4b3341ada6230c9f",
+        "username": "superman",
+        "score": 24,
+        "hidden": false,
+        "createdAt": 1793784767677
+      },
+      {
+        "id": "3cd40cd242b4c5d3",
+        "username": "bennersgoat",
+        "score": 23,
+        "hidden": false,
+        "createdAt": 1793793571329
+      },
+      {
+        "id": "c5df4b4d6199f3b4",
+        "username": "vik",
+        "score": 22,
+        "hidden": false,
+        "createdAt": 1793705033681
+      },
+      {
+        "id": "683ee2dec3cabfd2",
+        "username": "vik24",
+        "score": 22,
+        "hidden": false,
+        "createdAt": 1793777891962
+      },
+      {
+        "id": "ad60c9a245e8f1be",
+        "username": "ostehapss",
+        "score": 22,
+        "hidden": false,
+        "createdAt": 1793779537091
+      },
+      {
+        "id": "e7680ace87610afe",
+        "username": "mrbeast",
+        "score": 20,
+        "hidden": false,
+        "createdAt": 1793710535318
+      },
+      {
+        "id": "7f3d87cfc2b2c192",
+        "username": "Bigmack",
+        "score": 15,
+        "hidden": false,
+        "createdAt": 1793707396587
+      },
+      {
+        "id": "a3f429cfdea3c0b8",
+        "username": "hh",
+        "score": 14,
+        "hidden": true,
+        "createdAt": 1793714277749
+      },
+      {
+        "id": "7edc711af4801b09",
+        "username": "kani",
+        "score": 14,
+        "hidden": false,
+        "createdAt": 1793779193462
+      },
+      {
+        "id": "85fa41860a075b11",
+        "username": "Hej123",
+        "score": 8,
+        "hidden": false,
+        "createdAt": 1793708227814
+      },
+      {
+        "id": "2d5960f58985a8c9",
+        "username": "bennersgoat",
+        "score": 4,
+        "hidden": false,
+        "createdAt": 1793793389343
+      },
+      {
+        "id": "ad7df386b44512a4",
+        "username": "bennersgoat",
+        "score": 3,
+        "hidden": false,
+        "createdAt": 1793793378828
       }
     ],
     "hard": [
@@ -11340,7 +11688,7 @@
         "id": "d483e40e1ff8fc45",
         "username": "joslor11",
         "score": 30,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712740912
       },
       {
@@ -11354,14 +11702,14 @@
         "id": "45b67ad89d4d6e0d",
         "username": "joslor11",
         "score": 28,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712533168
       },
       {
         "id": "1a1d0317d31568b7",
         "username": "joslor11",
         "score": 27,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712641768
       },
       {
@@ -11403,7 +11751,7 @@
         "id": "c49bcc01f2457cb9",
         "username": "joslor11",
         "score": 25,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712492533
       },
       {
@@ -11431,14 +11779,14 @@
         "id": "dc650424b3505ab3",
         "username": "joslor11",
         "score": 24,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712431006
       },
       {
         "id": "aa967d7d0de74631",
         "username": "joslor11",
         "score": 24,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712604028
       },
       {
@@ -11508,7 +11856,7 @@
         "id": "86cbf6bedcd00a36",
         "username": "BlueViceee",
         "score": 22,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793715260447
       },
       {
@@ -11781,7 +12129,7 @@
         "id": "8f5ebce6af126457",
         "username": "joslor11",
         "score": 18,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712707103
       },
       {
@@ -11900,14 +12248,14 @@
         "id": "efa34b21d88b76c7",
         "username": "joslor11",
         "score": 17,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793711860427
       },
       {
         "id": "5b735bc1677181ca",
         "username": "BlueViceee",
         "score": 17,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793724359183
       },
       {
@@ -12474,7 +12822,7 @@
         "id": "f157c0d97c6aab9f",
         "username": "joslor11",
         "score": 14,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712680618
       },
       {
@@ -13055,14 +13403,14 @@
         "id": "f525df2c81692851",
         "username": "joslor11",
         "score": 12,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793711535668
       },
       {
         "id": "190b352d7d9320f5",
         "username": "joslor11",
         "score": 12,
-        "hidden": false,
+        "hidden": true,
         "createdAt": 1793712575220
       },
       {
@@ -13428,6 +13776,55 @@
         "score": 11,
         "hidden": false,
         "createdAt": 1793710023132
+      },
+      {
+        "id": "9edca2931f3ee3bc",
+        "username": "IHATESUPERMAN",
+        "score": 10,
+        "hidden": false,
+        "createdAt": 1793787193259
+      },
+      {
+        "id": "b550ab8fe7d3f668",
+        "username": "kani",
+        "score": 9,
+        "hidden": false,
+        "createdAt": 1793708315606
+      },
+      {
+        "id": "cb4806e08dcece6a",
+        "username": "Bigmack",
+        "score": 8,
+        "hidden": false,
+        "createdAt": 1793777705864
+      },
+      {
+        "id": "2280174bb41cd8a5",
+        "username": "Wad1234",
+        "score": 6,
+        "hidden": false,
+        "createdAt": 1793793564123
+      },
+      {
+        "id": "67c4c47595621662",
+        "username": "Wad1234",
+        "score": 5,
+        "hidden": false,
+        "createdAt": 1793793592425
+      },
+      {
+        "id": "e44da9c767fb07ae",
+        "username": "Wad1234",
+        "score": 3,
+        "hidden": false,
+        "createdAt": 1793793575833
+      },
+      {
+        "id": "87eb62212b8120af",
+        "username": "Wad1234",
+        "score": 2,
+        "hidden": false,
+        "createdAt": 1793793549829
       }
     ]
   }
