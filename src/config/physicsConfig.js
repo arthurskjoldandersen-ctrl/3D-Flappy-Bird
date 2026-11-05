@@ -62,7 +62,7 @@ function getDifficultyParams(score, difficultyKey) {
   const pipeGap = diff.baseGap - gapProgress * (diff.baseGap - diff.minGap);
 
   const speedRatio = Math.min(2.0, speed / SIM_CONFIG.baseSpeed);
-  const highSpeedFactor = Math.max(0, Math.min(1, (speedRatio - 1.55) / 0.25));
+  const highSpeedFactor = Math.max(0, Math.min(1, (speedRatio - 1.15) / 0.70));
   const fallSlowdown = 1.0 - 0.20 * highSpeedFactor;
 
   const gravity = SIM_CONFIG.gravity * (speedRatio * speedRatio) * fallSlowdown;

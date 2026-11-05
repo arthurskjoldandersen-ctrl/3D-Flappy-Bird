@@ -94,15 +94,50 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    const fallbackPort = PORT + 1;
+    console.warn(`\n⚠️  Port ${PORT} is currently in use. Falling back to port ${fallbackPort}...`);
+    server.listen(fallbackPort, '0.0.0.0');
+  } else {
+    console.error('Server error:', err);
+  }
+});
+
 server.listen(PORT, '0.0.0.0', () => {
+  const currentPort = server.address()?.port || PORT;
+  const isSimulation = Boolean(process.env.SIMULATION_MODE === '1' || process.env.LOCAL_TEST === '1');
   const lanIPs = getLocalAddresses();
+
+  let userCount = 0;
+  let totalRuns = 0;
+  try {
+    const db = require('./src/services/database').getDb();
+    userCount = Object.keys(db.users || {}).length;
+    const easyRuns = db.runs?.easy?.length || 0;
+    const medRuns = db.runs?.medium?.length || 0;
+    const hardRuns = db.runs?.hard?.length || 0;
+    totalRuns = easyRuns + medRuns + hardRuns;
+  } catch (_) {}
+
   console.log('============================================================');
-  console.log(' 🐦 3D FLAPPY BIRD ONLINE SERVER (RENDER & GITHUB EDITION)');
-  console.log('============================================================');
-  console.log(` -> Play Game:          http://localhost:${PORT}`);
-  console.log(` -> Live DB Manager:    http://localhost:${PORT}/database`);
-  lanIPs.forEach(ip => {
-    console.log(` -> LAN / Wi-Fi URL:    http://${ip}:${PORT}`);
-  });
+  if (isSimulation) {
+    console.log(' 🧪 3D FLAPPY BIRD — LOCAL TEST & SIMULATION SERVER ACTIVE');
+    console.log('============================================================');
+    console.log(' -> Mode:           PRIVATE LOCAL SIMULATION (Safe Pre-Release Testing)');
+    console.log(' -> Safety:         Isolated from Render — Only YOU are playing!');
+    console.log(` -> Loaded Data:    ${userCount} registered players, ${totalRuns} verified runs`);
+    console.log(` -> Play & Test:    http://localhost:${currentPort}`);
+    console.log(` -> DB Manager:     http://localhost:${currentPort}/database (Login: MeDonut / JohnPork)`);
+    console.log(' -> Test your code freely! Press Ctrl+C in this window to stop.');
+  } else {
+    console.log(' 🐦 3D FLAPPY BIRD ONLINE SERVER (RENDER & GITHUB EDITION)');
+    console.log('============================================================');
+    console.log(` -> Play Game:          http://localhost:${currentPort}`);
+    console.log(` -> Live DB Manager:    http://localhost:${currentPort}/database`);
+    lanIPs.forEach(ip => {
+      console.log(` -> LAN / Wi-Fi URL:    http://${ip}:${currentPort}`);
+    });
+  }
   console.log('============================================================');
 });

@@ -825,6 +825,7 @@
         <h1>
           🗄️ 3D Flappy Bird — Live Database & Records Manager
           <span class="medonut-badge">⭐ MeDonut VIP</span>
+          <span class="sim-server-pill" id="admin-sim-badge" style="display:none; font-size:0.72rem; padding:3px 10px; border-radius:999px; background:rgba(168,85,247,0.25); color:#c084fc; border:1px solid rgba(168,85,247,0.5); font-weight:900; margin-left:8px; vertical-align:middle;">🧪 LOCAL TEST SERVER</span>
         </h1>
         <p id="db-file-path">Authenticated as <strong>MeDonut</strong> • Live synced with db.json & Top 100 Leaderboards</p>
       </div>
@@ -1360,6 +1361,10 @@
         if (gateEl) gateEl.style.display = 'none';
         if (dashEl) dashEl.style.display = 'flex';
         updateExportLink();
+        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '0.0.0.0') {
+          const b = document.getElementById('admin-sim-badge');
+          if (b) b.style.display = 'inline-flex';
+        }
         currentDbData = data;
         renderDashboard(data);
       } catch (err) {

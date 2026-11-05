@@ -89,6 +89,24 @@ Every time a player **logs in**, **registers**, or **gets a NEW BEST score**, th
 
 ---
 
+## 🧪 How to Test Updates Locally Before Releasing to GitHub (`start.bat`)
+
+To guarantee that an update never breaks the game or corrupts records on Render, test it locally first:
+
+1. **Double-click `start.bat`** (or run `npm run test-server`).
+2. An interactive menu appears:
+   - **[1] Start Local Test Server**: Starts your private server at `http://localhost:3000` with all real player data (auto-starts in 5 seconds if no key is pressed).
+   - **[2] Sync Latest Live Data from Render, then Start Server**: Pulls the newest live database from your Render server first so you test against current records.
+   - **[3] Restore Database from latest backup**: Instantly reverts local data back to the clean snapshot before testing.
+   - **[4] Exit**.
+3. Your default web browser will automatically launch to `http://localhost:3000`.
+4. **All real data is loaded**: All registered player accounts, records, skins, and leaderboards are loaded.
+5. **Completely isolated**: Only YOU are connected on your machine — live production on Render is completely safe.
+6. Test your code updates, physics, skins, and the Live Database Manager (`/database`).
+7. Once everything is verified and works 100%, push your code updates to GitHub with complete peace of mind!
+
+---
+
 ## 🚀 How to Host on Render.com (Step-by-Step)
 
 1. **Create a GitHub Repository**:

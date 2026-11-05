@@ -4135,7 +4135,7 @@ class FlappyBird3DModels {
 
           // Scale vertical physics with horizontal speed (capped at 2.0x), with 20% slower fall at 1.8x-2.0x speed!
           const speedRatio = Math.min(2.0, speed / CONFIG.baseSpeed);
-          const highSpeedFactor = Math.max(0, Math.min(1, (speedRatio - 1.55) / 0.25));
+          const highSpeedFactor = Math.max(0, Math.min(1, (speedRatio - 1.15) / 0.70));
           const fallSlowdown = 1.0 - 0.20 * highSpeedFactor;
 
           const gravity = CONFIG.gravity * (speedRatio * speedRatio) * fallSlowdown;

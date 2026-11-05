@@ -46,8 +46,10 @@
           this.currentTick = 0;
           this.flapTicks = [];
           this.pendingFlap = false;
+          this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
           this.lastFlapTick = -10;
+          this.lastQueueFlapTime = 0;
           this.physicsAccumulator = 0;
 
           // Authoritative 60Hz coordinates + Previous tick coordinates for 120Hz/144Hz interpolation
@@ -158,14 +160,23 @@
             }
           });
 
-          this.renderer.domElement.addEventListener('pointerdown', (e) => {
-            e.preventDefault();
+          const handleCanvasFlapInput = (e) => {
+            if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
             if (this.state === GAME_STATE.START) {
               this.startGame();
             } else if (this.state === GAME_STATE.PLAYING) {
               this.queueFlap();
+            } else if (this.state === GAME_STATE.GAMEOVER) {
+              this.startGame();
             }
+          };
+
+          this.renderer.domElement.addEventListener('pointerdown', handleCanvasFlapInput);
+          this.renderer.domElement.addEventListener('mousedown', (e) => {
+            if (e.button === 0) handleCanvasFlapInput(e);
           });
+          this.renderer.domElement.addEventListener('touchstart', handleCanvasFlapInput, { passive: false });
 
           // Global pointerdown listener to ensure jump clicks anywhere on screen are never missed during gameplay
           window.addEventListener('pointerdown', (e) => {
@@ -244,6 +255,12 @@
           const brandHomeBtn = document.getElementById('brand-home-btn');
           if (brandHomeBtn) {
             brandHomeBtn.addEventListener('click', () => this.switchView('lobby'));
+          }
+
+          // Show Local Test Server badge when running in offline simulation mode
+          const simBadge = document.getElementById('sim-server-badge');
+          if (simBadge && (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '0.0.0.0')) {
+            simBadge.style.display = 'inline-flex';
           }
 
           // Profile / Auth Capsule Button
@@ -941,11 +958,21 @@
             }, 60);
           }
 
+          if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+          }
+          if (typeof window.focus === 'function') {
+            window.focus();
+          }
+
           this.prng = createSeededPRNG(this.activeSeed);
           this.currentTick = 0;
           this.flapTicks = [];
           this.pendingFlap = false;
+          this.queuedFlaps = 0;
+          this.flapBufferTicks = 0;
           this.lastFlapTick = -10;
+          this.lastQueueFlapTime = 0;
           this.physicsAccumulator = 0;
 
           document.getElementById('start-screen').classList.remove('active');
@@ -971,14 +998,23 @@
           this.birdVelocityY = CONFIG.flapImpulse;
           this.wingFlapBoost = 1.0;
           this.pendingFlap = false;
+          this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
+          this.lastQueueFlapTime = 0;
           this.sound.playFlap();
         }
 
         queueFlap() {
           if (this.state !== GAME_STATE.PLAYING) return;
+          const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          // Deduplicate synthetic/companion events firing within 18ms of each other (e.g. pointerdown + mousedown/touchstart)
+          if (now - this.lastQueueFlapTime < 18) {
+            return;
+          }
+          this.lastQueueFlapTime = now;
           this.pendingFlap = true;
-          this.flapBufferTicks = 6; // Buffers jump for up to 6 ticks (~100ms) so it is never dropped
+          this.queuedFlaps = Math.min(2, (this.queuedFlaps || 0) + 1);
+          this.flapBufferTicks = 10; // Buffers jump for up to 10 ticks (~166ms) so rapid taps are never dropped
         }
 
         async triggerGameOver() {
@@ -1122,9 +1158,10 @@
 
           if (pop) {
             scoreEl.classList.remove('score-pop');
-            void scoreEl.offsetWidth;
-            scoreEl.classList.add('score-pop');
-            setTimeout(() => scoreEl.classList.remove('score-pop'), 180);
+            requestAnimationFrame(() => {
+              scoreEl.classList.add('score-pop');
+              setTimeout(() => scoreEl.classList.remove('score-pop'), 180);
+            });
           }
         }
 
@@ -1186,20 +1223,31 @@
           }
 
           // Smooth, non-dropping jump execution: checks if jump is queued and valid against anti-cheat rate limit
-          if (this.pendingFlap || this.flapBufferTicks > 0) {
+          if (this.queuedFlaps > 0 || this.pendingFlap || this.flapBufferTicks > 0) {
             if ((this.currentTick - this.lastFlapTick) >= 2) {
               this.birdVelocityY = flapImpulse;
               this.wingFlapBoost = 1.0;
               this.flapTicks.push(this.currentTick);
               this.lastFlapTick = this.currentTick;
               this.sound.playFlap();
+              if (this.queuedFlaps > 0) {
+                this.queuedFlaps--;
+              }
               this.pendingFlap = false;
-              this.flapBufferTicks = 0;
+              if (this.queuedFlaps > 0) {
+                this.flapBufferTicks = 10;
+              } else {
+                this.flapBufferTicks = 0;
+              }
             } else if (this.flapBufferTicks > 0) {
               // Decrement buffer timer, retaining the queued jump for the very next tick
               this.flapBufferTicks--;
-              this.pendingFlap = false;
+              if (this.flapBufferTicks <= 0) {
+                this.queuedFlaps = 0;
+                this.pendingFlap = false;
+              }
             } else {
+              this.queuedFlaps = 0;
               this.pendingFlap = false;
             }
           }

@@ -132,6 +132,27 @@
   padding: 2px 7px;
 }
 
+.sim-server-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  background: rgba(168, 85, 247, 0.22);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 6px;
+  animation: simPulse 2.5s infinite ease-in-out;
+}
+@keyframes simPulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); box-shadow: 0 0 10px rgba(168, 85, 247, 0.4); }
+}
+
 /* Nav Dock Pill Switcher */
 .nav-dock {
   display: flex;
