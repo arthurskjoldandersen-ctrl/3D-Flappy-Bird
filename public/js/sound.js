@@ -139,6 +139,59 @@
           whiteNoise.start(now);
           whiteNoise.stop(now + 0.19);
         }
+
+        playChatChime() {
+          if (this.isMuted) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          const osc1 = this.ctx.createOscillator();
+          const gain1 = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(587.33, now); // D5
+          osc1.frequency.exponentialRampToValueAtTime(880.00, now + 0.08); // A5
+
+          gain1.gain.setValueAtTime(0.001, now);
+          gain1.gain.linearRampToValueAtTime(0.12, now + 0.015);
+          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+          osc1.connect(gain1);
+          gain1.connect(this.ctx.destination);
+          osc1.start(now);
+          osc1.stop(now + 0.17);
+        }
+
+        playAnnouncementChime() {
+          if (this.isMuted) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          // Triumphant 3-note fanfare: C5 -> E5 -> G5
+          const notes = [
+            { freq: 523.25, time: 0, dur: 0.10 },
+            { freq: 659.25, time: 0.09, dur: 0.10 },
+            { freq: 783.99, time: 0.18, dur: 0.28 }
+          ];
+
+          notes.forEach(n => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(n.freq, now + n.time);
+
+            gain.gain.setValueAtTime(0.001, now + n.time);
+            gain.gain.linearRampToValueAtTime(0.20, now + n.time + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + n.time + n.dur);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + n.time);
+            osc.stop(now + n.time + n.dur + 0.02);
+          });
+        }
       }
 
 window.SoundManager = SoundManager;

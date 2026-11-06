@@ -9,6 +9,7 @@
         constructor() {
           this.container = document.getElementById('game-canvas-container');
           this.sound = new SoundManager();
+          this.chat = (typeof ChatManager !== 'undefined') ? new ChatManager(this) : null;
 
           this.authToken = localStorage.getItem('flappy3d_token') || null;
           this.currentUser = null;
@@ -30,6 +31,10 @@
           this.lockerSortOrder = 'default';
 
           this.leaderboards = { easy: [], medium: [], hard: [] };
+          this.timeframeLeaderboards = { all: null, weekly: null, daily: null };
+          this.activeTimeframeTab = 'all';
+          this.resetBoundaries = null;
+          this.clientServerTimeOffset = 0;
           this.lbShowAllPlayers = false;
           this.selectedDifficulty = 'medium';
           this.activeLbTab = 'medium';
@@ -105,9 +110,30 @@
             }
           }, 5000);
 
+          this.startLiveUserSyncPolling();
+          this.initResetCountdownTimer();
+
           this.lastFrameTime = performance.now();
           this.animate = this.animate.bind(this);
           requestAnimationFrame(this.animate);
+        }
+
+        startLiveUserSyncPolling() {
+          if (this._liveSyncTimer) clearInterval(this._liveSyncTimer);
+          this._liveSyncTimer = setInterval(async () => {
+            if (document.hidden) return;
+            if (!this.currentUser || !this.authToken) return;
+            try {
+              const res = await fetch('/api/me', {
+                headers: { 'Authorization': `Bearer ${this.authToken}` }
+              });
+              if (!res.ok) return;
+              const data = await res.json();
+              if (data && data.user && typeof this.applyLiveUserSync === 'function') {
+                this.applyLiveUserSync(data.user);
+              }
+            } catch (_) {}
+          }, 2000);
         }
 
         // ------------------------------------------------------------------------
@@ -128,10 +154,36 @@
               return;
             }
 
-            const guestModal = document.getElementById('guest-login-modal');
-            if (guestModal && guestModal.classList.contains('active')) {
+            const isModalActive = () => {
+              const guestModal = document.getElementById('guest-login-modal');
+              if (guestModal && (guestModal.classList.contains('active') || guestModal.classList.contains('visible') || (guestModal.style.display && guestModal.style.display !== 'none'))) {
+                return true;
+              }
+              const pubProfileModal = document.getElementById('player-public-profile-modal');
+              if (pubProfileModal && (pubProfileModal.classList.contains('active') || pubProfileModal.classList.contains('visible') || (pubProfileModal.style.display && pubProfileModal.style.display !== 'none'))) {
+                return true;
+              }
+              const pModal = document.getElementById('profile-modal');
+              if (pModal && (pModal.classList.contains('active') || (pModal.style.display && pModal.style.display !== 'none'))) {
+                return true;
+              }
+              return false;
+            };
+
+            if (isModalActive()) {
               if (e.code === 'Escape') {
-                this.toggleGuestLoginModal(false);
+                const guestModal = document.getElementById('guest-login-modal');
+                if (guestModal && (guestModal.classList.contains('active') || guestModal.classList.contains('visible'))) {
+                  this.toggleGuestLoginModal(false);
+                }
+                const pubProfileModal = document.getElementById('player-public-profile-modal');
+                if (pubProfileModal && (pubProfileModal.classList.contains('active') || (pubProfileModal.style.display && pubProfileModal.style.display !== 'none'))) {
+                  this.closePublicProfileModal();
+                }
+                const pModal = document.getElementById('profile-modal');
+                if (pModal && pModal.classList.contains('active')) {
+                  this.toggleProfileModal(false);
+                }
               }
               return;
             }
@@ -160,49 +212,96 @@
             }
           });
 
-          const handleCanvasFlapInput = (e) => {
-            if (e.cancelable) e.preventDefault();
-            e.stopPropagation();
-            if (this.state === GAME_STATE.START) {
-              this.startGame();
-            } else if (this.state === GAME_STATE.PLAYING) {
+          let lastPointerActionTime = 0;
+
+          const isInsideMenuUi = (el) => {
+            if (!el || typeof el.closest !== 'function') return false;
+            return Boolean(
+              el.closest(
+                'button, a, input, textarea, select, option, label, ' +
+                'header, nav, .app-header, #top-app-bar, #main-nav-dock, .nav-dock, ' +
+                '#game-chat-panel, #btn-chat-toggle, .floating-chat-btn, .chat-panel, ' +
+                '.card, .play-deck-card, .lb-full-card, .locker-full-card, .locker-panel-card, ' +
+                '.stats-full-card, .settings-modal-card, .account-panel-card, .gameover-card, ' +
+                '.guest-modal-card, .public-profile-card, .modal-card, .modal-dialog, ' +
+                '.modal-backdrop, .guest-modal-overlay, [role="dialog"], ' +
+                '.mode-select-deck, .lb-toolbar, .lb-timeframe-bar, .lb-list, .lb-row, .lb-my-standing-card, ' +
+                '.scoreboard, .gameover-actions, ' +
+                '#hud, .hud-pill, .hud-left, .hud-right, .top-bar, ' +
+                '[class*="-card"], [class*="-modal"]'
+              )
+            );
+          };
+
+          const handlePointerFlapAction = (e) => {
+            const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            // Discard companion synthetic events (e.g. synthetic mousedown 0-4ms after pointerdown)
+            if (e.type === 'mousedown' && (now - lastPointerActionTime < 25)) {
+              return;
+            }
+            lastPointerActionTime = now;
+
+            const target = e.target;
+
+            // Never start a run or flap if an active modal dialog is currently open
+            if (isModalActive()) {
+              return;
+            }
+
+            // During active gameplay, clicking on interactive controls (chat, header, buttons) should not flap;
+            // tapping anywhere else on the screen triggers a flap jump.
+            if (this.state === GAME_STATE.PLAYING) {
+              if (target && target.closest && target.closest('button, a, input, textarea, select, option, label, header, #top-app-bar, #game-chat-panel, #btn-chat-toggle, .floating-chat-btn')) {
+                return;
+              }
+              if (e.cancelable) e.preventDefault();
               this.queueFlap();
-            } else if (this.state === GAME_STATE.GAMEOVER) {
+              return;
+            }
+
+            // When in menu states (Lobby, Leaderboards, Locker, Stats, Settings, Account, or Game Over screen):
+            // Clicking anywhere inside the menu UI (cards, rows, tabs, text, buttons, header, chat) must NOT start a run!
+            // Clicking on the side / background (where the 3D flappy bird background is visible) DOES start a run!
+            if (this.state === GAME_STATE.START || this.state === GAME_STATE.GAMEOVER) {
+              if (isInsideMenuUi(target)) {
+                return;
+              }
+              if (e.cancelable) e.preventDefault();
               this.startGame();
             }
           };
 
-          this.renderer.domElement.addEventListener('pointerdown', handleCanvasFlapInput);
-          this.renderer.domElement.addEventListener('mousedown', (e) => {
-            if (e.button === 0) handleCanvasFlapInput(e);
-          });
-          this.renderer.domElement.addEventListener('touchstart', handleCanvasFlapInput, { passive: false });
+          if (window.PointerEvent) {
+            window.addEventListener('pointerdown', handlePointerFlapAction, { passive: false });
+          } else {
+            window.addEventListener('touchstart', handlePointerFlapAction, { passive: false });
+            window.addEventListener('mousedown', (e) => {
+              if (e.button === 0) handlePointerFlapAction(e);
+            });
+          }
 
-          // Global pointerdown listener to ensure jump clicks anywhere on screen are never missed during gameplay
-          window.addEventListener('pointerdown', (e) => {
-            if (this.state === GAME_STATE.PLAYING) {
-              const target = e.target;
-              if (target && (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('select') || target.closest('.modal-backdrop') || target.closest('.app-header'))) {
-                return;
-              }
-              this.queueFlap();
-            }
-          }, { passive: true });
+          const bindStartButton = (btnId) => {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const startHandler = (e) => {
+              e.stopPropagation();
+              this.startGame();
+            };
+            btn.addEventListener('pointerdown', startHandler);
+            btn.addEventListener('click', startHandler);
+          };
+          bindStartButton('start-btn');
+          bindStartButton('restart-btn');
 
-          document.getElementById('start-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.startGame();
-          });
-
-          document.getElementById('restart-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.startGame();
-          });
-
-          document.getElementById('back-hub-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.showLobbyScreen();
-          });
+          const backHubBtn = document.getElementById('back-hub-btn');
+          if (backHubBtn) {
+            const backHubHandler = (e) => {
+              e.stopPropagation();
+              this.showLobbyScreen();
+            };
+            backHubBtn.addEventListener('pointerdown', backHubHandler);
+            backHubBtn.addEventListener('click', backHubHandler);
+          }
 
           // Dedicated "See All Players" & Leaderboard Top 100 Toggle Actions
           const openAllPlayersHandler = (e) => {
@@ -760,10 +859,24 @@
             });
           });
 
-          // Leaderboard tab buttons & live search bar
+          // Leaderboard difficulty tab buttons & live search bar
           document.querySelectorAll('#lb-tabs .lb-tab').forEach(tabBtn => {
             tabBtn.addEventListener('click', () => {
               this.setLeaderboardTab(tabBtn.getAttribute('data-tab'));
+            });
+          });
+
+          // Leaderboard timeframe tab buttons (Daily / Weekly / All Time)
+          document.querySelectorAll('.lb-timeframe-tab').forEach(tabBtn => {
+            tabBtn.addEventListener('click', () => {
+              this.setTimeframeTab(tabBtn.getAttribute('data-timeframe'));
+            });
+          });
+
+          // Game Over screen timeframe buttons
+          document.querySelectorAll('.gameover-timeframe-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              this.setTimeframeTab(btn.getAttribute('data-timeframe'));
             });
           });
 
@@ -780,10 +893,6 @@
             lbUniqueToggleBtn.addEventListener('click', () => {
               this.toggleLeaderboardUniqueRecords();
             });
-          }
-
-          if (typeof this.initChangelog === 'function') {
-            this.initChangelog();
           }
 
           window.addEventListener('resize', () => {
@@ -804,6 +913,29 @@
             b.classList.toggle('active', b.getAttribute('data-tab') === tabKey);
           });
           this.renderLeaderboard();
+        }
+
+        setTimeframeTab(timeframeKey) {
+          if (timeframeKey !== 'all' && timeframeKey !== 'weekly' && timeframeKey !== 'daily') return;
+          this.activeTimeframeTab = timeframeKey;
+          document.querySelectorAll('.lb-timeframe-tab').forEach(b => {
+            const isMatch = b.getAttribute('data-timeframe') === timeframeKey;
+            b.classList.toggle('active', isMatch);
+            b.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+          });
+          document.querySelectorAll('.gameover-timeframe-btn').forEach(b => {
+            b.classList.toggle('active', b.getAttribute('data-timeframe') === timeframeKey);
+          });
+          this.updateResetTimerUI();
+          this.renderLeaderboard();
+        }
+
+        initResetCountdownTimer() {
+          if (this._countdownTimer) clearInterval(this._countdownTimer);
+          this.updateResetTimerUI();
+          this._countdownTimer = setInterval(() => {
+            this.updateResetTimerUI();
+          }, 1000);
         }
 
         toggleLeaderboardUniqueRecords() {
@@ -835,6 +967,9 @@
               if (typeof topBarEl.style.removeProperty === 'function') topBarEl.style.removeProperty('display');
               else topBarEl.style.display = '';
             }
+          }
+          if (this.chat && typeof this.chat.onRoundEnd === 'function') {
+            this.chat.onRoundEnd();
           }
           this.switchView('lobby');
           this.state = GAME_STATE.START;
@@ -895,6 +1030,9 @@
           }
           const pModalEl = document.getElementById('profile-modal');
           if (pModalEl) pModalEl.classList.remove('active');
+          if (this.chat && typeof this.chat.onRoundStart === 'function') {
+            this.chat.onRoundStart();
+          }
 
           // If the player was previewing a locked Bird Skin or Pipe Skin in the lobby, revert to their equipped unlocked skin for actual gameplay!
           if (this.previewSkinId) {
@@ -1006,15 +1144,9 @@
 
         queueFlap() {
           if (this.state !== GAME_STATE.PLAYING) return;
-          const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-          // Deduplicate synthetic/companion events firing within 18ms of each other (e.g. pointerdown + mousedown/touchstart)
-          if (now - this.lastQueueFlapTime < 18) {
-            return;
-          }
-          this.lastQueueFlapTime = now;
           this.pendingFlap = true;
-          this.queuedFlaps = Math.min(2, (this.queuedFlaps || 0) + 1);
-          this.flapBufferTicks = 10; // Buffers jump for up to 10 ticks (~166ms) so rapid taps are never dropped
+          this.queuedFlaps = Math.min(3, (this.queuedFlaps || 0) + 1);
+          this.flapBufferTicks = 20; // Generous 20-tick buffer (~333ms) so rapid taps and double taps are never dropped
         }
 
         async triggerGameOver() {
@@ -1095,6 +1227,18 @@
 
               this.currentUser.records = verifyRes.records;
               this.leaderboards = verifyRes.leaderboards || this.leaderboards;
+              if (verifyRes.timeframeLeaderboards) {
+                this.timeframeLeaderboards = verifyRes.timeframeLeaderboards;
+              }
+              if (verifyRes.resetBoundaries) {
+                this.resetBoundaries = verifyRes.resetBoundaries;
+                if (typeof verifyRes.resetBoundaries.serverTime === 'number') {
+                  this.clientServerTimeOffset = verifyRes.resetBoundaries.serverTime - Date.now();
+                }
+              }
+              if (typeof this.updateResetTimerUI === 'function') {
+                this.updateResetTimerUI();
+              }
               this.renderAllCosmeticGrids();
               this.renderLeaderboard(verifyRes.entryId || null);
 
@@ -1105,6 +1249,9 @@
               statusPill.className = 'anticheat-status verified';
               if (verifyRes.autoHidden) {
                 statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • 🕒 Off-Hours (Outside 7:50-14:10 Danish) — Saved & Hidden from Leaderboard`;
+              } else if (verifyRes.timeframePlacements) {
+                const p = verifyRes.timeframePlacements;
+                statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • #${p.daily} Daily · #${p.weekly} Weekly · #${p.all} All-Time!`;
               } else {
                 statusPill.textContent = `🛡️ Anti-Cheat Verified (${finalTicks} ticks) • Added to ${diffLabel} Leaderboard!`;
               }
@@ -1134,6 +1281,9 @@
           setTimeout(() => {
             this.state = GAME_STATE.GAMEOVER;
             document.body.classList.remove('in-game');
+            if (this.chat && typeof this.chat.onRoundEnd === 'function') {
+              this.chat.onRoundEnd();
+            }
             const topBarEl = document.getElementById('top-app-bar');
             if (topBarEl) {
               topBarEl.classList.remove('in-game');
@@ -1222,33 +1372,25 @@
             this.pipes[i].prevX = this.pipes[i].x;
           }
 
-          // Smooth, non-dropping jump execution: checks if jump is queued and valid against anti-cheat rate limit
-          if (this.queuedFlaps > 0 || this.pendingFlap || this.flapBufferTicks > 0) {
+          // Bulletproof non-dropping jump execution: checks if jump is queued and valid against anti-cheat rate limit (>= 2 ticks)
+          if (this.queuedFlaps > 0 || this.pendingFlap) {
             if ((this.currentTick - this.lastFlapTick) >= 2) {
               this.birdVelocityY = flapImpulse;
               this.wingFlapBoost = 1.0;
               this.flapTicks.push(this.currentTick);
               this.lastFlapTick = this.currentTick;
-              this.sound.playFlap();
+              if (this.sound) this.sound.playFlap();
               if (this.queuedFlaps > 0) {
                 this.queuedFlaps--;
               }
-              this.pendingFlap = false;
-              if (this.queuedFlaps > 0) {
-                this.flapBufferTicks = 10;
-              } else {
-                this.flapBufferTicks = 0;
-              }
-            } else if (this.flapBufferTicks > 0) {
-              // Decrement buffer timer, retaining the queued jump for the very next tick
-              this.flapBufferTicks--;
-              if (this.flapBufferTicks <= 0) {
-                this.queuedFlaps = 0;
-                this.pendingFlap = false;
-              }
+              this.pendingFlap = (this.queuedFlaps > 0);
+              this.flapBufferTicks = (this.queuedFlaps > 0) ? 20 : 0;
             } else {
-              this.queuedFlaps = 0;
-              this.pendingFlap = false;
+              // Only 1 tick elapsed since last flap (tick T+1). Retain queued jump for tick T+2!
+              // NEVER zero out queuedFlaps or pendingFlap here!
+              if (this.flapBufferTicks > 0) {
+                this.flapBufferTicks--;
+              }
             }
           }
 

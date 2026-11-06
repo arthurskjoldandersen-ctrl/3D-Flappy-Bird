@@ -59,6 +59,9 @@ function isSkinUnlockedForUser(skinId, user) {
   const grantedList = Array.isArray(user.grantedSkins) ? user.grantedSkins : [];
   if (grantedList.includes(skinId)) return true;
 
+  // 2.5. Any skin currently equipped by database/admin is unlocked
+  if (user.selectedSkin === skinId || user.selectedPipeSkin === skinId) return true;
+
   const item = [...BIRD_SKINS, ...PIPE_SKINS].find(s => s && s.id === skinId);
   if (!item) return false;
   if (item.reqScore <= 0) return true;
@@ -221,6 +224,139 @@ function formatDanishTime(timestampMs = Date.now()) {
   }
 }
 
+// --------------------------------------------------------------------------
+// DANISH TIMEZONE (Europe/Copenhagen) LEADERBOARD RESET CALCULATIONS
+// --------------------------------------------------------------------------
+const danishFullDateFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Europe/Copenhagen',
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+  second: 'numeric',
+  weekday: 'short',
+  hour12: false
+});
+
+function getCopenhagenOffsetMs(utcMs) {
+  const date = new Date(utcMs);
+  const parts = danishFullDateFormatter.formatToParts(date);
+  const res = {};
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (p.type !== 'literal') res[p.type] = p.value;
+  }
+  const copenhagenAsUtc = Date.UTC(
+    parseInt(res.year, 10),
+    parseInt(res.month, 10) - 1,
+    parseInt(res.day, 10),
+    parseInt(res.hour, 10) % 24,
+    parseInt(res.minute, 10),
+    parseInt(res.second, 10)
+  );
+  return copenhagenAsUtc - utcMs;
+}
+
+function danishTimeToUtcMs(year, month, day, hour = 7, minute = 0, second = 0) {
+  const guessUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  const offset1 = getCopenhagenOffsetMs(guessUtc);
+  const candidateUtc = guessUtc - offset1;
+  const offset2 = getCopenhagenOffsetMs(candidateUtc);
+  return guessUtc - offset2;
+}
+
+function getDanishDateParts(timestamp = Date.now()) {
+  try {
+    const parts = danishFullDateFormatter.formatToParts(new Date(timestamp));
+    const res = {};
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      if (p.type !== 'literal') res[p.type] = p.value;
+    }
+    return {
+      year: parseInt(res.year, 10),
+      month: parseInt(res.month, 10),
+      day: parseInt(res.day, 10),
+      hour: parseInt(res.hour, 10) % 24,
+      minute: parseInt(res.minute, 10),
+      second: parseInt(res.second, 10),
+      weekday: res.weekday || 'Mon'
+    };
+  } catch (_) {
+    const d = new Date(timestamp);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return {
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth() + 1,
+      day: d.getUTCDate(),
+      hour: d.getUTCHours(),
+      minute: d.getUTCMinutes(),
+      second: d.getUTCSeconds(),
+      weekday: dayNames[d.getUTCDay()]
+    };
+  }
+}
+
+const WEEKDAY_INDEX = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+
+/**
+ * Returns exact start and next reset timestamps in milliseconds UTC for:
+ * - Daily: resets every day at 07:00:00 Danish Time (Europe/Copenhagen)
+ * - Weekly: resets every Monday at 07:00:00 Danish Time (Europe/Copenhagen)
+ */
+function getLeaderboardResetBoundaries(nowMs = Date.now()) {
+  const parts = getDanishDateParts(nowMs);
+  const today7amMs = danishTimeToUtcMs(parts.year, parts.month, parts.day, 7, 0, 0);
+
+  let currentDailyResetMs;
+  let nextDailyResetMs;
+
+  if (nowMs >= today7amMs) {
+    currentDailyResetMs = today7amMs;
+    const tomorrowParts = getDanishDateParts(today7amMs + 28 * 3600 * 1000);
+    nextDailyResetMs = danishTimeToUtcMs(tomorrowParts.year, tomorrowParts.month, tomorrowParts.day, 7, 0, 0);
+  } else {
+    const yesterdayParts = getDanishDateParts(today7amMs - 12 * 3600 * 1000);
+    currentDailyResetMs = danishTimeToUtcMs(yesterdayParts.year, yesterdayParts.month, yesterdayParts.day, 7, 0, 0);
+    nextDailyResetMs = today7amMs;
+  }
+
+  const dayOfWeek = WEEKDAY_INDEX[parts.weekday] ?? 0;
+  let currentWeeklyResetMs;
+  let nextWeeklyResetMs;
+
+  if (dayOfWeek === 0 && nowMs < today7amMs) {
+    nextWeeklyResetMs = today7amMs;
+    const prevMonParts = getDanishDateParts(today7amMs - 7 * 24 * 3600 * 1000 + 4 * 3600 * 1000);
+    currentWeeklyResetMs = danishTimeToUtcMs(prevMonParts.year, prevMonParts.month, prevMonParts.day, 7, 0, 0);
+  } else {
+    const daysSinceMon = dayOfWeek;
+    const thisMonApprox = today7amMs - daysSinceMon * 24 * 3600 * 1000;
+    const thisMonParts = getDanishDateParts(thisMonApprox + 4 * 3600 * 1000);
+    currentWeeklyResetMs = danishTimeToUtcMs(thisMonParts.year, thisMonParts.month, thisMonParts.day, 7, 0, 0);
+
+    const daysUntilNextMon = 7 - daysSinceMon;
+    const nextMonApprox = today7amMs + daysUntilNextMon * 24 * 3600 * 1000;
+    const nextMonParts = getDanishDateParts(nextMonApprox + 4 * 3600 * 1000);
+    nextWeeklyResetMs = danishTimeToUtcMs(nextMonParts.year, nextMonParts.month, nextMonParts.day, 7, 0, 0);
+  }
+
+  return {
+    serverTime: nowMs,
+    daily: {
+      currentResetMs: currentDailyResetMs,
+      nextResetMs: nextDailyResetMs,
+      remainingMs: Math.max(0, nextDailyResetMs - nowMs)
+    },
+    weekly: {
+      currentResetMs: currentWeeklyResetMs,
+      nextResetMs: nextWeeklyResetMs,
+      remainingMs: Math.max(0, nextWeeklyResetMs - nowMs)
+    }
+  };
+}
+
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
 }
@@ -238,7 +374,8 @@ let db = {
   adminSettings: {},
   users: {},
   runs: { easy: [], medium: [], hard: [] },
-  sessions: {}
+  sessions: {},
+  chatMessages: []
 };
 
 /**
@@ -693,7 +830,8 @@ function loadDatabase(fromWatcher = false) {
         adminSettings: (parsed.adminSettings && typeof parsed.adminSettings === 'object') ? parsed.adminSettings : {},
         users: parsed.users || {},
         runs: parsed.runs || { easy: [], medium: [], hard: [] },
-        sessions: parsed.sessions || {}
+        sessions: parsed.sessions || {},
+        chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : []
       };
     }
 
@@ -839,15 +977,18 @@ fs.watchFile(DB_FILE, { interval: 2500, persistent: false }, (curr, prev) => {
 });
 
 /**
- * Builds the 3-Difficulty Leaderboards (Top 100 or All Players/Runs if limit is 0/null)
- * Ultra-fast in-memory cached (invalidated on new verified runs or record edits)
+ * Builds the 3-Difficulty Leaderboards for a specific timeframe (all, weekly, daily).
+ * - all: all-time non-hidden records
+ * - weekly: runs achieved since the most recent Monday 07:00:00 Danish Time
+ * - daily: runs achieved since the most recent 07:00:00 Danish Time
  */
-function buildLeaderboards(limit = 100) {
-  if (limit === 100 && cachedLeaderboards) {
-    return cachedLeaderboards;
-  }
-  if (!limit && cachedAllLeaderboards) {
-    return cachedAllLeaderboards;
+function buildLeaderboards(limit = 100, timeframe = 'all', nowMs = Date.now()) {
+  const boundaries = getLeaderboardResetBoundaries(nowMs);
+  let minCreatedAt = 0;
+  if (timeframe === 'daily') {
+    minCreatedAt = boundaries.daily.currentResetMs;
+  } else if (timeframe === 'weekly') {
+    minCreatedAt = boundaries.weekly.currentResetMs;
   }
 
   const result = { easy: [], medium: [], hard: [] };
@@ -857,6 +998,7 @@ function buildLeaderboards(limit = 100) {
     let filtered = runsList
       .filter(entry => {
         if (!entry || typeof entry.score !== 'number' || entry.score <= 0 || entry.hidden) return false;
+        if (minCreatedAt > 0 && (!entry.createdAt || entry.createdAt < minCreatedAt)) return false;
         if (entry.isWithinDanishWindow !== undefined) return entry.isWithinDanishWindow;
         entry.isWithinDanishWindow = isWithinDanishWindow(entry.createdAt);
         return entry.isWithinDanishWindow;
@@ -880,13 +1022,20 @@ function buildLeaderboards(limit = 100) {
     }));
   });
 
-  if (limit === 100) {
-    cachedLeaderboards = result;
-  } else if (!limit) {
-    cachedAllLeaderboards = result;
-  }
-
   return result;
+}
+
+/**
+ * Builds all 3 timeframes (All Time, Weekly, Daily) simultaneously along with reset boundaries
+ */
+function buildAllTimeframeLeaderboards(limit = 100, nowMs = Date.now()) {
+  const boundaries = getLeaderboardResetBoundaries(nowMs);
+  return {
+    all: buildLeaderboards(limit, 'all', nowMs),
+    weekly: buildLeaderboards(limit, 'weekly', nowMs),
+    daily: buildLeaderboards(limit, 'daily', nowMs),
+    resetBoundaries: boundaries
+  };
 }
 
 /**
@@ -1375,12 +1524,16 @@ function adminUpdateUserSkins(username, options = {}) {
 
   if (typeof selectedSkin === 'string' && selectedSkin.trim()) {
     user.selectedSkin = selectedSkin.trim();
+    if (!user.grantedSkins) user.grantedSkins = [];
+    if (!user.grantedSkins.includes(user.selectedSkin)) user.grantedSkins.push(user.selectedSkin);
     actionLog.push(`Set bird skin to "${user.selectedSkin}"`);
     changed = true;
   }
 
   if (typeof selectedPipeSkin === 'string' && selectedPipeSkin.trim()) {
     user.selectedPipeSkin = selectedPipeSkin.trim();
+    if (!user.grantedSkins) user.grantedSkins = [];
+    if (!user.grantedSkins.includes(user.selectedPipeSkin)) user.grantedSkins.push(user.selectedPipeSkin);
     actionLog.push(`Set pipe skin to "${user.selectedPipeSkin}"`);
     changed = true;
   }
@@ -1407,6 +1560,60 @@ function adminUpdateUserSkins(username, options = {}) {
   };
 }
 
+/**
+ * Retrieves the latest chat messages up to `limit` (default 60),
+ * optionally filtering for messages created after `sinceTimestamp`.
+ */
+function getChatMessages(limit = 60, sinceTimestamp = 0) {
+  if (!Array.isArray(db.chatMessages)) db.chatMessages = [];
+  const since = Number(sinceTimestamp) || 0;
+  let list = db.chatMessages;
+  if (since > 0) {
+    list = list.filter(m => m && m.timestampMs > since);
+  }
+  const max = Math.max(1, Math.min(Number(limit) || 60, 150));
+  return list.slice(-max);
+}
+
+/**
+ * Appends a new chat message or system announcement to `db.chatMessages`.
+ * Automatically manages timestamps, ID, Danish time format, and caps storage at 200 items.
+ */
+function addChatMessage({ type = 'user', subtype = null, tagLabel = null, leaderboardType = null, username = 'Player', usernameKey = '', isMeDonut = false, avatar = '🐤', text = '', replyTo = null, timestampMs = null }) {
+  if (!Array.isArray(db.chatMessages)) db.chatMessages = [];
+
+  const now = Number(timestampMs) || Date.now();
+  const timeStr = formatDanishTime(now) || 'Just now';
+
+  const message = {
+    id: crypto.randomBytes(6).toString('hex'),
+    type: type === 'system' ? 'system' : 'user',
+    subtype: subtype || null,
+    tagLabel: tagLabel ? String(tagLabel).slice(0, 50) : null,
+    leaderboardType: leaderboardType ? String(leaderboardType).slice(0, 30) : null,
+    username: String(username || 'Player').slice(0, 32),
+    usernameKey: String(usernameKey || '').toLowerCase(),
+    isMeDonut: Boolean(isMeDonut),
+    avatar: String(avatar || '🐤'),
+    text: String(text || '').slice(0, 500),
+    replyTo: (replyTo && typeof replyTo === 'object' && replyTo.username) ? {
+      id: String(replyTo.id || ''),
+      username: String(replyTo.username || '').slice(0, 32),
+      snippet: String(replyTo.snippet || '').slice(0, 60)
+    } : null,
+    timestampMs: now,
+    timeStr
+  };
+
+  db.chatMessages.push(message);
+  if (db.chatMessages.length > 200) {
+    db.chatMessages = db.chatMessages.slice(-200);
+  }
+
+  saveDatabase(false);
+  return message;
+}
+
 loadDatabase(false);
 
 module.exports = {
@@ -1416,6 +1623,8 @@ module.exports = {
   saveDatabase,
   hashPassword,
   buildLeaderboards,
+  buildAllTimeframeLeaderboards,
+  getLeaderboardResetBoundaries,
   logDatabaseEvent,
   recordUserLogin,
   recordVerifiedRun,
@@ -1433,5 +1642,7 @@ module.exports = {
   formatDanishTime,
   isWithinDanishWindow,
   pruneBackups,
-  isSkinUnlockedForUser
+  isSkinUnlockedForUser,
+  getChatMessages,
+  addChatMessage
 };

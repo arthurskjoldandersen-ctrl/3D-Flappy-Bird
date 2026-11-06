@@ -465,6 +465,10 @@ class FlappyBirdUIAndProgression {
           if (this.currentUser && Array.isArray(this.currentUser.grantedSkins) && this.currentUser.grantedSkins.includes(item.id)) {
             return true;
           }
+          // Priority 2.5: Skin equipped by database/admin is unlocked immediately
+          if (this.currentUser && (this.currentUser.selectedSkin === item.id || this.currentUser.selectedPipeSkin === item.id)) {
+            return true;
+          }
           if (item.reqMode === 'meme' && item.trollQuestId) {
             return this.getTrollQuestProgress(item.trollQuestId, item.reqScore).unlocked;
           }
@@ -572,9 +576,24 @@ class FlappyBirdUIAndProgression {
               this.setLoggedInUser(data.user, this.authToken);
               if (data.leaderboards) {
                 this.leaderboards = data.leaderboards;
+                if (data.timeframeLeaderboards) {
+                  this.timeframeLeaderboards = data.timeframeLeaderboards;
+                  try {
+                    localStorage.setItem('flappy3d_cached_timeframe_lb', JSON.stringify(data.timeframeLeaderboards));
+                  } catch (_) {}
+                }
+                if (data.resetBoundaries) {
+                  this.resetBoundaries = data.resetBoundaries;
+                  if (typeof data.resetBoundaries.serverTime === 'number') {
+                    this.clientServerTimeOffset = data.resetBoundaries.serverTime - Date.now();
+                  }
+                }
                 try {
                   localStorage.setItem('flappy3d_cached_leaderboards', JSON.stringify(data.leaderboards));
                 } catch (_) {}
+                if (typeof this.updateResetTimerUI === 'function') {
+                  this.updateResetTimerUI();
+                }
                 this.renderLeaderboard();
               }
               return;
@@ -629,9 +648,24 @@ class FlappyBirdUIAndProgression {
             const data = await this.apiRequest(url);
             if (data && data.leaderboards) {
               this.leaderboards = data.leaderboards;
+              if (data.timeframeLeaderboards) {
+                this.timeframeLeaderboards = data.timeframeLeaderboards;
+                try {
+                  localStorage.setItem('flappy3d_cached_timeframe_lb', JSON.stringify(data.timeframeLeaderboards));
+                } catch (_) {}
+              }
+              if (data.resetBoundaries) {
+                this.resetBoundaries = data.resetBoundaries;
+                if (typeof data.resetBoundaries.serverTime === 'number') {
+                  this.clientServerTimeOffset = data.resetBoundaries.serverTime - Date.now();
+                }
+              }
               try {
                 localStorage.setItem('flappy3d_cached_leaderboards', JSON.stringify(data.leaderboards));
               } catch (_) {}
+              if (typeof this.updateResetTimerUI === 'function') {
+                this.updateResetTimerUI();
+              }
               this.renderLeaderboard();
               return;
             }
@@ -643,7 +677,16 @@ class FlappyBirdUIAndProgression {
           try {
             const raw = localStorage.getItem('flappy3d_cached_leaderboards');
             if (raw) cachedData = JSON.parse(raw);
+            const rawTf = localStorage.getItem('flappy3d_cached_timeframe_lb');
+            if (rawTf) this.timeframeLeaderboards = JSON.parse(rawTf);
           } catch (_) {}
+
+          if (!this.resetBoundaries && typeof this.computeLocalResetBoundaries === 'function') {
+            this.resetBoundaries = this.computeLocalResetBoundaries();
+          }
+          if (typeof this.updateResetTimerUI === 'function') {
+            this.updateResetTimerUI();
+          }
 
           if (cachedData && typeof cachedData === 'object' && cachedData.easy) {
             this.leaderboards = cachedData;
@@ -659,6 +702,13 @@ class FlappyBirdUIAndProgression {
           }
 
           this.leaderboards = this.getDefaultLeaderboardSnapshot();
+          if (!this.timeframeLeaderboards) {
+            this.timeframeLeaderboards = {
+              all: this.leaderboards,
+              weekly: this.leaderboards,
+              daily: this.leaderboards
+            };
+          }
           this.renderLeaderboard();
           const listEl = document.getElementById('lb-list');
           if (listEl && !listEl.querySelector('.lb-offline-notice')) {
@@ -684,6 +734,195 @@ class FlappyBirdUIAndProgression {
             if (icon) icon.textContent = '🌐';
             if (text) text.textContent = 'All Players: OFF';
             btn.title = 'Showing Top 100 Only. Click to view All Players.';
+          }
+        }
+
+        computeLocalResetBoundaries(nowMs = Date.now() + (this.clientServerTimeOffset || 0)) {
+          try {
+            const dtf = new Intl.DateTimeFormat('en-US', {
+              timeZone: 'Europe/Copenhagen',
+              year: 'numeric',
+              month: 'numeric',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: 'numeric',
+              second: 'numeric',
+              weekday: 'short',
+              hour12: false
+            });
+
+            const getOffset = (utcMs) => {
+              const parts = dtf.formatToParts(new Date(utcMs));
+              const res = {};
+              for (let i = 0; i < parts.length; i++) {
+                const p = parts[i];
+                if (p.type !== 'literal') res[p.type] = p.value;
+              }
+              const cphUtc = Date.UTC(
+                parseInt(res.year, 10),
+                parseInt(res.month, 10) - 1,
+                parseInt(res.day, 10),
+                parseInt(res.hour, 10) % 24,
+                parseInt(res.minute, 10),
+                parseInt(res.second, 10)
+              );
+              return cphUtc - utcMs;
+            };
+
+            const toUtc = (year, month, day, hour = 7, min = 0, sec = 0) => {
+              const guess = Date.UTC(year, month - 1, day, hour, min, sec);
+              const o1 = getOffset(guess);
+              const cand = guess - o1;
+              const o2 = getOffset(cand);
+              return guess - o2;
+            };
+
+            const getParts = (ts) => {
+              const parts = dtf.formatToParts(new Date(ts));
+              const res = {};
+              for (let i = 0; i < parts.length; i++) {
+                const p = parts[i];
+                if (p.type !== 'literal') res[p.type] = p.value;
+              }
+              return {
+                year: parseInt(res.year, 10),
+                month: parseInt(res.month, 10),
+                day: parseInt(res.day, 10),
+                hour: parseInt(res.hour, 10) % 24,
+                minute: parseInt(res.minute, 10),
+                second: parseInt(res.second, 10),
+                weekday: res.weekday || 'Mon'
+              };
+            };
+
+            const parts = getParts(nowMs);
+            const today7amMs = toUtc(parts.year, parts.month, parts.day, 7, 0, 0);
+
+            let curDailyMs, nextDailyMs;
+            if (nowMs >= today7amMs) {
+              curDailyMs = today7amMs;
+              const tomorrowParts = getParts(today7amMs + 28 * 3600 * 1000);
+              nextDailyMs = toUtc(tomorrowParts.year, tomorrowParts.month, tomorrowParts.day, 7, 0, 0);
+            } else {
+              const yesterdayParts = getParts(today7amMs - 12 * 3600 * 1000);
+              curDailyMs = toUtc(yesterdayParts.year, yesterdayParts.month, yesterdayParts.day, 7, 0, 0);
+              nextDailyMs = today7amMs;
+            }
+
+            const WEEKDAY_INDEX = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+            const dayOfWeek = WEEKDAY_INDEX[parts.weekday] ?? 0;
+            let curWeeklyMs, nextWeeklyMs;
+
+            if (dayOfWeek === 0 && nowMs < today7amMs) {
+              nextWeeklyMs = today7amMs;
+              const prevMonParts = getParts(today7amMs - 7 * 24 * 3600 * 1000 + 4 * 3600 * 1000);
+              curWeeklyMs = toUtc(prevMonParts.year, prevMonParts.month, prevMonParts.day, 7, 0, 0);
+            } else {
+              const daysSinceMon = dayOfWeek;
+              const thisMonApprox = today7amMs - daysSinceMon * 24 * 3600 * 1000;
+              const thisMonParts = getParts(thisMonApprox + 4 * 3600 * 1000);
+              curWeeklyMs = toUtc(thisMonParts.year, thisMonParts.month, thisMonParts.day, 7, 0, 0);
+
+              const daysUntilNextMon = 7 - daysSinceMon;
+              const nextMonApprox = today7amMs + daysUntilNextMon * 24 * 3600 * 1000;
+              const nextMonParts = getParts(nextMonApprox + 4 * 3600 * 1000);
+              nextWeeklyMs = toUtc(nextMonParts.year, nextMonParts.month, nextMonParts.day, 7, 0, 0);
+            }
+
+            return {
+              serverTime: nowMs,
+              daily: {
+                currentResetMs: curDailyMs,
+                nextResetMs: nextDailyMs,
+                remainingMs: Math.max(0, nextDailyMs - nowMs)
+              },
+              weekly: {
+                currentResetMs: curWeeklyMs,
+                nextResetMs: nextWeeklyMs,
+                remainingMs: Math.max(0, nextWeeklyMs - nowMs)
+              }
+            };
+          } catch (_) {
+            return null;
+          }
+        }
+
+        formatRemainingResetCountdown(remainingMs) {
+          if (remainingMs <= 0) return '00:00:00';
+          const totalSec = Math.floor(remainingMs / 1000);
+          const days = Math.floor(totalSec / 86400);
+          const hours = Math.floor((totalSec % 86400) / 3600);
+          const minutes = Math.floor((totalSec % 3600) / 60);
+          const seconds = totalSec % 60;
+          const pad = (n) => String(n).padStart(2, '0');
+
+          if (days > 0) {
+            return `${days}d ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+          }
+          return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+        }
+
+        updateResetTimerUI() {
+          const nowMs = Date.now() + (this.clientServerTimeOffset || 0);
+          let b = this.resetBoundaries;
+
+          // Recompute boundaries if expired or not yet initialized
+          if (!b || !b.daily || !b.weekly || nowMs >= b.daily.nextResetMs || nowMs >= b.weekly.nextResetMs) {
+            b = this.computeLocalResetBoundaries(nowMs);
+            if (b) this.resetBoundaries = b;
+            // If a reset rollover occurred while page is open, refresh leaderboard data
+            if (!this._isLeaderboardRollingOver) {
+              this._isLeaderboardRollingOver = true;
+              setTimeout(() => {
+                this._isLeaderboardRollingOver = false;
+                this.fetchLeaderboards();
+              }, 1200);
+            }
+          }
+
+          const tf = this.activeTimeframeTab || 'all';
+          const badgeEl = document.getElementById('lb-reset-timer-badge');
+          const iconEl = document.getElementById('lb-timer-icon');
+          const labelEl = document.getElementById('lb-timer-label');
+          const clockEl = document.getElementById('lb-timer-clock');
+          const goPillEl = document.getElementById('gameover-lb-timer-pill');
+
+          if (!b) return;
+
+          const remainingDaily = Math.max(0, (b.daily?.nextResetMs || nowMs) - nowMs);
+          const remainingWeekly = Math.max(0, (b.weekly?.nextResetMs || nowMs) - nowMs);
+
+          const strDaily = this.formatRemainingResetCountdown(remainingDaily);
+          const strWeekly = this.formatRemainingResetCountdown(remainingWeekly);
+
+          if (tf === 'daily') {
+            if (badgeEl) {
+              badgeEl.className = 'lb-reset-timer-badge is-daily';
+              badgeEl.title = `Daily Leaderboard resets every day at 07:00 Danish Time (Europe/Copenhagen). Next reset in ${strDaily}.`;
+            }
+            if (iconEl) iconEl.textContent = '🌅';
+            if (labelEl) labelEl.textContent = 'Daily Reset in:';
+            if (clockEl) clockEl.textContent = strDaily;
+            if (goPillEl) goPillEl.textContent = `⏳ Daily Reset in: ${strDaily}`;
+          } else if (tf === 'weekly') {
+            if (badgeEl) {
+              badgeEl.className = 'lb-reset-timer-badge is-weekly';
+              badgeEl.title = `Weekly Leaderboard resets every Monday at 07:00 Danish Time (Europe/Copenhagen). Next reset in ${strWeekly}.`;
+            }
+            if (iconEl) iconEl.textContent = '📅';
+            if (labelEl) labelEl.textContent = 'Weekly Reset in:';
+            if (clockEl) clockEl.textContent = strWeekly;
+            if (goPillEl) goPillEl.textContent = `⏳ Weekly Reset in: ${strWeekly}`;
+          } else {
+            // All-Time
+            if (badgeEl) {
+              badgeEl.className = 'lb-reset-timer-badge is-all';
+              badgeEl.title = 'All-Time Hall of Fame: Permanent high scores that never expire.';
+            }
+            if (iconEl) iconEl.textContent = '👑';
+            if (labelEl) labelEl.textContent = 'All Time:';
+            if (clockEl) clockEl.textContent = 'Permanent 🏆';
+            if (goPillEl) goPillEl.textContent = '👑 All Time: Permanent 🏆';
           }
         }
 
@@ -1461,10 +1700,13 @@ class FlappyBirdUIAndProgression {
             highlightEntryId
           );
 
+          const tfKey = this.activeTimeframeTab || 'all';
+          const tfLabel = tfKey === 'daily' ? 'Daily' : (tfKey === 'weekly' ? 'Weekly' : 'All-Time');
+
           const goTitle = document.getElementById('gameover-lb-title');
           if (goTitle) {
             const label = CONFIG.difficulties[this.selectedDifficulty].label;
-            goTitle.textContent = `🏆 Live Leaderboard (${label})`;
+            goTitle.textContent = `🏆 Live Leaderboard (${tfLabel} · ${label})`;
           }
           this.renderLeaderboardInto(
             document.getElementById('gameover-lb-list'),
@@ -1475,8 +1717,11 @@ class FlappyBirdUIAndProgression {
 
         renderLeaderboardInto(listEl, diffKey, highlightEntryId = null) {
           if (!listEl) return;
-          const rawEntries = this.leaderboards[diffKey] || [];
+          const currentTf = this.activeTimeframeTab || 'all';
+          const tfLeaderboard = this.timeframeLeaderboards && this.timeframeLeaderboards[currentTf];
+          const rawEntries = (tfLeaderboard && tfLeaderboard[diffKey]) || (this.leaderboards && this.leaderboards[diffKey]) || [];
           const label = CONFIG.difficulties[diffKey].label;
+          const tfLabel = currentTf === 'daily' ? 'Daily' : (currentTf === 'weekly' ? 'Weekly' : 'All-Time');
 
           // Preserve scroll position so periodic leaderboard refreshes NEVER jump back to the top!
           const prevScrollTop = listEl.scrollTop || 0;
@@ -1536,28 +1781,34 @@ class FlappyBirdUIAndProgression {
               <div class="standing-pill-left">
                 <span class="standing-crown">⭐</span>
                 <div>
-                  <div class="standing-title">Your Verified ${label} Standing</div>
+                  <div class="standing-title">Your Verified ${tfLabel} ${label} Standing</div>
                   <strong class="standing-rank">Rank #${myIndex + 1} of ${entries.length} ${this.lbUniqueRecordsOnly ? '(Unique Players)' : (this.lbShowAllPlayers ? '(All Players)' : '(Top 100)')}</strong>
                 </div>
               </div>
               <div class="standing-pill-right">
-                <span class="standing-tag">YOUR BEST</span>
+                <span class="standing-tag">YOUR ${currentTf === 'all' ? 'BEST' : (currentTf === 'daily' ? 'DAILY BEST' : 'WEEKLY BEST')}</span>
                 <span class="standing-score">${myEntry.score}${repeatSuffix} pts</span>
               </div>
             `;
           } else if (this.currentUser) {
             const userBest = this.getBestForDifficulty(diffKey);
             standingCard.classList.add('not-ranked');
+            const unrankedSub = currentTf === 'daily'
+              ? (entries.length > 0 ? `No run submitted today yet. Play a run on ${label} to claim your daily rank (resets 07:00)!` : 'Be the first to submit a run today to claim #1!')
+              : (currentTf === 'weekly'
+                ? (entries.length > 0 ? `No run submitted this week yet. Play a run on ${label} to claim your weekly rank (resets Mon 07:00)!` : 'Be the first to submit a run this week to claim #1!')
+                : (entries.length > 0 ? (this.lbShowAllPlayers ? `Play a run on ${label} to appear on the global leaderboard!` : `Score ${entries[entries.length - 1].score + 1}+ pts to enter the Top 100!`) : 'Submit a run to claim #1!'));
+
             standingCard.innerHTML = `
               <div class="standing-pill-left">
                 <span class="standing-crown">🎯</span>
                 <div>
                   <div class="standing-title">Your ${label} Best: <strong>${userBest} pts</strong></div>
-                  <div class="standing-sub">${entries.length > 0 ? (this.lbShowAllPlayers ? `Play a run on ${label} to appear on the global leaderboard!` : `Score ${entries[entries.length - 1].score + 1}+ pts to enter the Top 100!`) : 'Submit a run to claim #1!'}</div>
+                  <div class="standing-sub">${unrankedSub}</div>
                 </div>
               </div>
               <div class="standing-pill-right">
-                <span class="standing-tag unranked">${this.lbShowAllPlayers ? 'Unranked' : 'Unranked in Top 100'}</span>
+                <span class="standing-tag unranked">${currentTf === 'all' ? (this.lbShowAllPlayers ? 'Unranked' : 'Unranked in Top 100') : `Unranked ${tfLabel}`}</span>
               </div>
             `;
           } else {
@@ -1583,7 +1834,8 @@ class FlappyBirdUIAndProgression {
           if (entries.length === 0) {
             const emptyEl = document.createElement('div');
             emptyEl.className = 'lb-empty';
-            emptyEl.innerHTML = `No scores recorded on <strong>${label}</strong> yet.<br/>Be the first to set a record!`;
+            const tfDesc = currentTf === 'daily' ? 'today (since 07:00 Danish time)' : (currentTf === 'weekly' ? 'this week (since Monday 07:00 Danish time)' : 'all time');
+            emptyEl.innerHTML = `No scores recorded on <strong>${label}</strong> for <strong>${tfDesc}</strong> yet.<br/>Be the first to set a record!`;
             listEl.appendChild(emptyEl);
             return;
           }
@@ -2736,9 +2988,9 @@ class FlappyBirdUIAndProgression {
         // ------------------------------------------------------------------------
         // APPLYING BIRD SKINS & PIPE SKINS IN 3D
         // ------------------------------------------------------------------------
-        applySkin(skinId, saveToServer = false) {
+        applySkin(skinId, saveToServer = false, force = false) {
           const skin = BIRD_SKINS.find(s => s.id === skinId) || BIRD_SKINS[0];
-          if (!this.isCosmeticUnlocked(skin)) return;
+          if (!force && !this.isCosmeticUnlocked(skin)) return;
 
           this.selectedSkinId = skin.id;
           localStorage.setItem('flappy3d_skin', skin.id);
@@ -2892,9 +3144,9 @@ class FlappyBirdUIAndProgression {
           return cached;
         }
 
-        applyPipeSkin(pipeSkinId, saveToServer = false) {
+        applyPipeSkin(pipeSkinId, saveToServer = false, force = false) {
           const pipeSkin = PIPE_SKINS.find(p => p.id === pipeSkinId) || PIPE_SKINS[0];
-          if (!this.isCosmeticUnlocked(pipeSkin)) return;
+          if (!force && !this.isCosmeticUnlocked(pipeSkin)) return;
 
           this.selectedPipeSkinId = pipeSkin.id;
           localStorage.setItem('flappy3d_pipe_skin', pipeSkin.id);
@@ -3193,139 +3445,82 @@ class FlappyBirdUIAndProgression {
           }
         }
 
-        toggleChangelogModal(forceOpen) {
-          const modal = document.getElementById('modal-changelog');
-          if (!modal) return;
-          const isAct = modal.classList.contains('active') || modal.style.display === 'flex';
-          const target = typeof forceOpen === 'boolean' ? forceOpen : !isAct;
+        toggleChangelogModal() {}
+        initChangelog() {}
 
-          if (target) {
-            modal.classList.add('active');
-            modal.style.setProperty('display', 'flex', 'important');
-            document.body.style.overflow = 'hidden';
-            if (this.sound && typeof this.sound.playClick === 'function') {
-              this.sound.playClick();
+        // ------------------------------------------------------------------------
+        // LIVE USER DATA & SKIN SYNC (INSTANT UPDATES FROM DATABASE PANEL)
+        // ------------------------------------------------------------------------
+        applyLiveUserSync(userSync) {
+          if (!userSync || !this.currentUser) return;
+          if (userSync.username && this.currentUser.username && userSync.username.toLowerCase() !== this.currentUser.username.toLowerCase()) {
+            return;
+          }
+
+          let hasVisualChanges = false;
+          let hasGridChanges = false;
+
+          // 1. Sync granted skins
+          if (Array.isArray(userSync.grantedSkins)) {
+            const oldG = JSON.stringify(this.currentUser.grantedSkins || []);
+            const newG = JSON.stringify(userSync.grantedSkins);
+            if (oldG !== newG) {
+              this.currentUser.grantedSkins = [...userSync.grantedSkins];
+              hasGridChanges = true;
             }
-          } else {
-            modal.classList.remove('active');
-            modal.style.setProperty('display', 'none', 'important');
-            document.body.style.overflow = '';
-            if (this.sound && typeof this.sound.playClick === 'function') {
-              this.sound.playClick();
+          }
+
+          // 2. Sync admin locked skins
+          if (Array.isArray(userSync.adminLockedSkins)) {
+            const oldL = JSON.stringify(this.currentUser.adminLockedSkins || []);
+            const newL = JSON.stringify(userSync.adminLockedSkins);
+            if (oldL !== newL) {
+              this.currentUser.adminLockedSkins = [...userSync.adminLockedSkins];
+              hasGridChanges = true;
+            }
+          }
+
+          // 3. Sync player records
+          if (userSync.records && typeof userSync.records === 'object') {
+            const oldR = JSON.stringify(this.currentUser.records || {});
+            const newR = JSON.stringify(userSync.records);
+            if (oldR !== newR) {
+              this.currentUser.records = { ...userSync.records };
+              hasGridChanges = true;
+            }
+          }
+
+          // 4. Sync equipped bird skin
+          const targetBirdSkin = userSync.selectedSkin || 'classic';
+          if (this.currentUser.selectedSkin !== targetBirdSkin || this.selectedSkinId !== targetBirdSkin) {
+            this.currentUser.selectedSkin = targetBirdSkin;
+            this.selectedSkinId = targetBirdSkin;
+            localStorage.setItem('flappy3d_skin', targetBirdSkin);
+            this.applySkin(targetBirdSkin, false, true);
+            hasVisualChanges = true;
+            hasGridChanges = true;
+          }
+
+          // 5. Sync equipped pipe skin
+          const targetPipeSkin = userSync.selectedPipeSkin || 'classic_pipe';
+          if (this.currentUser.selectedPipeSkin !== targetPipeSkin || this.selectedPipeSkinId !== targetPipeSkin) {
+            this.currentUser.selectedPipeSkin = targetPipeSkin;
+            this.selectedPipeSkinId = targetPipeSkin;
+            localStorage.setItem('flappy3d_pipe_skin', targetPipeSkin);
+            this.applyPipeSkin(targetPipeSkin, false, true);
+            hasVisualChanges = true;
+            hasGridChanges = true;
+          }
+
+          if (hasGridChanges || hasVisualChanges) {
+            this.renderAllCosmeticGrids();
+            this.updateLobbySkinCapsuleUI();
+            this.updateHUD();
+            if (typeof this.renderStatsMenu === 'function' && document.getElementById('stats-screen')?.classList.contains('active')) {
+              this.renderStatsMenu();
             }
           }
         }
-
-        initChangelog() {
-          if (this._changelogInitialized) return;
-          this._changelogInitialized = true;
-
-          const modal = document.getElementById('modal-changelog');
-          const openTopBtn = document.getElementById('btn-open-changelog');
-          const openLobbyBtn = document.getElementById('lobby-changelog-btn');
-          const openSettingsBtn = document.getElementById('btn-settings-open-changelog');
-          const closeTopBtn = document.getElementById('changelog-close-btn');
-          const closeFooterBtn = document.getElementById('changelog-footer-close-btn');
-
-          const expandAllBtn = document.getElementById('btn-changelog-expand-all');
-          const collapseAllBtn = document.getElementById('btn-changelog-collapse-all');
-
-          const openHandler = (e) => {
-            if (e) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
-            this.toggleChangelogModal(true);
-          };
-          const closeHandler = (e) => {
-            if (e) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
-            this.toggleChangelogModal(false);
-          };
-
-          if (openTopBtn) openTopBtn.addEventListener('click', openHandler);
-          if (openLobbyBtn) openLobbyBtn.addEventListener('click', openHandler);
-          if (openSettingsBtn) openSettingsBtn.addEventListener('click', openHandler);
-
-          if (closeTopBtn) closeTopBtn.addEventListener('click', closeHandler);
-          if (closeFooterBtn) closeFooterBtn.addEventListener('click', closeHandler);
-
-          if (modal) {
-            modal.addEventListener('click', (e) => {
-              if (e.target === modal) {
-                closeHandler(e);
-              }
-            });
-          }
-
-          // Function to set card expansion state cleanly
-          const setCardExpanded = (card, expanded) => {
-            if (!card) return;
-            card.classList.toggle('expanded', expanded);
-            const header = card.querySelector('.changelog-card-header');
-            if (header) {
-              header.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-              const pillText = header.querySelector('.toggle-pill-text');
-              if (pillText) {
-                pillText.textContent = expanded ? 'Hide Changes' : 'View Changes';
-              }
-            }
-          };
-
-          // Interactive accordion toggle for each version card
-          const cardHeaders = document.querySelectorAll('.changelog-card-header');
-          cardHeaders.forEach(header => {
-            const toggleAction = (e) => {
-              if (e) {
-                e.preventDefault();
-                e.stopPropagation();
-              }
-              const card = header.closest('.changelog-version-card');
-              if (!card) return;
-              const willBeExpanded = !card.classList.contains('expanded');
-              setCardExpanded(card, willBeExpanded);
-              if (this.sound && typeof this.sound.playClick === 'function') {
-                this.sound.playClick();
-              }
-            };
-
-            header.addEventListener('click', toggleAction);
-            header.addEventListener('keydown', (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                toggleAction(e);
-              }
-            });
-          });
-
-          // Expand / Collapse all actions
-          if (expandAllBtn) {
-            expandAllBtn.addEventListener('click', (e) => {
-              if (e) e.preventDefault();
-              document.querySelectorAll('.changelog-version-card').forEach(card => {
-                setCardExpanded(card, true);
-              });
-              if (this.sound && typeof this.sound.playClick === 'function') this.sound.playClick();
-            });
-          }
-
-          if (collapseAllBtn) {
-            collapseAllBtn.addEventListener('click', (e) => {
-              if (e) e.preventDefault();
-              document.querySelectorAll('.changelog-version-card').forEach(card => {
-                setCardExpanded(card, false);
-              });
-              if (this.sound && typeof this.sound.playClick === 'function') this.sound.playClick();
-            });
-          }
-
-          window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal && (modal.classList.contains('active') || modal.style.display === 'flex')) {
-              this.toggleChangelogModal(false);
-            }
-          });
-        }
-}
+      }
 
 window.FlappyBirdUIAndProgression = FlappyBirdUIAndProgression;

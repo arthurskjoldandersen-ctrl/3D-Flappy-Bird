@@ -6,14 +6,18 @@
 
 const crypto = require('crypto');
 const os = require('os');
+const path = require('path');
 const { SIM_CONFIG } = require('../config/physicsConfig');
 const { verifyGameReplay } = require('../services/antiCheat');
+const { checkProhibitedLanguage } = require('../services/antiSlur');
 const {
   getDb,
   DB_FILE,
   saveDatabase,
   hashPassword,
   buildLeaderboards,
+  buildAllTimeframeLeaderboards,
+  getLeaderboardResetBoundaries,
   logDatabaseEvent,
   recordUserLogin,
   recordVerifiedRun,
@@ -26,11 +30,29 @@ const {
   adminUpdateUserSkins,
   resetAllRecordsAdmin,
   formatReadableTimestamp,
-  isSkinUnlockedForUser
+  isSkinUnlockedForUser,
+  isWithinDanishWindow,
+  getChatMessages,
+  addChatMessage
 } = require('../services/database');
+
+let BIRD_SKINS_LIST = [];
+try {
+  const skinsModule = require(path.join(__dirname, '..', '..', 'public', 'js', 'skins-data.js'));
+  BIRD_SKINS_LIST = skinsModule.BIRD_SKINS || [];
+} catch (_) {}
+
+function getSkinEmoji(skinId) {
+  if (!skinId || skinId === 'classic') return '🐤';
+  const found = BIRD_SKINS_LIST.find(s => s && s.id === skinId);
+  return (found && found.emoji) ? found.emoji : '🐤';
+}
 
 // In-memory active single-use game runs
 const activeRuns = new Map(); // runId -> { runId, seed, difficulty, usernameKey, startedAt }
+
+// 3-second cooldown tracker per user/sender
+const chatCooldowns = new Map(); // key -> lastSentTimestamp
 
 // Clean up expired active runs older than 45 minutes
 setInterval(() => {
@@ -277,7 +299,13 @@ async function handleApiRequest(req, res, pathname, port) {
         adminLockedSkins: auth.user.adminLockedSkins || [],
         records: auth.user.records
       },
-      leaderboards: buildLeaderboards()
+      leaderboards: buildLeaderboards(),
+      timeframeLeaderboards: {
+        all: buildLeaderboards(100, 'all'),
+        weekly: buildLeaderboards(100, 'weekly'),
+        daily: buildLeaderboards(100, 'daily')
+      },
+      resetBoundaries: getLeaderboardResetBoundaries()
     });
   }
 
@@ -381,12 +409,22 @@ async function handleApiRequest(req, res, pathname, port) {
     });
   }
 
-  // 8. Get All 3 Difficulty Leaderboards (Supports ?all=true for full leaderboard beyond Top 100)
+  // 8. Get All 3 Difficulty Leaderboards (Supports ?timeframe=all|weekly|daily and ?all=true for full beyond Top 100)
   if (req.method === 'GET' && pathname === '/api/leaderboard') {
     const showAll = parsedUrl.query && (parsedUrl.query.all === 'true' || parsedUrl.query.all === '1');
+    const requestedTimeframe = parsedUrl.query && parsedUrl.query.timeframe;
+    const timeframe = (requestedTimeframe === 'daily' || requestedTimeframe === 'weekly') ? requestedTimeframe : 'all';
     const limit = showAll ? 0 : 100;
+    const boundaries = getLeaderboardResetBoundaries();
     return sendJSON(res, 200, {
-      leaderboards: buildLeaderboards(limit),
+      leaderboards: buildLeaderboards(limit, timeframe),
+      timeframeLeaderboards: {
+        all: buildLeaderboards(limit, 'all'),
+        weekly: buildLeaderboards(limit, 'weekly'),
+        daily: buildLeaderboards(limit, 'daily')
+      },
+      timeframe,
+      resetBoundaries: boundaries,
       isAll: Boolean(showAll),
       databaseStatus: db.databaseStatus
     });
@@ -470,6 +508,242 @@ async function handleApiRequest(req, res, pathname, port) {
 
     const { isNewRecord, newRunId, previousBest, autoHidden, withinWindow } = recordVerifiedRun(user, diffKey, verifiedScore);
 
+    // Automatic Chat Announcements for Personal Bests, Placements & Top Runs across Timeframes (Daily, Weekly, All-Time)
+    let timeframePlacements = { daily: 1, weekly: 1, all: 1 };
+    try {
+      const db = getDb();
+      const modeLabel = diffKey === 'easy' ? 'EASY' : (diffKey === 'hard' ? 'HARD' : 'MEDIUM');
+      const now = Date.now();
+      const boundaries = getLeaderboardResetBoundaries(now);
+      const dailyResetMs = boundaries.daily.currentResetMs;
+      const weeklyResetMs = boundaries.weekly.currentResetMs;
+
+      const allVisibleRuns = (db.runs && Array.isArray(db.runs[diffKey]))
+        ? db.runs[diffKey].filter(r => !r.hidden && (r.isWithinDanishWindow !== undefined ? r.isWithinDanishWindow : isWithinDanishWindow(r.createdAt)))
+        : [];
+
+      const weeklyVisibleRuns = allVisibleRuns.filter(r => (r.createdAt || 0) >= weeklyResetMs);
+      const dailyVisibleRuns = allVisibleRuns.filter(r => (r.createdAt || 0) >= dailyResetMs);
+
+      const getTimeframeStats = (runsList, targetRunId, username, isNewPb) => {
+        const sorted = runsList.slice().sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          return (a.createdAt || 0) - (b.createdAt || 0);
+        });
+
+        // Rank of THIS specific run among all runs in this timeframe
+        const runIdx = targetRunId ? sorted.findIndex(r => r.id === targetRunId) : -1;
+        const runRank = runIdx !== -1 ? (runIdx + 1) : (sorted.length + 1);
+
+        // Unique players ranking (each player's best score in this timeframe)
+        const uKey = (username || '').toLowerCase();
+        const maxScoreMap = new Map();
+        for (const r of sorted) {
+          const k = (r.username || '').toLowerCase();
+          const cur = maxScoreMap.get(k);
+          if (cur === undefined || r.score > cur) {
+            maxScoreMap.set(k, r.score);
+          }
+        }
+
+        const uniquePlayers = [];
+        const seen = new Set();
+        for (const r of sorted) {
+          const k = (r.username || '').toLowerCase();
+          if (!seen.has(k) && r.score === maxScoreMap.get(k)) {
+            seen.add(k);
+            uniquePlayers.push(r);
+          }
+        }
+
+        const playerIdx = uniquePlayers.findIndex(r => (r.username || '').toLowerCase() === uKey);
+        const playerRank = playerIdx !== -1 ? (playerIdx + 1) : (uniquePlayers.length + 1);
+
+        // CRITICAL FIX: If this run is NOT a new Personal Best, it cannot claim
+        // the player's historical rank! The rank of THIS run is strictly its runRank!
+        // Only if this run IS a new Personal Best does it represent their new playerRank!
+        const placementRank = isNewPb ? playerRank : runRank;
+
+        // A run is #1 ONLY if THIS SPECIFIC RUN is #1 in this timeframe!
+        const isTop1 = runRank === 1;
+        const isTop5 = isNewPb ? (playerRank <= 5) : (runRank <= 5);
+        const isTop10 = isNewPb ? (playerRank <= 10) : (runRank <= 10);
+
+        return {
+          runRank,
+          playerRank,
+          placementRank,
+          totalRuns: sorted.length,
+          totalPlayers: uniquePlayers.length,
+          isTop1,
+          isTop5,
+          isTop10
+        };
+      };
+
+      const dailyStats = getTimeframeStats(dailyVisibleRuns, newRunId, user.username, isNewRecord);
+      const weeklyStats = getTimeframeStats(weeklyVisibleRuns, newRunId, user.username, isNewRecord);
+      const allStats = getTimeframeStats(allVisibleRuns, newRunId, user.username, isNewRecord);
+
+      timeframePlacements = {
+        daily: dailyStats.placementRank,
+        weekly: weeklyStats.placementRank,
+        all: allStats.placementRank
+      };
+
+      if (withinWindow && verifiedScore > 0) {
+        // Tier 1: All-Time #1 Record
+        if (allStats.isTop1) {
+          addChatMessage({
+            type: 'system',
+            subtype: 'top1',
+            tagLabel: 'ALL-TIME #1',
+            leaderboardType: 'all',
+            username: 'Leaderboard Bot',
+            avatar: '👑',
+            text: `👑 NEW #1 ALL-TIME! ${user.username} scored ${verifiedScore} pts in ${modeLabel}!`
+          });
+        } else if (allStats.isTop5 && (isNewRecord || verifiedScore >= 5)) {
+          // Tier 2: All-Time Top 5
+          if (isNewRecord) {
+            addChatMessage({
+              type: 'system',
+              subtype: 'top5',
+              tagLabel: 'ALL-TIME TOP 5',
+              leaderboardType: 'all',
+              username: 'Leaderboard Bot',
+              avatar: '🔥',
+              text: `🔥 TOP 5 & NEW BEST! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${allStats.placementRank} All-Time)!`
+            });
+          } else {
+            addChatMessage({
+              type: 'system',
+              subtype: 'top5',
+              tagLabel: 'ALL-TIME TOP 5',
+              leaderboardType: 'all',
+              username: 'Leaderboard Bot',
+              avatar: '⭐',
+              text: `⭐ TOP 5 RUN! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${allStats.placementRank} All-Time)!`
+            });
+          }
+        } else if (weeklyStats.isTop1 && (isNewRecord || verifiedScore >= 10)) {
+          // Tier 3: Weekly #1 Record
+          addChatMessage({
+            type: 'system',
+            subtype: 'top1',
+            tagLabel: 'WEEKLY #1',
+            leaderboardType: 'weekly',
+            username: 'Leaderboard Bot',
+            avatar: '👑',
+            text: `👑 NEW #1 WEEKLY! ${user.username} scored ${verifiedScore} pts in ${modeLabel}!`
+          });
+        } else if (weeklyStats.isTop5 && (isNewRecord || verifiedScore >= 10)) {
+          // Tier 4: Weekly Top 5
+          if (isNewRecord) {
+            addChatMessage({
+              type: 'system',
+              subtype: 'top5',
+              tagLabel: 'WEEKLY TOP 5',
+              leaderboardType: 'weekly',
+              username: 'Leaderboard Bot',
+              avatar: '🔥',
+              text: `🔥 TOP 5 & NEW BEST! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${weeklyStats.placementRank} Weekly)!`
+            });
+          } else {
+            addChatMessage({
+              type: 'system',
+              subtype: 'top5',
+              tagLabel: 'WEEKLY TOP 5',
+              leaderboardType: 'weekly',
+              username: 'Leaderboard Bot',
+              avatar: '⭐',
+              text: `⭐ TOP 5 RUN! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${weeklyStats.placementRank} Weekly)!`
+            });
+          }
+        } else if (dailyStats.isTop1 && (isNewRecord || verifiedScore >= 10)) {
+          // Tier 5: Daily #1 Record
+          addChatMessage({
+            type: 'system',
+            subtype: 'top1',
+            tagLabel: 'DAILY #1',
+            leaderboardType: 'daily',
+            username: 'Leaderboard Bot',
+            avatar: '👑',
+            text: `👑 NEW #1 DAILY! ${user.username} scored ${verifiedScore} pts in ${modeLabel}!`
+          });
+        } else if (dailyStats.isTop5 && (isNewRecord || verifiedScore >= 10)) {
+          // Tier 6: Daily Top 5
+          if (isNewRecord) {
+            addChatMessage({
+              type: 'system',
+              subtype: 'top5',
+              tagLabel: 'DAILY TOP 5',
+              leaderboardType: 'daily',
+              username: 'Leaderboard Bot',
+              avatar: '🔥',
+              text: `🔥 TOP 5 & NEW BEST! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${dailyStats.placementRank} Daily)!`
+            });
+          } else {
+            addChatMessage({
+              type: 'system',
+              subtype: 'top5',
+              tagLabel: 'DAILY TOP 5',
+              leaderboardType: 'daily',
+              username: 'Leaderboard Bot',
+              avatar: '⭐',
+              text: `⭐ TOP 5 RUN! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${dailyStats.placementRank} Daily)!`
+            });
+          }
+        } else if (isNewRecord && allStats.isTop10) {
+          // Tier 7: All-Time Top 10
+          addChatMessage({
+            type: 'system',
+            subtype: 'top10',
+            tagLabel: 'ALL-TIME TOP 10',
+            leaderboardType: 'all',
+            username: 'Leaderboard Bot',
+            avatar: '⭐',
+            text: `⭐ TOP 10 ALL-TIME! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${allStats.placementRank} All-Time)!`
+          });
+        } else if (isNewRecord && weeklyStats.isTop10) {
+          // Tier 8: Weekly Top 10
+          addChatMessage({
+            type: 'system',
+            subtype: 'top10',
+            tagLabel: 'WEEKLY TOP 10',
+            leaderboardType: 'weekly',
+            username: 'Leaderboard Bot',
+            avatar: '⭐',
+            text: `⭐ TOP 10 WEEKLY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${weeklyStats.placementRank} Weekly)!`
+          });
+        } else if (isNewRecord && dailyStats.isTop10) {
+          // Tier 9: Daily Top 10
+          addChatMessage({
+            type: 'system',
+            subtype: 'top10',
+            tagLabel: 'DAILY TOP 10',
+            leaderboardType: 'daily',
+            username: 'Leaderboard Bot',
+            avatar: '⭐',
+            text: `⭐ TOP 10 DAILY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${dailyStats.placementRank} Daily)!`
+          });
+        } else if (isNewRecord) {
+          // Tier 10: Personal Best beyond Top 10
+          addChatMessage({
+            type: 'system',
+            subtype: 'new_best',
+            tagLabel: 'PERSONAL BEST',
+            leaderboardType: 'personal',
+            username: 'Record Bot',
+            avatar: '🎉',
+            text: `🎉 NEW BEST! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${allStats.placementRank} All-Time)!`
+          });
+        }
+      }
+    } catch (annErr) {
+      console.warn('Chat announcement notice:', annErr.message);
+    }
+
     return sendJSON(res, 200, {
       verified: true,
       verifiedScore,
@@ -479,8 +753,133 @@ async function handleApiRequest(req, res, pathname, port) {
       autoHidden: Boolean(autoHidden),
       withinWindow: Boolean(withinWindow),
       entryId: newRunId,
+      timeframePlacements,
       records: user.records,
-      leaderboards: buildLeaderboards()
+      leaderboards: buildLeaderboards(),
+      timeframeLeaderboards: {
+        all: buildLeaderboards(100, 'all'),
+        weekly: buildLeaderboards(100, 'weekly'),
+        daily: buildLeaderboards(100, 'daily')
+      },
+      resetBoundaries: getLeaderboardResetBoundaries()
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 10.5. GLOBAL LIVE CHAT SYSTEM (/api/chat & /api/chat/send)
+  // --------------------------------------------------------------------------
+  if (req.method === 'GET' && pathname === '/api/chat') {
+    const parsedUrl = new URL(req.url, 'http://localhost');
+    const since = parseInt(parsedUrl.searchParams.get('since') || '0', 10);
+    const limit = parseInt(parsedUrl.searchParams.get('limit') || '60', 10);
+    const auth = getAuthenticatedUser(req);
+    let userSync = null;
+    if (auth && auth.user) {
+      userSync = {
+        username: auth.user.username,
+        selectedSkin: auth.user.selectedSkin || 'classic',
+        selectedPipeSkin: auth.user.selectedPipeSkin || 'classic_pipe',
+        grantedSkins: Array.isArray(auth.user.grantedSkins) ? auth.user.grantedSkins : [],
+        adminLockedSkins: Array.isArray(auth.user.adminLockedSkins) ? auth.user.adminLockedSkins : [],
+        records: auth.user.records || {}
+      };
+    }
+    return sendJSON(res, 200, {
+      messages: getChatMessages(limit, since),
+      serverTime: Date.now(),
+      userSync
+    });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/chat/send') {
+    const auth = getAuthenticatedUser(req);
+    const body = await readJsonBody(req);
+    const rawText = String(body.text || '').trim();
+
+    if (!rawText) {
+      return sendJSON(res, 400, { error: 'Message cannot be empty.' });
+    }
+    if (rawText.length > 200) {
+      return sendJSON(res, 400, { error: 'Message cannot exceed 200 characters.' });
+    }
+
+    // Anti-Slur & Profanity Bypass Verification
+    const slurCheck = checkProhibitedLanguage(rawText);
+    if (slurCheck.isBlocked) {
+      return sendJSON(res, 400, {
+        error: 'Message blocked: Prohibited language or bypass attempt detected. Please keep the chat friendly and respectful!'
+      });
+    }
+
+    // Determine sender identity & avatar
+    let username = '';
+    let usernameKey = '';
+    let isMeDonut = false;
+    let avatar = '🐤';
+
+    if (auth && auth.user) {
+      username = auth.user.username;
+      usernameKey = auth.usernameKey;
+      isMeDonut = Boolean(usernameKey === 'medonut');
+      avatar = isMeDonut ? '👑' : getSkinEmoji(auth.user.selectedSkin);
+    } else {
+      const guestRaw = String(body.guestName || 'Guest').trim();
+      const guestCheck = checkProhibitedLanguage(guestRaw);
+      username = (guestCheck.isBlocked ? 'Player' : guestRaw.slice(0, 20)) || 'Guest';
+      usernameKey = 'guest_' + username.toLowerCase().replace(/[^a-z0-9]/g, '');
+      isMeDonut = false;
+      avatar = '🐤';
+    }
+
+    // Enforce 3-second cooldown per sender
+    const cooldownKey = auth ? auth.usernameKey : (req.headers['x-forwarded-for'] || req.socket.remoteAddress || usernameKey);
+    const now = Date.now();
+    const lastChatTime = chatCooldowns.get(cooldownKey) || 0;
+    const elapsed = now - lastChatTime;
+
+    if (elapsed < 3000) {
+      const waitSeconds = Math.ceil((3000 - elapsed) / 1000);
+      return sendJSON(res, 429, {
+        error: `Please wait ${waitSeconds}s before sending another message.`,
+        cooldownRemainingMs: 3000 - elapsed
+      });
+    }
+    chatCooldowns.set(cooldownKey, now);
+
+    // Escape text against HTML/XSS injection
+    const sanitizedText = rawText
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+    // Handle reply context if provided
+    let replyTo = null;
+    if (body.replyTo && typeof body.replyTo === 'object' && body.replyTo.username) {
+      const replyCheck = checkProhibitedLanguage(body.replyTo.snippet || '');
+      replyTo = {
+        id: String(body.replyTo.id || ''),
+        username: String(body.replyTo.username || '').slice(0, 32),
+        snippet: replyCheck.isBlocked ? '***' : String(body.replyTo.snippet || '').slice(0, 60)
+      };
+    }
+
+    const newMsg = addChatMessage({
+      type: 'user',
+      username,
+      usernameKey,
+      isMeDonut,
+      avatar,
+      text: sanitizedText,
+      replyTo,
+      timestampMs: now
+    });
+
+    return sendJSON(res, 201, {
+      success: true,
+      message: newMsg,
+      messages: getChatMessages(60)
     });
   }
 
