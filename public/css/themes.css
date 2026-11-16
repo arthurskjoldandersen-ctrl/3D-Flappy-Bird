@@ -839,6 +839,10 @@
 .settings-modal-card,
 .lb-full-card,
 .stats-full-card,
+.duels-full-card,
+.duels-container,
+.duels-arena-card,
+.duels-shop-card,
 .account-panel-card,
 .gameover-card,
 .card {
@@ -852,6 +856,10 @@
 .settings-modal-card *,
 .lb-full-card *,
 .stats-full-card *,
+.duels-full-card *,
+.duels-container *,
+.duels-arena-card *,
+.duels-shop-card *,
 .account-panel-card *,
 .gameover-card *,
 .diff-btn,
@@ -1643,6 +1651,9 @@ body.in-game #top-app-bar,
    -------------------------------------------------------------------------- */
 .theme-dark .card,
 .theme-dark .stats-full-card,
+.theme-dark .duels-full-card,
+.theme-dark .duels-arena-card,
+.theme-dark .duels-shop-card,
 .theme-dark .lb-full-card,
 .theme-dark .locker-full-card,
 .theme-dark .account-panel-card,
@@ -1998,6 +2009,9 @@ body.in-game #top-app-bar,
    -------------------------------------------------------------------------- */
 .theme-light .card,
 .theme-light .stats-full-card,
+.theme-light .duels-full-card,
+.theme-light .duels-arena-card,
+.theme-light .duels-shop-card,
 .theme-light .lb-full-card,
 .theme-light .locker-full-card,
 .theme-light .account-panel-card,
@@ -2254,6 +2268,9 @@ body.in-game #top-app-bar,
    -------------------------------------------------------------------------- */
 .theme-cyber .card,
 .theme-cyber .stats-full-card,
+.theme-cyber .duels-full-card,
+.theme-cyber .duels-arena-card,
+.theme-cyber .duels-shop-card,
 .theme-cyber .lb-full-card,
 .theme-cyber .locker-full-card,
 .theme-cyber .account-panel-card,
@@ -3431,6 +3448,216 @@ body.in-game #top-app-bar,
   flex-direction: column !important;
   gap: 14px !important;
   overflow: hidden !important;
+}
+
+/* 1B. DUELS ARENA & DUEL COINS SHOP VIEW */
+.duels-container {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 20px !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 1200px !important;
+  max-height: calc(100vh - 100px) !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
+}
+
+.duels-arena-card {
+  flex: 1.4 !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  padding: 22px 26px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  border-radius: 28px !important;
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid var(--border-subtle);
+  box-shadow: var(--card-shadow);
+  overflow: hidden !important;
+  pointer-events: auto !important;
+}
+
+.duels-shop-card {
+  flex: 1 !important;
+  min-width: 320px !important;
+  max-width: 440px !important;
+  height: 100% !important;
+  padding: 22px 26px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  border-radius: 28px !important;
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid var(--border-subtle);
+  box-shadow: var(--card-shadow);
+  overflow: hidden !important;
+  pointer-events: auto !important;
+}
+
+.duels-card-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-shrink: 0 !important;
+}
+
+.duels-header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+.duels-badge-icon {
+  font-size: 2.2rem !important;
+  line-height: 1 !important;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+}
+
+.duels-title {
+  font-size: 1.4rem !important;
+  font-family: 'Fredoka', sans-serif !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.duels-subtitle {
+  font-size: 0.80rem !important;
+  color: var(--text-secondary) !important;
+  margin: 3px 0 0 0 !important;
+}
+
+/* Duels Navigation Tabs Bar (Join Match, Create Match, Ranked Leaderboard) */
+.duels-tabs-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: var(--pill-bg) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 999px !important;
+  padding: 4px !important;
+  width: fit-content !important;
+  flex-shrink: 0 !important;
+  flex-wrap: wrap !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  touch-action: manipulation !important;
+  position: relative !important;
+  z-index: 5 !important;
+  margin: 0 0 4px 0 !important;
+}
+
+.duels-tab-btn {
+  padding: 8px 18px !important;
+  border-radius: 999px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  font-family: inherit !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: all 0.18s ease !important;
+  pointer-events: auto !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  touch-action: manipulation !important;
+}
+
+.duels-tab-btn * {
+  pointer-events: none !important;
+}
+
+.dock-tab * {
+  pointer-events: none !important;
+}
+
+.duels-tab-btn:hover {
+  color: var(--text-primary) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.duels-tab-btn.active {
+  background: var(--accent-blue) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35) !important;
+}
+
+.duels-tab-icon {
+  font-size: 1rem !important;
+  line-height: 1 !important;
+}
+
+.duels-tab-content-area,
+.duels-shop-content {
+  flex: 1 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.duels-tab-panel {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 0 !important;
+}
+
+.duels-tab-placeholder {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  gap: 12px !important;
+  padding: 32px 20px !important;
+  margin: auto !important;
+  max-width: 440px !important;
+}
+
+.duels-tab-placeholder .duels-placeholder-icon {
+  font-size: 3.2rem !important;
+  line-height: 1 !important;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.35)) !important;
+}
+
+.duels-tab-placeholder .duels-placeholder-title {
+  font-size: 1.45rem !important;
+  font-family: 'Fredoka', sans-serif !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  margin: 0 !important;
+}
+
+.duels-tab-placeholder .duels-placeholder-desc {
+  font-size: 0.90rem !important;
+  color: var(--text-secondary) !important;
+  margin: 0 !important;
+  line-height: 1.5 !important;
+}
+
+@media (max-width: 960px) {
+  .duels-container {
+    flex-direction: column !important;
+    max-height: calc(100vh - 86px) !important;
+    overflow-y: auto !important;
+  }
+  .duels-shop-card {
+    max-width: 100% !important;
+    min-height: 260px !important;
+  }
 }
 
 .stats-header-row {
@@ -6505,6 +6732,29 @@ body.in-game #btn-chat-toggle {
   background: rgba(245, 158, 11, 0.22);
 }
 
+/* Top Podium Announcement Cards (Top 1, Top 2, Top 3) - Twice as tall & visually prominent */
+.chat-system-card.top-podium-card {
+  min-height: 86px;
+  padding: 14px 16px;
+  gap: 14px;
+}
+
+.chat-system-card.top-podium-card .system-icon-wrap {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.chat-system-card.top-podium-card .system-text {
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.chat-system-card.top-podium-card .system-tag {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+}
+
 /* Top 1 Leaderboard Record Announcement Card (Royal Crown Gold & Rainbow Glow) */
 .chat-system-card.top1-card {
   background: linear-gradient(135deg, rgba(234, 179, 8, 0.28), rgba(245, 158, 11, 0.2), rgba(236, 72, 153, 0.15));
@@ -6522,6 +6772,46 @@ body.in-game #btn-chat-toggle {
   color: #fef08a;
   background: rgba(234, 179, 8, 0.35);
   border: 1px solid rgba(234, 179, 8, 0.65);
+  font-weight: 900;
+}
+
+/* Top 2 Leaderboard Record Announcement Card (Silver Platinum Aura) */
+.chat-system-card.top2-card {
+  background: linear-gradient(135deg, rgba(226, 232, 240, 0.28), rgba(148, 163, 184, 0.2), rgba(56, 189, 248, 0.16));
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  box-shadow: 0 0 24px rgba(226, 232, 240, 0.35), 0 0 10px rgba(148, 163, 184, 0.25);
+  animation: top2Aura 2.5s infinite ease-in-out;
+}
+
+@keyframes top2Aura {
+  0%, 100% { border-color: rgba(226, 232, 240, 0.75); box-shadow: 0 0 18px rgba(226, 232, 240, 0.3); }
+  50% { border-color: #f8fafc; box-shadow: 0 0 28px rgba(248, 250, 252, 0.55), 0 0 12px rgba(56, 189, 248, 0.35); }
+}
+
+.chat-system-card.top2-card .system-tag.top2-tag {
+  color: #f1f5f9;
+  background: rgba(148, 163, 184, 0.35);
+  border: 1px solid rgba(226, 232, 240, 0.65);
+  font-weight: 900;
+}
+
+/* Top 3 Leaderboard Record Announcement Card (Bronze Amber Aura) */
+.chat-system-card.top3-card {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.28), rgba(180, 83, 9, 0.2), rgba(245, 158, 11, 0.16));
+  border: 1px solid rgba(217, 119, 6, 0.75);
+  box-shadow: 0 0 24px rgba(217, 119, 6, 0.35), 0 0 10px rgba(180, 83, 9, 0.25);
+  animation: top3Aura 2.5s infinite ease-in-out;
+}
+
+@keyframes top3Aura {
+  0%, 100% { border-color: rgba(217, 119, 6, 0.75); box-shadow: 0 0 18px rgba(217, 119, 6, 0.3); }
+  50% { border-color: #fbbf24; box-shadow: 0 0 28px rgba(251, 191, 36, 0.55), 0 0 12px rgba(217, 119, 6, 0.35); }
+}
+
+.chat-system-card.top3-card .system-tag.top3-tag {
+  color: #fed7aa;
+  background: rgba(217, 119, 6, 0.35);
+  border: 1px solid rgba(217, 119, 6, 0.65);
   font-weight: 900;
 }
 

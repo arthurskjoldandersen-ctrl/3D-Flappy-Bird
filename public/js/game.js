@@ -43,6 +43,7 @@
           this.prefetchedRun = null;
           this.prefetchPromise = null;
           this.prefetchingDifficulty = null;
+          this.activeRunPromise = null;
 
           // Anti-Cheat & Sub-Tick Interpolation State
           this.activeRunId = null;
@@ -188,15 +189,21 @@
               return;
             }
 
+            let lastStartActionTime = 0;
+            const triggerStartGame = () => {
+              const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+              if (now - lastStartActionTime < 250) return;
+              lastStartActionTime = now;
+              this.startGame();
+            };
+
             const isJumpKey = (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W');
             if (isJumpKey) {
               e.preventDefault();
-              if (this.state === GAME_STATE.START) {
-                this.startGame();
+              if (this.state === GAME_STATE.START || this.state === GAME_STATE.GAMEOVER) {
+                triggerStartGame();
               } else if (this.state === GAME_STATE.PLAYING) {
                 this.queueFlap();
-              } else if (this.state === GAME_STATE.GAMEOVER) {
-                this.startGame();
               }
             } else if (e.code === 'KeyM') {
               this.sound.toggleMute();
@@ -213,6 +220,13 @@
           });
 
           let lastPointerActionTime = 0;
+          let lastStartActionTime = 0;
+          const triggerStartGame = () => {
+            const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            if (now - lastStartActionTime < 250) return;
+            lastStartActionTime = now;
+            this.startGame();
+          };
 
           const isInsideMenuUi = (el) => {
             if (!el || typeof el.closest !== 'function') return false;
@@ -222,7 +236,7 @@
                 'header, nav, .app-header, #top-app-bar, #main-nav-dock, .nav-dock, ' +
                 '#game-chat-panel, #btn-chat-toggle, .floating-chat-btn, .chat-panel, ' +
                 '.card, .play-deck-card, .lb-full-card, .locker-full-card, .locker-panel-card, ' +
-                '.stats-full-card, .settings-modal-card, .account-panel-card, .gameover-card, ' +
+                '.stats-full-card, .duels-full-card, .duels-container, .duels-arena-card, .duels-shop-card, .duels-tabs-bar, .duels-tab-btn, .duels-tab-panel, #view-duels, .settings-modal-card, .account-panel-card, .gameover-card, ' +
                 '.guest-modal-card, .public-profile-card, .modal-card, .modal-dialog, ' +
                 '.modal-backdrop, .guest-modal-overlay, [role="dialog"], ' +
                 '.mode-select-deck, .lb-toolbar, .lb-timeframe-bar, .lb-list, .lb-row, .lb-my-standing-card, ' +
@@ -267,7 +281,7 @@
                 return;
               }
               if (e.cancelable) e.preventDefault();
-              this.startGame();
+              triggerStartGame();
             }
           };
 
@@ -285,7 +299,7 @@
             if (!btn) return;
             const startHandler = (e) => {
               e.stopPropagation();
-              this.startGame();
+              triggerStartGame();
             };
             btn.addEventListener('pointerdown', startHandler);
             btn.addEventListener('click', startHandler);
@@ -342,13 +356,51 @@
             e.currentTarget.blur();
           });
 
-          // Top Navigation Dock Views (Lobby vs Locker vs Leaderboard vs Stats vs Settings)
+          // Top Navigation Dock Views (Lobby vs Duels vs Locker vs Leaderboard vs Stats vs Settings)
+          let lastDockActionTime = 0;
+          const handleDockNavigation = (btn, e) => {
+            e.stopPropagation();
+            const now = Date.now();
+            if (now - lastDockActionTime < 100) return;
+            lastDockActionTime = now;
+            const view = btn.getAttribute('data-view') || 'lobby';
+            this.switchView(view);
+          };
           document.querySelectorAll('#main-nav-dock .dock-tab').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const view = btn.getAttribute('data-view') || 'lobby';
-              this.switchView(view);
+            btn.addEventListener('pointerdown', (e) => handleDockNavigation(btn, e));
+            btn.addEventListener('click', (e) => handleDockNavigation(btn, e));
+          });
+
+          // Duels Arena Tab Navigation (Join Match vs Create Match vs Ranked Leaderboard)
+          let lastDuelTabActionTime = 0;
+          const activateDuelTab = (tabName, playChime = true) => {
+            if (!tabName) return;
+            document.querySelectorAll('.duels-tab-btn').forEach(b => {
+              const isSelected = b.getAttribute('data-duel-tab') === tabName;
+              b.classList.toggle('active', isSelected);
+              b.setAttribute('aria-selected', isSelected ? 'true' : 'false');
             });
+            document.querySelectorAll('.duels-tab-panel').forEach(panel => {
+              const isMatch = panel.id === `duel-panel-${tabName}`;
+              panel.classList.toggle('active', isMatch);
+              panel.style.display = isMatch ? 'flex' : 'none';
+            });
+            if (playChime && this.sound) this.sound.playFlap();
+          };
+          this.activateDuelTab = activateDuelTab;
+
+          const handleDuelTabTrigger = (btn, e) => {
+            e.stopPropagation();
+            const now = Date.now();
+            if (now - lastDuelTabActionTime < 100) return;
+            lastDuelTabActionTime = now;
+            const tab = btn.getAttribute('data-duel-tab');
+            activateDuelTab(tab, true);
+          };
+
+          document.querySelectorAll('.duels-tab-btn').forEach(btn => {
+            btn.addEventListener('pointerdown', (e) => handleDuelTabTrigger(btn, e));
+            btn.addEventListener('click', (e) => handleDuelTabTrigger(btn, e));
           });
 
           const brandHomeBtn = document.getElementById('brand-home-btn');
@@ -979,7 +1031,9 @@
           this.birdGroup.position.set(CONFIG.birdX, CONFIG.birdStartY, 0);
           this.birdGroup.rotation.set(0, 0, 0);
           this.birdMeshGroup.rotation.set(0, 0, 0);
-          this.renderAllCosmeticGrids();
+          if (this.currentAppView === 'skins') {
+            this.renderAllCosmeticGrids();
+          }
           this.fetchLeaderboards();
           this.prefetchRunSession(this.selectedDifficulty);
         }
@@ -1019,7 +1073,7 @@
             });
         }
 
-        async startGame() {
+        startGame() {
           if (this.state === GAME_STATE.PLAYING || this.isStartingRun) return;
           this.isStartingRun = true;
           document.body.classList.add('in-game');
@@ -1047,7 +1101,7 @@
 
           const targetDifficulty = this.selectedDifficulty || 'medium';
           this.activeRunId = null;
-          this.activeSeed = (Math.random() * 0x7fffffff) | 1;
+          this.activeRunPromise = null;
 
           if (this.currentUser && this.authToken) {
             // 1. Consume instant pre-fetched token if available (0ms delay)
@@ -1057,43 +1111,32 @@
               this.activeRunId = this.prefetchedRun.runId;
               this.activeSeed = this.prefetchedRun.seed;
               this.prefetchedRun = null;
-            } else if (this.prefetchPromise && this.prefetchingDifficulty === targetDifficulty) {
-              // 2. Prefetch in flight: await with a 600ms cap so run start never stalls
-              try {
-                const timeoutP = new Promise(r => setTimeout(r, 600));
-                await Promise.race([this.prefetchPromise, timeoutP]);
-                if (this.prefetchedRun && this.prefetchedRun.difficulty === targetDifficulty) {
-                  this.activeRunId = this.prefetchedRun.runId;
-                  this.activeSeed = this.prefetchedRun.seed;
-                  this.prefetchedRun = null;
-                }
-              } catch (_) {}
-            }
-
-            // 3. Fallback quick direct fetch if not prefetched
-            if (!this.activeRunId) {
-              try {
-                const startFetchPromise = this.apiRequest('/api/run/start', 'POST', {
-                  difficulty: targetDifficulty
-                });
-                const timeoutP = new Promise((_, reject) => setTimeout(() => reject(new Error('Start run timeout')), 1000));
-                const runData = await Promise.race([startFetchPromise, timeoutP]);
+            } else {
+              // 2. Generate local seed so gameplay starts INSTANTLY with 0ms network latency!
+              this.activeSeed = (Math.floor(Math.random() * 0x7fffffff)) | 1;
+              const seedToSend = this.activeSeed;
+              this.activeRunPromise = this.apiRequest('/api/run/start', 'POST', {
+                difficulty: targetDifficulty,
+                seed: seedToSend
+              }).then(runData => {
                 if (runData && runData.runId) {
                   this.activeRunId = runData.runId;
-                  this.activeSeed = runData.seed;
                 }
-              } catch (err) {
+                return runData;
+              }).catch(err => {
                 if (err && String(err.message).toLowerCase().includes('log in')) {
                   this.clearLoggedInUser();
                 }
                 this.activeRunId = null;
-              }
+              });
             }
 
-            // Pre-fetch next run token in background so subsequent runs start in 0ms!
+            // Schedule background prefetch for subsequent runs
             setTimeout(() => {
               this.prefetchRunSession(this.selectedDifficulty);
-            }, 60);
+            }, 120);
+          } else {
+            this.activeSeed = (Math.floor(Math.random() * 0x7fffffff)) | 1;
           }
 
           if (document.activeElement && typeof document.activeElement.blur === 'function') {
@@ -1112,6 +1155,15 @@
           this.lastFlapTick = -10;
           this.lastQueueFlapTime = 0;
           this.physicsAccumulator = 0;
+          this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+
+          // Reset any lingering particles from prior crash/score
+          if (this.particlePool) {
+            for (let i = 0; i < this.particlePool.length; i++) {
+              this.particlePool[i].active = false;
+              this.particlePool[i].mesh.visible = false;
+            }
+          }
 
           document.getElementById('start-screen').classList.remove('active');
           document.getElementById('gameover-screen').classList.remove('active');
@@ -1157,6 +1209,9 @@
           this.state = GAME_STATE.CRASHING;
           this.sound.playCollision();
           this.shakeTimer = 0.30;
+
+          // Start pre-fetching the NEXT run token immediately on crash so it's ready when player clicks "Play Again"!
+          this.prefetchRunSession(this.selectedDifficulty);
 
           const flash = document.getElementById('damage-flash');
           flash.style.opacity = '0.72';
@@ -1213,6 +1268,14 @@
           const badge = document.getElementById('new-record-badge');
           badge.classList.toggle('visible', isNewRecord && achievedScore > 0);
 
+          // If activeRunPromise was still in-flight, await it here before finishing the run
+          if (this.activeRunPromise && !this.activeRunId) {
+            try {
+              await this.activeRunPromise;
+            } catch (_) {}
+          }
+          this.activeRunPromise = null;
+
           if (this.activeRunId && this.currentUser) {
             statusPill.className = 'anticheat-status';
             statusPill.textContent = '🛡️ Verifying run replay with server anti-cheat...';
@@ -1239,7 +1302,9 @@
               if (typeof this.updateResetTimerUI === 'function') {
                 this.updateResetTimerUI();
               }
-              this.renderAllCosmeticGrids();
+              if (this.currentAppView === 'skins') {
+                this.renderAllCosmeticGrids();
+              }
               this.renderLeaderboard(verifyRes.entryId || null);
 
               document.getElementById('final-score').textContent = String(verifyRes.verifiedScore);
@@ -1248,7 +1313,7 @@
 
               statusPill.className = 'anticheat-status verified';
               if (verifyRes.autoHidden) {
-                statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • 🕒 Off-Hours (Outside 7:50-14:10 Danish) — Saved & Hidden from Leaderboard`;
+                statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • 🕒 Weekend / Off-Hours — Saved & Hidden from Leaderboard`;
               } else if (verifyRes.timeframePlacements) {
                 const p = verifyRes.timeframePlacements;
                 statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • #${p.daily} Daily · #${p.weekly} Weekly · #${p.all} All-Time!`;
@@ -1261,7 +1326,9 @@
               this.fetchLeaderboards();
             }
           } else {
-            this.renderAllCosmeticGrids();
+            if (this.currentAppView === 'skins') {
+              this.renderAllCosmeticGrids();
+            }
             statusPill.className = 'anticheat-status';
             statusPill.textContent = 'ℹ️ Guest Run — Log in on the Start screen to rank on the Online Leaderboard!';
             this.fetchLeaderboards();
@@ -1274,9 +1341,6 @@
           } else {
             unlockToast.classList.remove('visible');
           }
-
-          // Pre-fetch next run token in background so clicking "Play Again" or pressing Space is instant!
-          this.prefetchRunSession(this.selectedDifficulty);
 
           setTimeout(() => {
             this.state = GAME_STATE.GAMEOVER;
@@ -1297,27 +1361,39 @@
         }
 
         updateHUD(pop = false) {
-          const scoreEl = document.getElementById('hud-score');
-          const speedEl = document.getElementById('speed-mult-text');
-          const modeEl = document.getElementById('hud-mode-text');
+          if (!this.cachedHud) {
+            this.cachedHud = {
+              scoreEl: document.getElementById('hud-score'),
+              speedEl: document.getElementById('speed-mult-text'),
+              modeEl: document.getElementById('hud-mode-text')
+            };
+          }
+          const { scoreEl, speedEl, modeEl } = this.cachedHud;
 
-          scoreEl.textContent = String(this.score);
+          if (scoreEl) scoreEl.textContent = String(this.score);
           const diff = this.getDifficultyParams();
-          speedEl.textContent = `${diff.speedMult}x`;
-          modeEl.textContent = diff.label.toUpperCase();
+          if (speedEl) speedEl.textContent = `${diff.speedMult}x`;
+          if (modeEl) modeEl.textContent = diff.label.toUpperCase();
 
-          if (pop) {
+          if (pop && scoreEl) {
             scoreEl.classList.remove('score-pop');
             requestAnimationFrame(() => {
               scoreEl.classList.add('score-pop');
-              setTimeout(() => scoreEl.classList.remove('score-pop'), 180);
+              if (this.hudPopTimeout) clearTimeout(this.hudPopTimeout);
+              this.hudPopTimeout = setTimeout(() => scoreEl.classList.remove('score-pop'), 180);
             });
           }
         }
 
         clearPipes() {
+          if (!this.pipePool) this.pipePool = [];
           for (const pipe of this.pipes) {
-            this.scene.remove(pipe.group);
+            if (pipe && pipe.group) {
+              this.scene.remove(pipe.group);
+              if (this.pipePool.length < 12) {
+                this.pipePool.push(pipe.group);
+              }
+            }
           }
           this.pipes.length = 0;
         }
@@ -1426,6 +1502,10 @@
 
             if (pipe.x < CONFIG.pipeDespawnX) {
               this.scene.remove(pipe.group);
+              if (!this.pipePool) this.pipePool = [];
+              if (this.pipePool.length < 12) {
+                this.pipePool.push(pipe.group);
+              }
               this.pipes.splice(i, 1);
             }
           }

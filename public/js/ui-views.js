@@ -3398,6 +3398,7 @@ class FlappyBirdUIAndProgression {
           // 6. Switch active view panel
           const views = {
             lobby: document.getElementById('view-lobby'),
+            duels: document.getElementById('view-duels'),
             skins: document.getElementById('view-skins'),
             leaderboard: document.getElementById('view-leaderboard'),
             stats: document.getElementById('view-stats'),
@@ -3424,6 +3425,10 @@ class FlappyBirdUIAndProgression {
             }
           } else if (viewName === 'stats') {
             this.renderStatsMenu();
+          } else if (viewName === 'duels') {
+            if (typeof this.activateDuelTab === 'function') {
+              this.activateDuelTab('join', false);
+            }
           } else if (viewName === 'account') {
             this.updateProfileRecordPills();
           }

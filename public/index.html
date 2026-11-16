@@ -34,6 +34,10 @@
         <span class="tab-icon">🎮</span>
         <span class="tab-label">Lobby</span>
       </button>
+      <button type="button" class="dock-tab" data-view="duels" id="dock-btn-duels">
+        <span class="tab-icon">⚔️</span>
+        <span class="tab-label">Duels</span>
+      </button>
       <button type="button" class="dock-tab" data-view="skins" id="dock-btn-skins">
         <span class="tab-icon">🎨</span>
         <span class="tab-label">Locker</span>
@@ -303,6 +307,81 @@
               <span id="next-pipe-req"></span>
               <span id="next-pipe-name"></span>
               <div class="next-goal-fill" id="next-pipe-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: DUELS ARENA & DUEL COINS SHOP -->
+      <div id="view-duels" class="hub-view-panel">
+        <div class="duels-container">
+          <!-- LEFT CARD: DUELS PART (Join Match, Create Match, Ranked Leaderboard tabs) -->
+          <div class="duels-arena-card card">
+            <!-- TABS AT TOP: Join Match, Create Match, Ranked Leaderboard -->
+            <div class="duels-tabs-bar" role="tablist" aria-label="Duels Navigation">
+              <button type="button" class="duels-tab-btn active" data-duel-tab="join" id="tab-btn-duel-join" role="tab" aria-selected="true">
+                <span class="duels-tab-icon">🎮</span>
+                <span class="duels-tab-label">Join Match</span>
+              </button>
+              <button type="button" class="duels-tab-btn" data-duel-tab="create" id="tab-btn-duel-create" role="tab" aria-selected="false">
+                <span class="duels-tab-icon">⚡</span>
+                <span class="duels-tab-label">Create Match</span>
+              </button>
+              <button type="button" class="duels-tab-btn" data-duel-tab="ranked" id="tab-btn-duel-ranked" role="tab" aria-selected="false">
+                <span class="duels-tab-icon">🏆</span>
+                <span class="duels-tab-label">Ranked Leaderboard</span>
+              </button>
+            </div>
+
+            <!-- TAB PANELS (Starts on Join Match) -->
+            <div class="duels-tab-content-area">
+              <!-- Panel 1: Join Match (Starts active) -->
+              <div class="duels-tab-panel active" id="duel-panel-join" role="tabpanel" aria-labelledby="tab-btn-duel-join">
+                <div class="duels-tab-placeholder">
+                  <div class="duels-placeholder-icon">🎮</div>
+                  <h3 class="duels-placeholder-title">Join Match</h3>
+                  <p class="duels-placeholder-desc">Available matches and room lobby codes will appear here.</p>
+                </div>
+              </div>
+
+              <!-- Panel 2: Create Match -->
+              <div class="duels-tab-panel" id="duel-panel-create" role="tabpanel" aria-labelledby="tab-btn-duel-create" style="display: none;">
+                <div class="duels-tab-placeholder">
+                  <div class="duels-placeholder-icon">⚡</div>
+                  <h3 class="duels-placeholder-title">Create Match</h3>
+                  <p class="duels-placeholder-desc">Custom match creation and duel settings will appear here.</p>
+                </div>
+              </div>
+
+              <!-- Panel 3: Ranked Leaderboard -->
+              <div class="duels-tab-panel" id="duel-panel-ranked" role="tabpanel" aria-labelledby="tab-btn-duel-ranked" style="display: none;">
+                <div class="duels-tab-placeholder">
+                  <div class="duels-placeholder-icon">🏆</div>
+                  <h3 class="duels-placeholder-title">Ranked Leaderboard</h3>
+                  <p class="duels-placeholder-desc">Competitive duel rankings and player ratings will appear here.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT CARD: DUEL COINS SHOP (Empty for now) -->
+          <div class="duels-shop-card card">
+            <div class="duels-card-header">
+              <div class="duels-header-left">
+                <span class="duels-badge-icon">🪙</span>
+                <div>
+                  <h2 class="duels-title">Duel Coins Shop</h2>
+                  <p class="duels-subtitle">Exclusive items, cosmetic flairs & wagers</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="duels-shop-content">
+              <div class="duels-tab-placeholder">
+                <div class="duels-placeholder-icon">🛍️</div>
+                <h3 class="duels-placeholder-title">Duel Coins Shop</h3>
+                <p class="duels-placeholder-desc">The Duel Coins Shop is currently being prepared. Check back soon for exclusive rewards!</p>
+              </div>
             </div>
           </div>
         </div>

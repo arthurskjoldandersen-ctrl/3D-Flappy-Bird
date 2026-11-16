@@ -35,7 +35,7 @@ class FlappyBird3DModels {
           this.renderer.setSize(window.innerWidth, window.innerHeight);
           this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
           this.renderer.shadowMap.enabled = true;
-          this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          this.renderer.shadowMap.type = THREE.PCFShadowMap;
           this.renderer.outputEncoding = THREE.sRGBEncoding;
 
           this.container.appendChild(this.renderer.domElement);
@@ -154,7 +154,9 @@ class FlappyBird3DModels {
             pipeCrystalShard: new THREE.ConeGeometry(0.14, 0.54, 5),
             pipeRivetSphere: new THREE.SphereGeometry(0.08, 8, 8),
             pipeStrutBar: new THREE.BoxGeometry(0.09, 1, 0.09),
-            particleBox: new THREE.OctahedronGeometry(0.15, 0)
+            particleBox: new THREE.OctahedronGeometry(0.15, 0),
+            bballNetGeo: new THREE.CylinderGeometry(CONFIG.pipeCapRadius * 1.02, CONFIG.pipeCapRadius * 0.72, 0.85, 14, 3, true),
+            bballNetMat: new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
           };
           this.sharedGeo.pipeCollarTorus.rotateX(Math.PI / 2);
           this.sharedGeo.pipeShaftBandTorus.rotateX(Math.PI / 2);
@@ -4183,8 +4185,11 @@ class FlappyBird3DModels {
           const bottomTopY = gapCenterY - pipeGap * 0.5;
           const topBottomY = gapCenterY + pipeGap * 0.5;
 
-          const pipeGroup = new THREE.Group();
+          const pipeGroup = (this.pipePool && this.pipePool.length > 0)
+            ? this.pipePool.pop()
+            : new THREE.Group();
           pipeGroup.position.set(spawnX, 0, 0);
+          pipeGroup.rotation.set(0, 0, 0);
           this.scene.add(pipeGroup);
 
           const pipeObj = {
@@ -4454,9 +4459,7 @@ class FlappyBird3DModels {
           } else if (trimStyle === 'bball_hoop') {
             const rim = new THREE.Mesh(this.sharedGeo.pipeCollarTorus, trimMat);
             rim.position.y = capCenterY;
-            const netGeo = new THREE.CylinderGeometry(CONFIG.pipeCapRadius * 1.02, CONFIG.pipeCapRadius * 0.72, 0.85, 14, 3, true);
-            const netMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
-            const net = new THREE.Mesh(netGeo, netMat);
+            const net = new THREE.Mesh(this.sharedGeo.bballNetGeo, this.sharedGeo.bballNetMat);
             net.position.y = isBottom ? (capCenterY - 0.42) : (capCenterY + 0.42);
             container.add(rim, net);
           }
@@ -4476,7 +4479,11 @@ class FlappyBird3DModels {
             ? this.leftWingPivot.rotation.x
             : Math.sin(this.wingPhase || 0) * 0.65;
 
-          if (parts.shurikenOrbit && this.skinModelGroups.shinobi && this.skinModelGroups.shinobi.visible) {
+          const activePreset = this.currentSkin && this.currentSkin.modelPreset;
+          if (activePreset && this.skinModelGroups && this.skinModelGroups[activePreset] && this.skinModelGroups[activePreset].visible) {
+            const isPoke = activePreset.startsWith('poke_');
+            if (!isPoke) {
+              if (parts.shurikenOrbit && this.skinModelGroups.shinobi && this.skinModelGroups.shinobi.visible) {
             parts.shurikenOrbit.rotation.y += frameDt * 4.5;
             parts.shurikenOrbit.children.forEach(s => { s.rotation.z += frameDt * 12; });
             if (parts.shinobiTail1) {
@@ -4694,7 +4701,7 @@ class FlappyBird3DModels {
           if (parts.trollTrafficTower && this.skinModelGroups.troll_traffic && this.skinModelGroups.troll_traffic.visible) {
             parts.trollTrafficTower.rotation.y = Math.sin(t * 3.5) * 0.35;
           }
-
+        } else {
           // Dynamic Animations for True Pokémon Characters (Strictly locked to calibrated 0.60m hitbox center!)
           if (this.currentSkin && (this.currentSkin.category === 'pokemon' || (this.currentSkin.modelPreset && this.currentSkin.modelPreset.startsWith('poke_')))) {
             const presetKey = this.currentSkin.modelPreset;
@@ -4832,6 +4839,8 @@ class FlappyBird3DModels {
               parts.rayquazaDelta.rotation.z = Math.sin(t * 3.5) * 0.22;
             }
           }
+        }
+      }
 
           // Animate 3D Orbital Halos & Laser Containment Rings on High-Tier Pipes!
           for (let i = 0; i < this.pipes.length; i++) {

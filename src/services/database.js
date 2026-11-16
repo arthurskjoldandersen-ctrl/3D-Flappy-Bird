@@ -146,6 +146,7 @@ function pruneBackups(maxBackups = 3) {
 // Cached Intl formatters for extreme speed (avoids re-instantiating C++ objects)
 const danishWindowFormatter = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Europe/Copenhagen',
+  weekday: 'short',
   hour: 'numeric',
   minute: 'numeric',
   hour12: false
@@ -192,23 +193,29 @@ function formatReadableTimestamp(ms) {
 }
 
 /**
- * Checks whether a given timestamp falls within the allowed Danish competition hours: 07:50 to 14:10 Danish Time.
- * Uses Europe/Copenhagen IANA time zone.
+ * Checks whether a given timestamp falls within the allowed Danish competition hours:
+ * - Automatically hidden on SATURDAY & SUNDAY (the whole weekend, regardless of time).
+ * - Monday through Friday: 07:50 to 14:10 Danish Time (Europe/Copenhagen).
  */
 function isWithinDanishWindow(timestampMs = Date.now()) {
   if (!timestampMs || timestampMs <= 0) return true;
   try {
     const parts = danishWindowFormatter.formatToParts(new Date(timestampMs));
+    let weekday = '';
     let hour = 0;
     let minute = 0;
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
-      if (p.type === 'hour') hour = parseInt(p.value, 10) % 24;
+      if (p.type === 'weekday') weekday = p.value;
+      else if (p.type === 'hour') hour = parseInt(p.value, 10) % 24;
       else if (p.type === 'minute') minute = parseInt(p.value, 10);
     }
+    // Instantly hide on Saturday or Sunday (the entire day)
+    if (weekday === 'Sat' || weekday === 'Sun') {
+      return false;
+    }
     const totalMinutes = hour * 60 + minute;
-    // 07:50 is 470 minutes (7 * 60 + 50)
-    // 14:10 is 850 minutes (14 * 60 + 10)
+    // Monday-Friday: 07:50 is 470 minutes (7 * 60 + 50), 14:10 is 850 minutes (14 * 60 + 10)
     return totalMinutes >= 470 && totalMinutes <= 850;
   } catch (_) {
     return true;
@@ -1130,12 +1137,12 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
       );
     }
   } else {
-    // Achieved outside Danish competition window (07:50 - 14:10) -> Automatically hidden from leaderboard!
+    // Achieved on weekend or outside Danish competition hours -> Automatically hidden from leaderboard!
     autoHidden = true;
     logDatabaseEvent(
       'OFF_HOURS_RUN',
       user.username,
-      `🕒 ${user.username} finished a ${diffKey.toUpperCase()} run of ${verifiedScore} pts outside allowed Danish hours (7:50-14:10) — Run automatically hidden from leaderboard.`,
+      `🕒 ${user.username} finished a ${diffKey.toUpperCase()} run of ${verifiedScore} pts on weekend or outside allowed hours (7:50-14:10) — Run automatically hidden from leaderboard.`,
       {
         difficulty: diffKey,
         score: verifiedScore,

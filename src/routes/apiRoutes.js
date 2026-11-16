@@ -437,11 +437,13 @@ async function handleApiRequest(req, res, pathname, port) {
       return sendJSON(res, 401, { error: 'Please log in to start an official ranked run.' });
     }
 
-    const { difficulty } = await readJsonBody(req);
+    const { difficulty, seed: clientSeed } = await readJsonBody(req);
     const diffKey = SIM_CONFIG.difficulties[difficulty] ? difficulty : 'medium';
 
     const runId = crypto.randomBytes(16).toString('hex');
-    const seed = crypto.randomInt(1, 0x7fffffff);
+    const seed = (typeof clientSeed === 'number' && Number.isInteger(clientSeed) && clientSeed > 0)
+      ? clientSeed
+      : crypto.randomInt(1, 0x7fffffff);
 
     activeRuns.set(runId, {
       runId,
@@ -592,7 +594,7 @@ async function handleApiRequest(req, res, pathname, port) {
       };
 
       if (withinWindow && verifiedScore > 0) {
-        // Tier 1: All-Time #1 Record
+        // TIER 1: ALL-TIME PODIUM (Top 1, 2, 3) & TOP 5
         if (allStats.isTop1) {
           addChatMessage({
             type: 'system',
@@ -601,33 +603,41 @@ async function handleApiRequest(req, res, pathname, port) {
             leaderboardType: 'all',
             username: 'Leaderboard Bot',
             avatar: '👑',
-            text: `👑 NEW #1 ALL-TIME! ${user.username} scored ${verifiedScore} pts in ${modeLabel}!`
+            text: `👑 NEW #1 ALL-TIME! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (All-Time Leaderboard)!`
+          });
+        } else if (allStats.placementRank === 2 && (isNewRecord || verifiedScore >= 5)) {
+          addChatMessage({
+            type: 'system',
+            subtype: 'top2',
+            tagLabel: 'ALL-TIME #2',
+            leaderboardType: 'all',
+            username: 'Leaderboard Bot',
+            avatar: '🥈',
+            text: `🥈 NEW #2 ALL-TIME! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (All-Time Leaderboard)!`
+          });
+        } else if (allStats.placementRank === 3 && (isNewRecord || verifiedScore >= 5)) {
+          addChatMessage({
+            type: 'system',
+            subtype: 'top3',
+            tagLabel: 'ALL-TIME #3',
+            leaderboardType: 'all',
+            username: 'Leaderboard Bot',
+            avatar: '🥉',
+            text: `🥉 NEW #3 ALL-TIME! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (All-Time Leaderboard)!`
           });
         } else if (allStats.isTop5 && (isNewRecord || verifiedScore >= 5)) {
-          // Tier 2: All-Time Top 5
-          if (isNewRecord) {
-            addChatMessage({
-              type: 'system',
-              subtype: 'top5',
-              tagLabel: 'ALL-TIME TOP 5',
-              leaderboardType: 'all',
-              username: 'Leaderboard Bot',
-              avatar: '🔥',
-              text: `🔥 TOP 5 & NEW BEST! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${allStats.placementRank} All-Time)!`
-            });
-          } else {
-            addChatMessage({
-              type: 'system',
-              subtype: 'top5',
-              tagLabel: 'ALL-TIME TOP 5',
-              leaderboardType: 'all',
-              username: 'Leaderboard Bot',
-              avatar: '⭐',
-              text: `⭐ TOP 5 RUN! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${allStats.placementRank} All-Time)!`
-            });
-          }
-        } else if (weeklyStats.isTop1 && (isNewRecord || verifiedScore >= 10)) {
-          // Tier 3: Weekly #1 Record
+          addChatMessage({
+            type: 'system',
+            subtype: 'top5',
+            tagLabel: 'ALL-TIME TOP 5',
+            leaderboardType: 'all',
+            username: 'Leaderboard Bot',
+            avatar: isNewRecord ? '🔥' : '⭐',
+            text: `${isNewRecord ? '🔥 TOP 5 & NEW BEST!' : '⭐ TOP 5 RUN!'} ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${allStats.placementRank} All-Time)!`
+          });
+        }
+        // TIER 2: WEEKLY PODIUM (Top 1, 2, 3) & TOP 5
+        else if (weeklyStats.isTop1 && (isNewRecord || verifiedScore >= 10)) {
           addChatMessage({
             type: 'system',
             subtype: 'top1',
@@ -635,33 +645,41 @@ async function handleApiRequest(req, res, pathname, port) {
             leaderboardType: 'weekly',
             username: 'Leaderboard Bot',
             avatar: '👑',
-            text: `👑 NEW #1 WEEKLY! ${user.username} scored ${verifiedScore} pts in ${modeLabel}!`
+            text: `👑 NEW #1 WEEKLY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Weekly Leaderboard)!`
+          });
+        } else if (weeklyStats.placementRank === 2 && (isNewRecord || verifiedScore >= 10)) {
+          addChatMessage({
+            type: 'system',
+            subtype: 'top2',
+            tagLabel: 'WEEKLY #2',
+            leaderboardType: 'weekly',
+            username: 'Leaderboard Bot',
+            avatar: '🥈',
+            text: `🥈 NEW #2 WEEKLY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Weekly Leaderboard)!`
+          });
+        } else if (weeklyStats.placementRank === 3 && (isNewRecord || verifiedScore >= 10)) {
+          addChatMessage({
+            type: 'system',
+            subtype: 'top3',
+            tagLabel: 'WEEKLY #3',
+            leaderboardType: 'weekly',
+            username: 'Leaderboard Bot',
+            avatar: '🥉',
+            text: `🥉 NEW #3 WEEKLY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Weekly Leaderboard)!`
           });
         } else if (weeklyStats.isTop5 && (isNewRecord || verifiedScore >= 10)) {
-          // Tier 4: Weekly Top 5
-          if (isNewRecord) {
-            addChatMessage({
-              type: 'system',
-              subtype: 'top5',
-              tagLabel: 'WEEKLY TOP 5',
-              leaderboardType: 'weekly',
-              username: 'Leaderboard Bot',
-              avatar: '🔥',
-              text: `🔥 TOP 5 & NEW BEST! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${weeklyStats.placementRank} Weekly)!`
-            });
-          } else {
-            addChatMessage({
-              type: 'system',
-              subtype: 'top5',
-              tagLabel: 'WEEKLY TOP 5',
-              leaderboardType: 'weekly',
-              username: 'Leaderboard Bot',
-              avatar: '⭐',
-              text: `⭐ TOP 5 RUN! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${weeklyStats.placementRank} Weekly)!`
-            });
-          }
-        } else if (dailyStats.isTop1 && (isNewRecord || verifiedScore >= 10)) {
-          // Tier 5: Daily #1 Record
+          addChatMessage({
+            type: 'system',
+            subtype: 'top5',
+            tagLabel: 'WEEKLY TOP 5',
+            leaderboardType: 'weekly',
+            username: 'Leaderboard Bot',
+            avatar: isNewRecord ? '🔥' : '⭐',
+            text: `${isNewRecord ? '🔥 TOP 5 & NEW BEST!' : '⭐ TOP 5 RUN!'} ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${weeklyStats.placementRank} Weekly)!`
+          });
+        }
+        // TIER 3: DAILY PODIUM (Top 1, 2, 3) & TOP 5
+        else if (dailyStats.isTop1 && (isNewRecord || verifiedScore >= 10)) {
           addChatMessage({
             type: 'system',
             subtype: 'top1',
@@ -669,33 +687,41 @@ async function handleApiRequest(req, res, pathname, port) {
             leaderboardType: 'daily',
             username: 'Leaderboard Bot',
             avatar: '👑',
-            text: `👑 NEW #1 DAILY! ${user.username} scored ${verifiedScore} pts in ${modeLabel}!`
+            text: `👑 NEW #1 DAILY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Daily Leaderboard)!`
+          });
+        } else if (dailyStats.placementRank === 2 && (isNewRecord || verifiedScore >= 10)) {
+          addChatMessage({
+            type: 'system',
+            subtype: 'top2',
+            tagLabel: 'DAILY #2',
+            leaderboardType: 'daily',
+            username: 'Leaderboard Bot',
+            avatar: '🥈',
+            text: `🥈 NEW #2 DAILY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Daily Leaderboard)!`
+          });
+        } else if (dailyStats.placementRank === 3 && (isNewRecord || verifiedScore >= 10)) {
+          addChatMessage({
+            type: 'system',
+            subtype: 'top3',
+            tagLabel: 'DAILY #3',
+            leaderboardType: 'daily',
+            username: 'Leaderboard Bot',
+            avatar: '🥉',
+            text: `🥉 NEW #3 DAILY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Daily Leaderboard)!`
           });
         } else if (dailyStats.isTop5 && (isNewRecord || verifiedScore >= 10)) {
-          // Tier 6: Daily Top 5
-          if (isNewRecord) {
-            addChatMessage({
-              type: 'system',
-              subtype: 'top5',
-              tagLabel: 'DAILY TOP 5',
-              leaderboardType: 'daily',
-              username: 'Leaderboard Bot',
-              avatar: '🔥',
-              text: `🔥 TOP 5 & NEW BEST! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${dailyStats.placementRank} Daily)!`
-            });
-          } else {
-            addChatMessage({
-              type: 'system',
-              subtype: 'top5',
-              tagLabel: 'DAILY TOP 5',
-              leaderboardType: 'daily',
-              username: 'Leaderboard Bot',
-              avatar: '⭐',
-              text: `⭐ TOP 5 RUN! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${dailyStats.placementRank} Daily)!`
-            });
-          }
-        } else if (isNewRecord && allStats.isTop10) {
-          // Tier 7: All-Time Top 10
+          addChatMessage({
+            type: 'system',
+            subtype: 'top5',
+            tagLabel: 'DAILY TOP 5',
+            leaderboardType: 'daily',
+            username: 'Leaderboard Bot',
+            avatar: isNewRecord ? '🔥' : '⭐',
+            text: `${isNewRecord ? '🔥 TOP 5 & NEW BEST!' : '⭐ TOP 5 RUN!'} ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${dailyStats.placementRank} Daily)!`
+          });
+        }
+        // TIER 4: TOP 10 (All-Time, Weekly, Daily)
+        else if (isNewRecord && allStats.isTop10) {
           addChatMessage({
             type: 'system',
             subtype: 'top10',
@@ -706,7 +732,6 @@ async function handleApiRequest(req, res, pathname, port) {
             text: `⭐ TOP 10 ALL-TIME! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${allStats.placementRank} All-Time)!`
           });
         } else if (isNewRecord && weeklyStats.isTop10) {
-          // Tier 8: Weekly Top 10
           addChatMessage({
             type: 'system',
             subtype: 'top10',
@@ -717,7 +742,6 @@ async function handleApiRequest(req, res, pathname, port) {
             text: `⭐ TOP 10 WEEKLY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${weeklyStats.placementRank} Weekly)!`
           });
         } else if (isNewRecord && dailyStats.isTop10) {
-          // Tier 9: Daily Top 10
           addChatMessage({
             type: 'system',
             subtype: 'top10',
@@ -727,8 +751,9 @@ async function handleApiRequest(req, res, pathname, port) {
             avatar: '⭐',
             text: `⭐ TOP 10 DAILY! ${user.username} scored ${verifiedScore} pts in ${modeLabel} (Rank #${dailyStats.placementRank} Daily)!`
           });
-        } else if (isNewRecord) {
-          // Tier 10: Personal Best beyond Top 10
+        }
+        // TIER 5: PERSONAL BEST BEYOND TOP 10
+        else if (isNewRecord) {
           addChatMessage({
             type: 'system',
             subtype: 'new_best',
