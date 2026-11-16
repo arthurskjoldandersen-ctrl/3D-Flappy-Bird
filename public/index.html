@@ -337,34 +337,134 @@
             <div class="duels-tab-content-area">
               <!-- Panel 1: Join Match (Starts active) -->
               <div class="duels-tab-panel active" id="duel-panel-join" role="tabpanel" aria-labelledby="tab-btn-duel-join">
-                <div class="duels-tab-placeholder">
-                  <div class="duels-placeholder-icon">🎮</div>
-                  <h3 class="duels-placeholder-title">Join Match</h3>
-                  <p class="duels-placeholder-desc">Available matches and room lobby codes will appear here.</p>
+                <div class="duels-join-layout">
+                  <!-- Top Quick Match Bar -->
+                  <div class="duels-quick-match-bar">
+                    <div class="duels-my-rating-box">
+                      <span class="duels-my-rating-label">YOUR RANKED RATING</span>
+                      <div class="duels-my-rating-val">
+                        <span>🏆</span>
+                        <strong id="duel-my-elo-display">1000</strong>
+                        <span class="duels-elo-unit">ELO</span>
+                        <span class="duels-wl-badge" id="duel-my-wl-display">0W - 0L</span>
+                      </div>
+                    </div>
+                    <button type="button" class="btn-duel-quick-match" id="btn-duel-quick-match">
+                      <span class="qm-icon">⚡</span>
+                      <div class="qm-text">
+                        <strong>Quick Match</strong>
+                        <span>Join oldest lobby or auto-create</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <!-- MeDonut Admin Controls Bar (Visible only to MeDonut) -->
+                  <div class="duel-medonut-admin-bar" id="duel-medonut-admin-bar" style="display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 0.78rem; font-weight: 900; color: #e9d5ff;">👑 MEDONUT DUEL ADMIN:</span>
+                      <button type="button" class="btn-duel-bot-action" id="btn-duel-call-bot-instant">
+                        🤖 Call Bot to Duel
+                      </button>
+                      <button type="button" class="btn-duel-bot-action" id="btn-duel-spawn-bot-lobby">
+                        🤖 Spawn Bot Lobby
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Active Waiting Room Banner (Shown when player is waiting inside their lobby) -->
+                  <div class="duels-waiting-room-banner" id="duel-waiting-room-banner" style="display: none;">
+                    <div class="waiting-room-left">
+                      <div class="waiting-pulse-dot"></div>
+                      <div>
+                        <div class="waiting-room-title" id="duel-waiting-room-title">Lobby: Waiting for Challenger...</div>
+                        <div class="waiting-room-sub" id="duel-waiting-room-sub">Match begins with a 3s countdown as soon as Player 2 joins!</div>
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <button type="button" class="btn-duel-bot-action" id="btn-duel-call-bot-waiting" style="display: none;">
+                        🤖 Call Bot
+                      </button>
+                      <button type="button" class="btn-duel-leave-lobby" id="btn-duel-leave-waiting">
+                        ✕ Leave Lobby
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Lobbies List Toolbar -->
+                  <div class="duels-lobbies-header">
+                    <div class="duels-lobbies-title-wrap">
+                      <span class="duels-section-heading">🌐 Active &amp; Ongoing Lobbies (<span id="duel-lobby-count">0</span>)</span>
+                    </div>
+                    <div class="duels-scoring-pill">
+                      <span>🟢 Easy 1x</span>
+                      <span>•</span>
+                      <span>🟡 Medium 2x</span>
+                      <span>•</span>
+                      <span>🔴 Hard 3x</span>
+                    </div>
+                  </div>
+
+                  <!-- Scrollable Lobbies List -->
+                  <div class="duels-lobbies-list" id="duel-lobbies-list">
+                    <div class="duels-empty-state">
+                      <div class="duels-empty-icon">⚔️</div>
+                      <div class="duels-empty-title">No Active Lobbies Yet</div>
+                      <div class="duels-empty-sub">Click <strong>Quick Match</strong> above or open <strong>Create Match</strong> to host a new Ranked Duel!</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <!-- Panel 2: Create Match -->
               <div class="duels-tab-panel" id="duel-panel-create" role="tabpanel" aria-labelledby="tab-btn-duel-create" style="display: none;">
-                <div class="duels-tab-placeholder">
-                  <div class="duels-placeholder-icon">⚡</div>
-                  <h3 class="duels-placeholder-title">Create Match</h3>
-                  <p class="duels-placeholder-desc">Custom match creation and duel settings will appear here.</p>
+                <div class="duels-create-card-inner">
+                  <div class="duels-create-header">
+                    <div class="duels-create-icon">⚡</div>
+                    <h3 class="duels-create-title">Create Ranked Duel Lobby</h3>
+                    <p class="duels-create-desc">
+                      Host a 3-Round Ranked Duel: <strong>Round 1 Easy (1x)</strong> → <strong>Round 2 Medium (2x)</strong> → <strong>Round 3 Hard (3x)</strong>. All points are counted together!
+                    </p>
+                  </div>
+
+                  <div class="duels-create-form">
+                    <label class="duels-form-label" for="duel-create-name-input">Lobby Name</label>
+                    <input
+                      type="text"
+                      id="duel-create-name-input"
+                      class="duels-name-input"
+                      maxlength="36"
+                      placeholder="Enter a name for your lobby..."
+                      autocomplete="off"
+                    />
+                    <div class="duels-create-msg" id="duel-create-msg"></div>
+                    <button type="button" class="btn-duel-create-submit" id="btn-duel-create-submit">
+                      ⚔️ Create Lobby
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <!-- Panel 3: Ranked Leaderboard -->
               <div class="duels-tab-panel" id="duel-panel-ranked" role="tabpanel" aria-labelledby="tab-btn-duel-ranked" style="display: none;">
-                <div class="duels-tab-placeholder">
-                  <div class="duels-placeholder-icon">🏆</div>
-                  <h3 class="duels-placeholder-title">Ranked Leaderboard</h3>
-                  <p class="duels-placeholder-desc">Competitive duel rankings and player ratings will appear here.</p>
+                <div class="duels-ranked-layout">
+                  <div class="duels-ranked-header">
+                    <div>
+                      <h3 class="duels-ranked-title">🏆 Ranked Elo Leaderboard</h3>
+                      <p class="duels-ranked-sub">1 placement per player • Beat higher Elo opponents to gain more rating!</p>
+                    </div>
+                    <div class="duels-ranked-my-pill" id="duel-ranked-my-pill">
+                      Rank #— • 1000 ELO
+                    </div>
+                  </div>
+                  <div class="duels-ranked-list" id="duel-ranked-list">
+                    <div class="lb-empty">Loading Ranked Elo Leaderboard...</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- RIGHT CARD: DUEL COINS SHOP (Empty for now) -->
+          <!-- RIGHT CARD: DUEL COINS SHOP -->
           <div class="duels-shop-card card">
             <div class="duels-card-header">
               <div class="duels-header-left">
@@ -373,6 +473,10 @@
                   <h2 class="duels-title">Duel Coins Shop</h2>
                   <p class="duels-subtitle">Exclusive items, cosmetic flairs & wagers</p>
                 </div>
+              </div>
+              <div class="duel-shop-coins-pill" id="duel-shop-coins-pill" title="Your Duel Coins (1 pt = 1 coin • Win: 1.5x • Loss: 0.7x)">
+                <span class="duel-shop-coins-icon">🪙</span>
+                <strong id="duel-shop-coins-display">0</strong>
               </div>
             </div>
 
@@ -954,6 +1058,222 @@
             🏠 Back to Lobby
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================
+         RANKED DUELS: LIVE IN-ROUND HUD, SPLIT-SCREEN SPECTATOR & 70% OVERLAY
+         ====================================================================== -->
+    <!-- 1. In-Round Live Duel HUD (Shown at top while playing a Duel Round) -->
+    <div id="duel-live-hud" class="duel-live-hud" style="display: none;">
+      <div class="duel-hud-player duel-hud-me">
+        <span class="duel-hud-name" id="duel-hud-p1-name">You</span>
+        <span class="duel-hud-score" id="duel-hud-p1-score">0 (0 pts)</span>
+        <span class="duel-hud-total" id="duel-hud-p1-total">Total: 0</span>
+      </div>
+      <div class="duel-hud-center-badge" id="duel-hud-round-badge">
+        ROUND 1/3 • EASY (1x)
+      </div>
+      <div class="duel-hud-player duel-hud-opp">
+        <span class="duel-hud-name" id="duel-hud-p2-name">Opponent</span>
+        <span class="duel-hud-score" id="duel-hud-p2-score">0 (0 pts)</span>
+        <span class="duel-hud-status" id="duel-hud-p2-status">🟢 Flying</span>
+      </div>
+    </div>
+
+    <!-- 2. Split-Screen Spectator Overlay (Left = Player 1, Right = Player 2) -->
+    <div id="duel-spectator-overlay" class="duel-spectator-overlay" style="display: none;">
+      <div class="duel-spectator-divider"></div>
+
+      <!-- Top Center Spectator Control Bar -->
+      <div class="duel-spectator-top-bar">
+        <div class="duel-spec-match-info">
+          <span class="duel-spec-live-dot"></span>
+          <strong id="duel-spec-lobby-name">Spectating Duel</strong>
+          <span class="duel-spec-round-pill" id="duel-spec-round-pill">Round 1: Easy (1x)</span>
+        </div>
+        <button type="button" class="btn-duel-exit-spectate" id="btn-duel-exit-spectate">
+          ✕ Exit Spectate
+        </button>
+      </div>
+
+      <!-- Left Half HUD: Player 1 -->
+      <div class="duel-spec-player-card duel-spec-left-card">
+        <div class="duel-spec-player-top">
+          <span class="duel-spec-side-tag">PLAYER 1 (LEFT)</span>
+          <span class="duel-spec-elo-badge" id="duel-spec-p1-elo">🏆 1000 ELO</span>
+        </div>
+        <div class="duel-spec-player-name" id="duel-spec-p1-name">Player 1</div>
+        <div class="duel-spec-scores-row">
+          <div class="duel-spec-score-pill">
+            <span>Round Score</span>
+            <strong id="duel-spec-p1-round-score">0</strong>
+          </div>
+          <div class="duel-spec-score-pill highlight">
+            <span>Total Points</span>
+            <strong id="duel-spec-p1-total-pts">0 PTS</strong>
+          </div>
+          <div class="duel-spec-status-pill" id="duel-spec-p1-status">🟢 Flying</div>
+        </div>
+        <div class="duel-spec-mini-rounds" id="duel-spec-p1-rounds">
+          Easy: 0 • Med (2x): 0 • Hard (3x): 0
+        </div>
+      </div>
+
+      <!-- Right Half HUD: Player 2 -->
+      <div class="duel-spec-player-card duel-spec-right-card">
+        <div class="duel-spec-player-top">
+          <span class="duel-spec-side-tag">PLAYER 2 (RIGHT)</span>
+          <span class="duel-spec-elo-badge" id="duel-spec-p2-elo">🏆 — ELO</span>
+        </div>
+        <div class="duel-spec-player-name" id="duel-spec-p2-name">Waiting for Player 2...</div>
+        <div class="duel-spec-scores-row">
+          <div class="duel-spec-score-pill">
+            <span>Round Score</span>
+            <strong id="duel-spec-p2-round-score">0</strong>
+          </div>
+          <div class="duel-spec-score-pill highlight">
+            <span>Total Points</span>
+            <strong id="duel-spec-p2-total-pts">0 PTS</strong>
+          </div>
+          <div class="duel-spec-status-pill" id="duel-spec-p2-status">⏳ Waiting</div>
+        </div>
+        <div class="duel-spec-mini-rounds" id="duel-spec-p2-rounds">
+          Easy: 0 • Med (2x): 0 • Hard (3x): 0
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 70% Opacity Dark Background Duel Overlay (Countdown, Waiting, Round Summary & Final Results) -->
+    <div id="duel-overlay-backdrop" class="duel-overlay-backdrop" style="display: none;">
+      <!-- State A: 3-Second Pre-Round Countdown -->
+      <div id="duel-view-countdown" class="duel-modal-box" style="display: none;">
+        <div class="duel-countdown-matchup" id="duel-countdown-matchup">
+          Player 1 (1000 ELO) ⚔️ Player 2 (1000 ELO)
+        </div>
+        <div class="duel-countdown-round-tag" id="duel-countdown-round-tag">
+          ROUND 1 OF 3 — EASY MODE (1x POINTS)
+        </div>
+        <div class="duel-countdown-number" id="duel-countdown-number">3</div>
+        <div class="duel-countdown-sub" id="duel-countdown-sub">
+          Get ready to fly! Points count 1x in Easy, 2x in Medium, 3x in Hard!
+        </div>
+      </div>
+
+      <!-- State B: Waiting for Other Player to Die in Current Round -->
+      <div id="duel-view-waiting-opponent" class="duel-modal-box" style="display: none;">
+        <div class="duel-waiting-badge">⏳ ROUND IN PROGRESS</div>
+        <h3 class="duel-modal-title" id="duel-waiting-opp-title">You Finished Round 1!</h3>
+        <p class="duel-waiting-opp-sub" id="duel-waiting-opp-sub">
+          Waiting for your opponent to crash before showing Round Results...
+        </p>
+        <div class="duel-waiting-scores-compare">
+          <div class="duel-compare-card">
+            <span class="duel-compare-name" id="duel-wait-p1-name">Player 1</span>
+            <strong class="duel-compare-val" id="duel-wait-p1-val">0 pts</strong>
+            <span class="duel-compare-status" id="duel-wait-p1-status">Finished</span>
+          </div>
+          <div class="duel-compare-vs">VS</div>
+          <div class="duel-compare-card">
+            <span class="duel-compare-name" id="duel-wait-p2-name">Player 2</span>
+            <strong class="duel-compare-val" id="duel-wait-p2-val">0 pts</strong>
+            <span class="duel-compare-status" id="duel-wait-p2-status">🟢 Still Flying...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- State C: Between-Round Summary (Shown when BOTH players have died in the round) -->
+      <div id="duel-view-round-summary" class="duel-modal-box" style="display: none;">
+        <div class="duel-summary-badge" id="duel-summary-round-badge">ROUND 1 COMPLETE</div>
+        <h2 class="duel-modal-title" id="duel-summary-title">Round 1 (Easy • 1x) Results</h2>
+        <p class="duel-summary-subtitle" id="duel-summary-subtitle">Both players have finished the round!</p>
+
+        <div class="duel-summary-cards-row">
+          <div class="duel-summary-player-card">
+            <div class="duel-sum-name" id="duel-sum-p1-name">Player 1</div>
+            <div class="duel-sum-raw" id="duel-sum-p1-raw">Raw Score: 0</div>
+            <div class="duel-sum-pts" id="duel-sum-p1-pts">+0 PTS</div>
+            <div class="duel-sum-total" id="duel-sum-p1-total">Running Total: 0 PTS</div>
+          </div>
+          <div class="duel-compare-vs">VS</div>
+          <div class="duel-summary-player-card">
+            <div class="duel-sum-name" id="duel-sum-p2-name">Player 2</div>
+            <div class="duel-sum-raw" id="duel-sum-p2-raw">Raw Score: 0</div>
+            <div class="duel-sum-pts" id="duel-sum-p2-pts">+0 PTS</div>
+            <div class="duel-sum-total" id="duel-sum-p2-total">Running Total: 0 PTS</div>
+          </div>
+        </div>
+
+        <div class="duel-summary-next-hint" id="duel-summary-next-hint">
+          Next Round starting shortly...
+        </div>
+      </div>
+
+      <!-- State D: Final Duel Match Results (All 3 Rounds Counted Together + Ranked Elo Changes) -->
+      <div id="duel-view-final-results" class="duel-modal-box duel-final-box" style="display: none;">
+        <div class="duel-final-banner" id="duel-final-banner">🏆 DUEL COMPLETE</div>
+        <h2 class="duel-final-winner-title" id="duel-final-winner-title">Player 1 Wins!</h2>
+        <p class="duel-final-subtitle" id="duel-final-subtitle">
+          All 3 rounds counted together (Easy 1x + Medium 2x + Hard 3x)
+        </p>
+
+        <div class="duel-final-players-grid">
+          <!-- Player 1 Final Breakdown -->
+          <div class="duel-final-player-col" id="duel-final-col-p1">
+            <div class="duel-final-p-header">
+              <strong class="duel-final-p-name" id="duel-final-p1-name">Player 1</strong>
+              <span class="duel-final-elo-change" id="duel-final-p1-elo">1000 → 1020 (+20 ELO)</span>
+            </div>
+            <div class="duel-final-rounds-table">
+              <div class="duel-final-r-row">
+                <span>🟢 Easy (1x)</span>
+                <strong id="duel-final-p1-easy">0 = 0 pts</strong>
+              </div>
+              <div class="duel-final-r-row">
+                <span>🟡 Medium (2x)</span>
+                <strong id="duel-final-p1-med">0 × 2 = 0 pts</strong>
+              </div>
+              <div class="duel-final-r-row">
+                <span>🔴 Hard (3x)</span>
+                <strong id="duel-final-p1-hard">0 × 3 = 0 pts</strong>
+              </div>
+              <div class="duel-final-r-total">
+                <span>TOTAL POINTS</span>
+                <strong id="duel-final-p1-total">0 PTS</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Player 2 Final Breakdown -->
+          <div class="duel-final-player-col" id="duel-final-col-p2">
+            <div class="duel-final-p-header">
+              <strong class="duel-final-p-name" id="duel-final-p2-name">Player 2</strong>
+              <span class="duel-final-elo-change" id="duel-final-p2-elo">1000 → 980 (-20 ELO)</span>
+            </div>
+            <div class="duel-final-rounds-table">
+              <div class="duel-final-r-row">
+                <span>🟢 Easy (1x)</span>
+                <strong id="duel-final-p2-easy">0 = 0 pts</strong>
+              </div>
+              <div class="duel-final-r-row">
+                <span>🟡 Medium (2x)</span>
+                <strong id="duel-final-p2-med">0 × 2 = 0 pts</strong>
+              </div>
+              <div class="duel-final-r-row">
+                <span>🔴 Hard (3x)</span>
+                <strong id="duel-final-p2-hard">0 × 3 = 0 pts</strong>
+              </div>
+              <div class="duel-final-r-total">
+                <span>TOTAL POINTS</span>
+                <strong id="duel-final-p2-total">0 PTS</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-duel-finish-back" id="btn-duel-finish-back">
+          ⚔️ Back to Duels Arena
+        </button>
       </div>
     </div>
 

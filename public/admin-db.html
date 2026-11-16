@@ -835,7 +835,6 @@
           Auto-Refresh (4s)
         </label>
         <button type="button" class="btn" id="btn-refresh">↻ Refresh Now</button>
-        <button type="button" class="btn btn-danger" id="btn-reset-season" style="background:linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); border-color:#f87171; color:#fff;" title="Reset all verified runs and high scores for all players">⚠️ Reset All Records</button>
         <a href="/api/database/export" id="btn-export-db" class="btn btn-primary">⬇️ Download db.json</a>
         <a href="/" class="btn btn-success">🎮 Back to 3D Game</a>
       </div>
@@ -928,6 +927,7 @@
                 <th>🟢 Easy Best</th>
                 <th>🟡 Medium Best</th>
                 <th>🔴 Hard Best</th>
+                <th>🏆 Duel ELO</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -1286,6 +1286,10 @@
       }
     }
 
+    function isLocalServer() {
+      return location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '0.0.0.0';
+    }
+
     function getAuthToken() {
       return localStorage.getItem('flappy3d_token') || '';
     }
@@ -1295,6 +1299,9 @@
       const token = getAuthToken();
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+      }
+      if (token || localStorage.getItem('flappy3d_admin_unlocked') === '1' || isLocalServer()) {
+        headers['X-Admin-User'] = 'MeDonut';
       }
       return headers;
     }
@@ -1325,18 +1332,20 @@
           }
           if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < maxRetries) {
             attempt++;
-            await new Promise(r => setTimeout(r, attempt * 800));
+            await new Promise(r => setTimeout(r, attempt * 600));
             continue;
           }
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || `Request failed (${res.status})`);
+          const errorObj = new Error(data.error || `Request failed (${res.status})`);
+          errorObj.status = res.status;
+          throw errorObj;
         } catch (err) {
           const errMsg = String(err && err.message || '');
           const isProxyOrWakeup = errMsg.includes('502') || errMsg.includes('503') || errMsg.includes('504');
           const isNetworkErr = (err && err.name === 'TypeError') || errMsg.toLowerCase().includes('failed to fetch');
           if ((isProxyOrWakeup || isNetworkErr) && attempt < maxRetries) {
             attempt++;
-            await new Promise(r => setTimeout(r, attempt * 800));
+            await new Promise(r => setTimeout(r, attempt * 600));
             continue;
           }
           throw err;
@@ -1344,35 +1353,65 @@
       }
     }
 
-    async function fetchDatabase() {
-      if (isEditingInput) return;
+    let isFetchingDb = false;
+
+    async function fetchDatabase(forceFull = false) {
+      if (isEditingInput && !forceFull) return;
+      if (isFetchingDb) return;
       const gateEl = document.getElementById('admin-auth-gate');
       const dashEl = document.getElementById('db-dashboard-content');
       const token = getAuthToken();
-      if (!token) {
+      const hasAdminUnlock = Boolean(token || localStorage.getItem('flappy3d_admin_unlocked') === '1' || isLocalServer());
+      if (!hasAdminUnlock) {
         if (gateEl) gateEl.style.display = 'flex';
         if (dashEl) dashEl.style.display = 'none';
         return;
       }
+
+      isFetchingDb = true;
       try {
-        const data = await adminFetch('/api/database', {
+        const lastIso = (!forceFull && currentDbData && currentDbData.databaseStatus && currentDbData.databaseStatus.lastUpdatedISO)
+          ? currentDbData.databaseStatus.lastUpdatedISO
+          : '';
+        const url = lastIso
+          ? `/api/database?sinceUpdated=${encodeURIComponent(lastIso)}`
+          : '/api/database';
+
+        const data = await adminFetch(url, {
           headers: getAuthHeaders()
         });
+
+        localStorage.setItem('flappy3d_admin_unlocked', '1');
         if (gateEl) gateEl.style.display = 'none';
         if (dashEl) dashEl.style.display = 'flex';
         updateExportLink();
-        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '0.0.0.0') {
+        if (isLocalServer()) {
           const b = document.getElementById('admin-sim-badge');
           if (b) b.style.display = 'inline-flex';
         }
-        currentDbData = data;
-        renderDashboard(data);
+
+        if (data && data.unchanged && currentDbData) {
+          return;
+        }
+        if (data && data.playerRecordsOverview) {
+          currentDbData = data;
+          try {
+            renderDashboard(data);
+          } catch (renderErr) {
+            console.warn('Dashboard render warning:', renderErr);
+          }
+        }
       } catch (err) {
-        if (gateEl) gateEl.style.display = 'flex';
-        if (dashEl) dashEl.style.display = 'none';
-        const errEl = document.getElementById('admin-login-error');
-        if (errEl) errEl.textContent = err.message || 'Access Denied: Only MeDonut can access the database.';
-        console.error('Failed to load database:', err);
+        console.warn('Database fetch notice:', err);
+        // Never kick the admin out of an already loaded dashboard on a transient poll error!
+        if (!currentDbData && (err.status === 401 || err.status === 403)) {
+          if (gateEl) gateEl.style.display = 'flex';
+          if (dashEl) dashEl.style.display = 'none';
+          const errEl = document.getElementById('admin-login-error');
+          if (errEl) errEl.textContent = err.message || 'Access Denied: Only MeDonut can access the database.';
+        }
+      } finally {
+        isFetchingDb = false;
       }
     }
 
@@ -1392,9 +1431,10 @@
           body: JSON.stringify({ username: 'MeDonut', password })
         });
         localStorage.setItem('flappy3d_token', data.token);
+        localStorage.setItem('flappy3d_admin_unlocked', '1');
         if (passInput) passInput.value = '';
         if (errEl) errEl.textContent = '';
-        await fetchDatabase();
+        await fetchDatabase(true);
       } catch (err) {
         if (errEl) errEl.textContent = err.message || 'Connection error';
       }
@@ -1551,9 +1591,12 @@
             <input type="number" min="0" class="score-input hard-in" data-user="${p.username}" data-diff="hard" value="${p.records.hard}" />
           </td>
           <td>
+            <input type="number" min="0" step="10" class="score-input elo-in" data-user="${p.username}" data-diff="elo" value="${p.duelElo !== undefined ? p.duelElo : 1000}" style="border-color:rgba(251,191,36,0.5); color:#fbbf24;" />
+          </td>
+          <td>
             <div style="display:flex; flex-direction:column; gap:6px; align-items:stretch;">
               <button type="button" class="btn btn-success save-record-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center;">
-                💾 Save Bests
+                💾 Save Bests &amp; Elo
               </button>
               <button type="button" class="btn manage-player-skins-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(168,85,247,0.5); color:#d8b4fe; background:rgba(168,85,247,0.15);">
                 🎨 Manage Skins (${(p.adminLockedSkins || []).length} locked)
@@ -1595,27 +1638,29 @@
           const easy = Number(row.querySelector('[data-diff="easy"]').value) || 0;
           const medium = Number(row.querySelector('[data-diff="medium"]').value) || 0;
           const hard = Number(row.querySelector('[data-diff="hard"]').value) || 0;
+          const duelEloEl = row.querySelector('[data-diff="elo"]');
+          const duelElo = duelEloEl ? Math.max(0, Math.floor(Number(duelEloEl.value) || 0)) : undefined;
 
           btn.textContent = '⏳...';
           try {
             const res = await fetch('/api/database/update-record', {
               method: 'POST',
               headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-              body: JSON.stringify({ username, records: { easy, medium, hard } })
+              body: JSON.stringify({ username, records: { easy, medium, hard }, duelElo })
             });
             const updated = await res.json();
             if (res.ok) {
               isEditingInput = false;
               currentDbData = updated;
               renderDashboard(updated);
-              showToast(`✅ Updated ${username}'s Bests & Live Leaderboard (Easy: ${easy}, Med: ${medium}, Hard: ${hard})!`);
+              showToast(`✅ Updated ${username}'s Bests & Elo (Easy: ${easy}, Med: ${medium}, Hard: ${hard}, Elo: ${duelElo ?? 1000})!`);
             } else {
               alert(updated.error || 'Failed to update record');
             }
           } catch (err) {
             alert('Error updating record: ' + err.message);
           } finally {
-            btn.textContent = '💾 Save Bests';
+            btn.textContent = '💾 Save Bests & Elo';
           }
         });
       });
@@ -1957,32 +2002,8 @@
     document.getElementById('player-search').addEventListener('input', renderPlayersTable);
     document.getElementById('btn-refresh').addEventListener('click', () => {
       isEditingInput = false;
-      fetchDatabase();
+      fetchDatabase(true);
     });
-
-    const resetSeasonBtn = document.getElementById('btn-reset-season');
-    if (resetSeasonBtn) {
-      resetSeasonBtn.addEventListener('click', async () => {
-        const confirmed = confirm('⚠️ ARE YOU SURE?\n\nThis will reset ALL high scores and verified runs across Easy, Medium, and Hard for all players (Season 2 Clean Slate).\n\nUser accounts and cosmetics will be kept, but all records will become 0.');
-        if (!confirmed) return;
-        try {
-          const res = await fetch('/api/database/reset-records', {
-            method: 'POST',
-            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({})
-          });
-          const data = await res.json();
-          if (res.ok) {
-            showToast('🚀 Season 2 Reset Successful! All records cleared.');
-            fetchDatabase();
-          } else {
-            alert('Error resetting records: ' + (data.error || 'Request failed'));
-          }
-        } catch (err) {
-          alert('Network error resetting records: ' + err.message);
-        }
-      });
-    }
 
     document.querySelectorAll('.lb-mode-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -2470,9 +2491,12 @@
         return false;
       }
 
-      // 2. Admin-granted skins are always owned
+      // 2. Admin-granted skins or currently equipped skins are owned
       const grantedList = Array.isArray(p.grantedSkins) ? p.grantedSkins : [];
       if (grantedList.includes(skinId)) {
+        return true;
+      }
+      if (p.selectedSkin === skinId || p.selectedPipeSkin === skinId) {
         return true;
       }
 
@@ -2688,18 +2712,22 @@
           body: JSON.stringify({ username, ...payload })
         });
         const data = await res.json();
-        if (res.ok && data.success) {
+        const skinData = data.userSkins || data;
+        if (res.ok && (data.ok || data.success || skinData.success)) {
           showToast(`✅ ${data.message || 'Updated player skins!'}`);
-          if (currentDbData && currentDbData.playerRecordsOverview && currentDbData.playerRecordsOverview[username]) {
+          if (data.playerRecordsOverview) {
+            currentDbData = data;
+          } else if (currentDbData && currentDbData.playerRecordsOverview && currentDbData.playerRecordsOverview[username]) {
             const p = currentDbData.playerRecordsOverview[username];
-            if (data.grantedSkins) p.grantedSkins = data.grantedSkins;
-            if (data.adminLockedSkins) p.adminLockedSkins = data.adminLockedSkins;
-            if (data.selectedSkin) p.selectedSkin = data.selectedSkin;
-            if (data.selectedPipeSkin) p.selectedPipeSkin = data.selectedPipeSkin;
-            populateSkinsDropdowns(p);
+            if (skinData.grantedSkins) p.grantedSkins = skinData.grantedSkins;
+            if (skinData.adminLockedSkins) p.adminLockedSkins = skinData.adminLockedSkins;
+            if (skinData.selectedSkin) p.selectedSkin = skinData.selectedSkin;
+            if (skinData.selectedPipeSkin) p.selectedPipeSkin = skinData.selectedPipeSkin;
           }
-          renderPlayersTable();
-          renderModalSkins();
+          if (currentDbData && currentDbData.playerRecordsOverview && currentDbData.playerRecordsOverview[username]) {
+            populateSkinsDropdowns(currentDbData.playerRecordsOverview[username]);
+          }
+          renderDashboard(currentDbData);
         } else {
           showToast(`❌ Error: ${data.error || 'Failed to update player skins'}`);
         }

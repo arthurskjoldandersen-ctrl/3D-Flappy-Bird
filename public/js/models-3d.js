@@ -288,10 +288,11 @@ class FlappyBird3DModels {
           this.standardBirdBodyGroup = new THREE.Group();
           this.birdMeshGroup.add(this.standardBirdBodyGroup);
 
+          const defaultBump = (this.bumpTextures && this.bumpTextures.flat) || null;
           this.birdMats = {
-            body: new THREE.MeshStandardMaterial({ color: 0xffd13b, roughness: 0.25, metalness: 0.14 }),
+            body: new THREE.MeshStandardMaterial({ color: 0xffd13b, roughness: 0.25, metalness: 0.14, bumpMap: defaultBump, bumpScale: 0 }),
             belly: new THREE.MeshStandardMaterial({ color: 0xfff3b0, roughness: 0.32 }),
-            wing: new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.25, metalness: 0.16 }),
+            wing: new THREE.MeshStandardMaterial({ color: 0xffaa00, roughness: 0.25, metalness: 0.16, bumpMap: defaultBump, bumpScale: 0 }),
             beak: new THREE.MeshStandardMaterial({ color: 0xff6b1a, roughness: 0.20, metalness: 0.18 }),
             white: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.08 }),
             iris: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.12, metalness: 0.3 }),
@@ -4044,6 +4045,17 @@ class FlappyBird3DModels {
           rayquazaGroup.add(rayDelta);
 
           addPreset('poke_rayquaza', rayquazaGroup);
+
+          // Pre-compile all 3D bird & Pokémon meshes on the GPU once at startup so switching skins mid-game has 0ms lag!
+          try {
+            if (this.renderer && typeof this.renderer.compile === 'function' && this.scene && this.camera) {
+              Object.values(this.skinModelGroups).forEach(g => { g.visible = true; });
+              Object.values(this.wingStyleGroups).forEach(p => { p.left.visible = true; p.right.visible = true; });
+              this.renderer.compile(this.scene, this.camera);
+              Object.values(this.skinModelGroups).forEach(g => { g.visible = false; });
+              Object.values(this.wingStyleGroups).forEach(p => { p.left.visible = false; p.right.visible = false; });
+            }
+          } catch (_) {}
         }
 
         // ------------------------------------------------------------------------

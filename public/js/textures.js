@@ -149,7 +149,16 @@
         });
         filigree.repeat.set(2, 2);
 
-        return { feathers, scales, carbon, filigree };
+        // 5. Flat Neutral Bump Map (Prevents WebGL shader recompilation when switching to smooth skins)
+        const flatCanvas = document.createElement('canvas');
+        flatCanvas.width = 4;
+        flatCanvas.height = 4;
+        const flatCtx = flatCanvas.getContext('2d');
+        flatCtx.fillStyle = '#808080';
+        flatCtx.fillRect(0, 0, 4, 4);
+        const flat = new THREE.CanvasTexture(flatCanvas);
+
+        return { feathers, scales, carbon, filigree, flat };
       }
 
       /**

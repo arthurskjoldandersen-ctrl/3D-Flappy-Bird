@@ -960,8 +960,11 @@ class FlappyBirdUIAndProgression {
 
           // Only the user MeDonut has access to the Database button & manager!
           const dbBtn = document.getElementById('btn-open-database');
+          const isMeDonut = Boolean(user && user.username && user.username.toLowerCase() === 'medonut');
+          if (isMeDonut) {
+            try { localStorage.setItem('flappy3d_admin_unlocked', '1'); } catch (_) {}
+          }
           if (dbBtn) {
-            const isMeDonut = Boolean(user && user.username && user.username.toLowerCase() === 'medonut');
             dbBtn.style.display = isMeDonut ? 'inline-flex' : 'none';
           }
 
@@ -1007,6 +1010,9 @@ class FlappyBirdUIAndProgression {
           this.updateProfileRecordPills();
           this.renderAllCosmeticGrids();
           this.renderLeaderboard();
+          if (typeof this.updateDuelShopCoinsUI === 'function') {
+            this.updateDuelShopCoinsUI(user.duelCoins);
+          }
           if (typeof this.prefetchRunSession === 'function') {
             this.prefetchRunSession(this.selectedDifficulty);
           }
@@ -1057,6 +1063,9 @@ class FlappyBirdUIAndProgression {
           this.updateProfileRecordPills();
           this.renderAllCosmeticGrids();
           this.renderLeaderboard();
+          if (typeof this.updateDuelShopCoinsUI === 'function') {
+            this.updateDuelShopCoinsUI(0);
+          }
 
           if (showGuestPrompt) {
             this.toggleGuestLoginModal(true);
@@ -1719,7 +1728,9 @@ class FlappyBirdUIAndProgression {
           if (!listEl) return;
           const currentTf = this.activeTimeframeTab || 'all';
           const tfLeaderboard = this.timeframeLeaderboards && this.timeframeLeaderboards[currentTf];
-          const rawEntries = (tfLeaderboard && tfLeaderboard[diffKey]) || (this.leaderboards && this.leaderboards[diffKey]) || [];
+          const rawEntries = (tfLeaderboard && Array.isArray(tfLeaderboard[diffKey]))
+            ? tfLeaderboard[diffKey]
+            : (currentTf === 'all' && this.leaderboards && Array.isArray(this.leaderboards[diffKey]) ? this.leaderboards[diffKey] : []);
           const label = CONFIG.difficulties[diffKey].label;
           const tfLabel = currentTf === 'daily' ? 'Daily' : (currentTf === 'weekly' ? 'Weekly' : 'All-Time');
 
@@ -2988,31 +2999,33 @@ class FlappyBirdUIAndProgression {
         // ------------------------------------------------------------------------
         // APPLYING BIRD SKINS & PIPE SKINS IN 3D
         // ------------------------------------------------------------------------
-        applySkin(skinId, saveToServer = false, force = false) {
+        applySkin(skinId, saveToServer = false, force = false, skipProfileUpdate = false) {
           const skin = BIRD_SKINS.find(s => s.id === skinId) || BIRD_SKINS[0];
           if (!force && !this.isCosmeticUnlocked(skin)) return;
 
           this.selectedSkinId = skin.id;
           localStorage.setItem('flappy3d_skin', skin.id);
 
-          this.applySkinVisualsOnly(skin);
+          this.applySkinVisualsOnly(skin, skipProfileUpdate);
 
           if (saveToServer && this.authToken && this.currentUser) {
             this.apiRequest('/api/skin', 'POST', { skinId: skin.id }).catch(() => {});
           }
         }
 
-        applySkinVisualsOnly(skin) {
+        applySkinVisualsOnly(skin, skipProfileUpdate = false, skipDomUpdate = false) {
           this.currentSkin = skin;
-          const labelEl = document.getElementById('current-skin-label');
-          if (labelEl) labelEl.textContent = skin.name;
-          const birdPreviewEmoji = document.getElementById('loadout-bird-preview-emoji');
-          if (birdPreviewEmoji) birdPreviewEmoji.textContent = skin.emoji || '🐤';
-          const birdPreviewBadge = document.getElementById('loadout-bird-preview-badge');
-          if (birdPreviewBadge && skin.body !== undefined) {
-            const hex = '#' + skin.body.toString(16).padStart(6, '0');
-            birdPreviewBadge.style.background = `linear-gradient(135deg, ${hex}55 0%, ${hex}22 100%)`;
-            birdPreviewBadge.style.borderColor = hex;
+          if (!skipDomUpdate) {
+            const labelEl = document.getElementById('current-skin-label');
+            if (labelEl) labelEl.textContent = skin.name;
+            const birdPreviewEmoji = document.getElementById('loadout-bird-preview-emoji');
+            if (birdPreviewEmoji) birdPreviewEmoji.textContent = skin.emoji || '🐤';
+            const birdPreviewBadge = document.getElementById('loadout-bird-preview-badge');
+            if (birdPreviewBadge && skin.body !== undefined) {
+              const hex = '#' + skin.body.toString(16).padStart(6, '0');
+              birdPreviewBadge.style.background = `linear-gradient(135deg, ${hex}55 0%, ${hex}22 100%)`;
+              birdPreviewBadge.style.borderColor = hex;
+            }
           }
 
           const isPokemon = skin.category === 'pokemon' || (skin.modelPreset && skin.modelPreset.startsWith('poke_'));
@@ -3034,16 +3047,18 @@ class FlappyBirdUIAndProgression {
           }
 
           if (this.birdMats) {
-            const bumpMap = (this.bumpTextures && this.bumpTextures[skin.bumpType]) || null;
+            const hasBump = Boolean(skin.bumpType && skin.bumpType !== 'none' && this.bumpTextures && this.bumpTextures[skin.bumpType]);
+            const bumpMap = hasBump
+              ? this.bumpTextures[skin.bumpType]
+              : ((this.bumpTextures && this.bumpTextures.flat) || null);
 
             this.birdMats.body.color.setHex(skin.body);
             this.birdMats.body.emissive.setHex(skin.emissive || 0x000000);
             this.birdMats.body.emissiveIntensity = skin.rarity === 'GODLIKE' ? 0.58 : (skin.rarity === 'MYTHIC' ? 0.48 : 0.36);
             this.birdMats.body.metalness = skin.metalness;
             this.birdMats.body.roughness = skin.roughness;
-            this.birdMats.body.bumpMap = bumpMap;
-            this.birdMats.body.bumpScale = skin.bumpType === 'scales' ? 0.052 : 0.026;
-            this.birdMats.body.needsUpdate = true;
+            if (bumpMap) this.birdMats.body.bumpMap = bumpMap;
+            this.birdMats.body.bumpScale = hasBump ? (skin.bumpType === 'scales' ? 0.052 : 0.026) : 0;
 
             this.birdMats.belly.color.setHex(skin.belly);
             this.birdMats.belly.metalness = Math.min(0.68, skin.metalness * 0.65);
@@ -3054,9 +3069,8 @@ class FlappyBirdUIAndProgression {
             this.birdMats.wing.emissiveIntensity = skin.rarity === 'GODLIKE' ? 0.62 : (skin.rarity === 'MYTHIC' ? 0.52 : 0.38);
             this.birdMats.wing.metalness = skin.metalness;
             this.birdMats.wing.roughness = skin.roughness;
-            this.birdMats.wing.bumpMap = bumpMap;
-            this.birdMats.wing.bumpScale = 0.028;
-            this.birdMats.wing.needsUpdate = true;
+            if (bumpMap) this.birdMats.wing.bumpMap = bumpMap;
+            this.birdMats.wing.bumpScale = hasBump ? 0.028 : 0;
 
             this.birdMats.beak.color.setHex(skin.beak);
             this.birdMats.beak.metalness = Math.min(0.85, skin.metalness * 0.85);
@@ -3091,7 +3105,9 @@ class FlappyBirdUIAndProgression {
             });
           }
 
-          this.updateProfileRecordPills();
+          if (!skipProfileUpdate) {
+            this.updateProfileRecordPills();
+          }
         }
 
         getOrCreatePipeSkinAssets(pipeSkin) {
@@ -3144,21 +3160,22 @@ class FlappyBirdUIAndProgression {
           return cached;
         }
 
-        applyPipeSkin(pipeSkinId, saveToServer = false, force = false) {
+        applyPipeSkin(pipeSkinId, saveToServer = false, force = false, skipProfileUpdate = false) {
           const pipeSkin = PIPE_SKINS.find(p => p.id === pipeSkinId) || PIPE_SKINS[0];
           if (!force && !this.isCosmeticUnlocked(pipeSkin)) return;
 
           this.selectedPipeSkinId = pipeSkin.id;
           localStorage.setItem('flappy3d_pipe_skin', pipeSkin.id);
 
-          this.applyPipeSkinVisualsOnly(pipeSkin);
+          this.applyPipeSkinVisualsOnly(pipeSkin, skipProfileUpdate);
 
           if (saveToServer && this.authToken && this.currentUser) {
             this.apiRequest('/api/skin', 'POST', { pipeSkinId: pipeSkin.id }).catch(() => {});
           }
         }
 
-        applyPipeSkinVisualsOnly(pipeSkin) {
+        applyPipeSkinVisualsOnly(pipeSkin, skipProfileUpdate = false) {
+          const prevPipeId = this.currentPipeSkin ? this.currentPipeSkin.id : null;
           this.currentPipeSkin = pipeSkin;
           const pipeLabelEl = document.getElementById('current-pipe-skin-label');
           if (pipeLabelEl) pipeLabelEl.textContent = pipeSkin.name;
@@ -3171,17 +3188,19 @@ class FlappyBirdUIAndProgression {
           }
           this.activePipeAssets = this.getOrCreatePipeSkinAssets(pipeSkin);
 
-          // Rebuild existing visible pipes in place so 3D Pipe Skin changes appear immediately!
+          // Rebuild existing visible pipes in place only when pipe skin or pipe count changed!
           if (this.pipes.length === 0 && typeof this.spawnLobbyPreviewPipes === 'function') {
             this.spawnLobbyPreviewPipes();
-          } else {
+          } else if (prevPipeId !== pipeSkin.id) {
             for (let i = 0; i < this.pipes.length; i++) {
               const p = this.pipes[i];
               this.rebuildPipePairVisuals(p);
             }
           }
 
-          this.updateProfileRecordPills();
+          if (!skipProfileUpdate) {
+            this.updateProfileRecordPills();
+          }
         }
 
         initSettings() {
@@ -3495,13 +3514,28 @@ class FlappyBirdUIAndProgression {
             }
           }
 
+          // 3.5. Sync Duel Coins & Elo
+          if (typeof userSync.duelCoins === 'number') {
+            const roundedCoins = Math.round(userSync.duelCoins);
+            if (this.currentUser.duelCoins !== roundedCoins) {
+              this.currentUser.duelCoins = roundedCoins;
+              if (this.myDuelStats) this.myDuelStats.duelCoins = roundedCoins;
+              if (typeof this.updateDuelShopCoinsUI === 'function') {
+                this.updateDuelShopCoinsUI(roundedCoins);
+              }
+            }
+          }
+          if (typeof userSync.duelElo === 'number') {
+            this.currentUser.duelElo = userSync.duelElo;
+          }
+
           // 4. Sync equipped bird skin
           const targetBirdSkin = userSync.selectedSkin || 'classic';
           if (this.currentUser.selectedSkin !== targetBirdSkin || this.selectedSkinId !== targetBirdSkin) {
             this.currentUser.selectedSkin = targetBirdSkin;
             this.selectedSkinId = targetBirdSkin;
             localStorage.setItem('flappy3d_skin', targetBirdSkin);
-            this.applySkin(targetBirdSkin, false, true);
+            this.applySkin(targetBirdSkin, false, true, true);
             hasVisualChanges = true;
             hasGridChanges = true;
           }
@@ -3512,18 +3546,29 @@ class FlappyBirdUIAndProgression {
             this.currentUser.selectedPipeSkin = targetPipeSkin;
             this.selectedPipeSkinId = targetPipeSkin;
             localStorage.setItem('flappy3d_pipe_skin', targetPipeSkin);
-            this.applyPipeSkin(targetPipeSkin, false, true);
+            this.applyPipeSkin(targetPipeSkin, false, true, true);
             hasVisualChanges = true;
             hasGridChanges = true;
           }
 
           if (hasGridChanges || hasVisualChanges) {
-            this.renderAllCosmeticGrids();
-            this.updateLobbySkinCapsuleUI();
-            this.updateHUD();
-            if (typeof this.renderStatsMenu === 'function' && document.getElementById('stats-screen')?.classList.contains('active')) {
+            // Never rebuild heavy DOM grids while the player is actively flying a round!
+            if (this.state === GAME_STATE.PLAYING) {
+              this._pendingLiveSyncUiRefresh = true;
+              return;
+            }
+            this.updateProfileRecordPills();
+            this.updateAllProfilePictures();
+            if (this.currentAppView === 'skins') {
+              if (this.currentLockerTab === 'pipes') {
+                this.renderPipeSkinsGrid();
+              } else {
+                this.renderBirdSkinsGrid();
+              }
+            } else if (this.currentAppView === 'stats' && typeof this.renderStatsMenu === 'function') {
               this.renderStatsMenu();
             }
+            this.updateHUD();
           }
         }
       }

@@ -551,17 +551,17 @@ class ChatManager {
       let tagClass = '';
 
       if (isTop1) {
-        cardClass = 'chat-system-card top-podium-card top1-card top5-card';
+        cardClass = 'chat-system-card top-podium-card top1-card';
         icon = msg.avatar || '👑';
         tagLabel = msg.tagLabel || 'NEW #1 RECORD';
         tagClass = 'top1-tag';
       } else if (isTop2) {
-        cardClass = 'chat-system-card top-podium-card top2-card top5-card';
+        cardClass = 'chat-system-card top-podium-card top2-card';
         icon = msg.avatar || '🥈';
         tagLabel = msg.tagLabel || 'NEW #2 RECORD';
         tagClass = 'top2-tag';
       } else if (isTop3) {
-        cardClass = 'chat-system-card top-podium-card top3-card top5-card';
+        cardClass = 'chat-system-card top-podium-card top3-card';
         icon = msg.avatar || '🥉';
         tagLabel = msg.tagLabel || 'NEW #3 RECORD';
         tagClass = 'top3-tag';

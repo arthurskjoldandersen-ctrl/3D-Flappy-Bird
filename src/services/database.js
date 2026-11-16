@@ -44,23 +44,15 @@ try {
 } catch (_) {}
 
 /**
- * Validates whether a specific bird or pipe skin is unlocked for a user based on their current records,
- * admin-granted status, or admin-locked status.
+ * Checks whether a skin is naturally unlocked by the user's score records, quests, or default status
+ * (independent of `grantedSkins` or currently equipped skin).
  */
-function isSkinUnlockedForUser(skinId, user) {
+function isSkinNaturallyUnlockedForUser(skinId, user) {
   if (!skinId || skinId === 'classic' || skinId === 'classic_pipe') return true;
   if (!user) return false;
 
-  // 1. Admin-locked skins are strictly locked
   const lockedList = Array.isArray(user.adminLockedSkins) ? user.adminLockedSkins : [];
   if (lockedList.includes(skinId)) return false;
-
-  // 2. Admin-granted skins are always unlocked
-  const grantedList = Array.isArray(user.grantedSkins) ? user.grantedSkins : [];
-  if (grantedList.includes(skinId)) return true;
-
-  // 2.5. Any skin currently equipped by database/admin is unlocked
-  if (user.selectedSkin === skinId || user.selectedPipeSkin === skinId) return true;
 
   const item = [...BIRD_SKINS, ...PIPE_SKINS].find(s => s && s.id === skinId);
   if (!item) return false;
@@ -112,6 +104,28 @@ function isSkinUnlockedForUser(skinId, user) {
   }
 
   return false;
+}
+
+/**
+ * Validates whether a specific bird or pipe skin is unlocked for a user based on their current records,
+ * admin-granted status, or admin-locked status.
+ */
+function isSkinUnlockedForUser(skinId, user) {
+  if (!skinId || skinId === 'classic' || skinId === 'classic_pipe') return true;
+  if (!user) return false;
+
+  // 1. Admin-locked skins are strictly locked
+  const lockedList = Array.isArray(user.adminLockedSkins) ? user.adminLockedSkins : [];
+  if (lockedList.includes(skinId)) return false;
+
+  // 2. Admin-granted skins are always unlocked
+  const grantedList = Array.isArray(user.grantedSkins) ? user.grantedSkins : [];
+  if (grantedList.includes(skinId)) return true;
+
+  // 2.5. Any skin currently equipped by database/admin is unlocked
+  if (user.selectedSkin === skinId || user.selectedPipeSkin === skinId) return true;
+
+  return isSkinNaturallyUnlockedForUser(skinId, user);
 }
 
 /**
@@ -170,8 +184,17 @@ const danishDateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
   hour12: false
 });
 
+const readableTimestampCache = new Map();
+const danishWindowCache = new Map();
+const danishTimeCache = new Map();
+
 function formatReadableTimestamp(ms) {
   if (!ms || ms <= 0) return 'Never';
+  const secKey = Math.floor(ms / 1000);
+  if (readableTimestampCache.has(secKey)) {
+    return readableTimestampCache.get(secKey);
+  }
+  let formatted;
   try {
     const parts = danishDateTimeFormatter.formatToParts(new Date(ms));
     let year = '0000', month = '00', day = '00', hour = '00', minute = '00', second = '00';
@@ -184,12 +207,16 @@ function formatReadableTimestamp(ms) {
       else if (p.type === 'minute') minute = p.value;
       else if (p.type === 'second') second = p.value;
     }
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+    formatted = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
   } catch (_) {
     const d = new Date(ms);
     const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    formatted = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
+  if (readableTimestampCache.size < 12000) {
+    readableTimestampCache.set(secKey, formatted);
+  }
+  return formatted;
 }
 
 /**
@@ -199,6 +226,11 @@ function formatReadableTimestamp(ms) {
  */
 function isWithinDanishWindow(timestampMs = Date.now()) {
   if (!timestampMs || timestampMs <= 0) return true;
+  const minKey = Math.floor(timestampMs / 60000);
+  if (danishWindowCache.has(minKey)) {
+    return danishWindowCache.get(minKey);
+  }
+  let allowed = true;
   try {
     const parts = danishWindowFormatter.formatToParts(new Date(timestampMs));
     let weekday = '';
@@ -210,25 +242,37 @@ function isWithinDanishWindow(timestampMs = Date.now()) {
       else if (p.type === 'hour') hour = parseInt(p.value, 10) % 24;
       else if (p.type === 'minute') minute = parseInt(p.value, 10);
     }
-    // Instantly hide on Saturday or Sunday (the entire day)
     if (weekday === 'Sat' || weekday === 'Sun') {
-      return false;
+      allowed = false;
+    } else {
+      const totalMinutes = hour * 60 + minute;
+      allowed = totalMinutes >= 470 && totalMinutes <= 850;
     }
-    const totalMinutes = hour * 60 + minute;
-    // Monday-Friday: 07:50 is 470 minutes (7 * 60 + 50), 14:10 is 850 minutes (14 * 60 + 10)
-    return totalMinutes >= 470 && totalMinutes <= 850;
   } catch (_) {
-    return true;
+    allowed = true;
   }
+  if (danishWindowCache.size < 12000) {
+    danishWindowCache.set(minKey, allowed);
+  }
+  return allowed;
 }
 
 function formatDanishTime(timestampMs = Date.now()) {
   if (!timestampMs || timestampMs <= 0) return '';
-  try {
-    return danishTimeFormatter.format(new Date(timestampMs));
-  } catch (_) {
-    return '';
+  const minKey = Math.floor(timestampMs / 60000);
+  if (danishTimeCache.has(minKey)) {
+    return danishTimeCache.get(minKey);
   }
+  let res = '';
+  try {
+    res = danishTimeFormatter.format(new Date(timestampMs));
+  } catch (_) {
+    res = '';
+  }
+  if (danishTimeCache.size < 12000) {
+    danishTimeCache.set(minKey, res);
+  }
+  return res;
 }
 
 // --------------------------------------------------------------------------
@@ -497,7 +541,7 @@ function recalculateUserBestFromVisibleRuns(username, diff) {
 
   const list = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
   const highestVisible = list
-    .filter(r => r && r.username && r.username.toLowerCase() === uLower && !r.hidden && isWithinDanishWindow(r.createdAt))
+    .filter(r => r && r.username && r.username.toLowerCase() === uLower && !r.hidden)
     .reduce((max, r) => Math.max(max, Number(r.score) || 0), 0);
 
   user.records[diff] = highestVisible;
@@ -629,17 +673,22 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     };
   }
 
-  // 3. Keep the 100 highest runs in each mode from EACH PLAYER
-  // Automatically mark any run outside the Danish competition window (07:50 - 14:10) as hidden!
+  // 3. Keep the 100 highest runs in each mode from EACH PLAYER + ALL runs from the current Weekly/Daily window!
+  const resetBounds = getLeaderboardResetBoundaries();
+  const weeklyResetStartMs = (resetBounds && resetBounds.weekly && resetBounds.weekly.currentResetMs) || 0;
+
   ['easy', 'medium', 'hard'].forEach(diff => {
     const list = Array.isArray(db.runs[diff]) ? db.runs[diff] : [];
     const validRuns = list
       .filter(r => r && typeof r.score === 'number' && r.score > 0 && r.username)
       .map(r => {
+        if (r.adminOverride) {
+          return { ...r, hidden: Boolean(r.hidden) };
+        }
         const isOffHours = !isWithinDanishWindow(r.createdAt);
         return {
           ...r,
-          hidden: isOffHours ? true : Boolean(r.hidden)
+          hidden: r.hidden !== undefined ? Boolean(r.hidden) : isOffHours
         };
       });
 
@@ -653,14 +702,21 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       runsByPlayer.get(uKey).push(r);
     }
 
-    // Keep up to 100 highest runs for EACH PLAYER in this gamemode
+    // Keep up to 100 highest all-time runs for EACH PLAYER + preserve ALL runs from the active Weekly/Daily timeframe!
     const prunedRuns = [];
     for (const pRuns of runsByPlayer.values()) {
       pRuns.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        return (a.createdAt || 0) - (b.createdAt || 0);
+        return (b.createdAt || 0) - (a.createdAt || 0);
       });
-      prunedRuns.push(...pRuns.slice(0, 100));
+      const keptIds = new Set();
+      for (let i = 0; i < pRuns.length; i++) {
+        const item = pRuns[i];
+        if (i < 100 || (weeklyResetStartMs > 0 && (item.createdAt || 0) >= weeklyResetStartMs)) {
+          keptIds.add(item.id);
+          prunedRuns.push(item);
+        }
+      }
     }
 
     // Sort all combined runs across all players by score descending
@@ -682,6 +738,33 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
 
+  // Pre-index run counts per user in a single O(Runs) pass instead of O(Users * Runs)
+  const runCountsByUser = new Map();
+  ['easy', 'medium', 'hard'].forEach(diff => {
+    const list = db.runs[diff] || [];
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (!r || !r.username) continue;
+      const uLower = r.username.toLowerCase();
+      let stats = runCountsByUser.get(uLower);
+      if (!stats) {
+        stats = { easyVis: 0, medVis: 0, hardVis: 0, easyTot: 0, medTot: 0, hardTot: 0 };
+        runCountsByUser.set(uLower, stats);
+      }
+      const isVis = !r.hidden;
+      if (diff === 'easy') {
+        stats.easyTot++;
+        if (isVis) stats.easyVis++;
+      } else if (diff === 'medium') {
+        stats.medTot++;
+        if (isVis) stats.medVis++;
+      } else if (diff === 'hard') {
+        stats.hardTot++;
+        if (isVis) stats.hardVis++;
+      }
+    }
+  });
+
   const overview = {};
   for (const u of sortedUsers) {
     const eBest = Number(u.records?.easy) || 0;
@@ -690,15 +773,13 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     const allTimeBest = Math.max(eBest, mBest, hBest);
     const uLower = u.username.toLowerCase();
 
-    // Count how many VISIBLE placements this player currently holds across the leaderboards (must be visible and within Danish competition window)
-    const easySpots = db.runs.easy.filter(r => r.username.toLowerCase() === uLower && !r.hidden && isWithinDanishWindow(r.createdAt)).length;
-    const medSpots = db.runs.medium.filter(r => r.username.toLowerCase() === uLower && !r.hidden && isWithinDanishWindow(r.createdAt)).length;
-    const hardSpots = db.runs.hard.filter(r => r.username.toLowerCase() === uLower && !r.hidden && isWithinDanishWindow(r.createdAt)).length;
-
-    // Also count total runs (including hidden) per mode
-    const easyTotalRuns = db.runs.easy.filter(r => r.username.toLowerCase() === uLower).length;
-    const medTotalRuns = db.runs.medium.filter(r => r.username.toLowerCase() === uLower).length;
-    const hardTotalRuns = db.runs.hard.filter(r => r.username.toLowerCase() === uLower).length;
+    const rStats = runCountsByUser.get(uLower) || { easyVis: 0, medVis: 0, hardVis: 0, easyTot: 0, medTot: 0, hardTot: 0 };
+    const easySpots = rStats.easyVis;
+    const medSpots = rStats.medVis;
+    const hardSpots = rStats.hardVis;
+    const easyTotalRuns = rStats.easyTot;
+    const medTotalRuns = rStats.medTot;
+    const hardTotalRuns = rStats.hardTot;
     const hiddenRunsCount = (easyTotalRuns - easySpots) + (medTotalRuns - medSpots) + (hardTotalRuns - hardSpots);
 
     const latestBestTime = Math.max(
@@ -711,6 +792,15 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     if (!u.grantedSkins) u.grantedSkins = [];
     if (!u.adminLockedSkins) u.adminLockedSkins = [];
     if (!u.loginHistory) u.loginHistory = [];
+    if (typeof u.duelElo !== 'number' || Number.isNaN(u.duelElo)) u.duelElo = 1000;
+    if (typeof u.duelWins !== 'number' || Number.isNaN(u.duelWins)) u.duelWins = 0;
+    if (typeof u.duelLosses !== 'number' || Number.isNaN(u.duelLosses)) u.duelLosses = 0;
+    if (typeof u.duelDraws !== 'number' || Number.isNaN(u.duelDraws)) u.duelDraws = 0;
+    if (typeof u.duelMatches !== 'number' || Number.isNaN(u.duelMatches)) u.duelMatches = 0;
+    if (typeof u.duelCoins !== 'number' || Number.isNaN(u.duelCoins)) u.duelCoins = 0;
+
+    // Clean grantedSkins: never count default skins or skins the player already naturally unlocked via their scores!
+    u.grantedSkins = u.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && !isSkinNaturallyUnlockedForUser(id, u));
 
     // Ensure equipped skins are strictly valid for current records or granted status
     if (u.selectedSkin && !isSkinUnlockedForUser(u.selectedSkin, u)) {
@@ -734,6 +824,10 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
         medium: mBest,
         hard: hBest
       },
+      duelElo: u.duelElo,
+      duelWins: u.duelWins,
+      duelLosses: u.duelLosses,
+      duelCoins: Math.round(Number(u.duelCoins) || 0),
       allTimeBest,
       leaderboardPlacements: {
         total: easySpots + medSpots + hardSpots,
@@ -868,12 +962,10 @@ function loadDatabase(fromWatcher = false) {
 }
 
 let lastBackupTimestamp = 0;
+let pendingSaveTimer = null;
 
-function saveDatabase(forceBackup = false) {
+function writeOrderedDbToDisk(forceBackup = false) {
   try {
-    cachedLeaderboards = null;
-    cachedAllLeaderboards = null;
-    syncAndRebuildOverview(false);
     isInternalWrite = true;
     const orderedDb = {
       databaseStatus: db.databaseStatus,
@@ -883,14 +975,15 @@ function saveDatabase(forceBackup = false) {
       adminSettings: db.adminSettings || {},
       users: db.users,
       runs: db.runs,
-      sessions: db.sessions
+      sessions: db.sessions,
+      chatMessages: db.chatMessages || []
     };
+    const jsonStr = JSON.stringify(orderedDb, null, 2);
     const tmpFile = DB_FILE + '.tmp';
-    fs.writeFileSync(tmpFile, JSON.stringify(orderedDb, null, 2), 'utf8');
+    fs.writeFileSync(tmpFile, jsonStr, 'utf8');
     try {
       fs.renameSync(tmpFile, DB_FILE);
     } catch (renameErr) {
-      // Fallback on Windows if file handle is held open by file watchers
       fs.copyFileSync(tmpFile, DB_FILE);
       try { fs.unlinkSync(tmpFile); } catch (_) {}
     }
@@ -900,14 +993,13 @@ function saveDatabase(forceBackup = false) {
       lastInternalSavedMtime = stat.mtimeMs;
     } catch (_) {}
 
-    // Maintain rolling backups (kept to the 3 latest snapshots) every 15 minutes or when forced
     const now = Date.now();
     if (forceBackup || now - lastBackupTimestamp > 15 * 60 * 1000) {
       lastBackupTimestamp = now;
       try {
         const stamp = new Date(now).toISOString().replace(/[:.]/g, '-');
         const backupTarget = path.join(BACKUPS_DIR, `db-backup-${stamp}.json`);
-        fs.writeFileSync(backupTarget, JSON.stringify(orderedDb, null, 2), 'utf8');
+        fs.writeFileSync(backupTarget, jsonStr, 'utf8');
         pruneBackups(3);
       } catch (backupErr) {
         console.error('Backup write error:', backupErr.message);
@@ -921,55 +1013,42 @@ function saveDatabase(forceBackup = false) {
   }
 }
 
-/**
- * Resets all scores, runs, and career records for all players for Season 2.
- * Preserves user accounts, passwords, and cosmetics.
- */
-function resetAllRecordsAdmin(adminUsername = 'MeDonut') {
-  const now = Date.now();
-  const readable = formatReadableTimestamp(now);
+function saveDatabase(forceBackup = false) {
+  try {
+    cachedLeaderboards = null;
+    cachedAllLeaderboards = null;
+    cachedAllRunsAdmin = null;
+    syncAndRebuildOverview(false);
 
-  // Clear all runs
-  db.runs = { easy: [], medium: [], hard: [] };
-
-  // Clear all user scores
-  if (db.users && typeof db.users === 'object') {
-    for (const user of Object.values(db.users)) {
-      if (!user) continue;
-      user.records = { easy: 0, medium: 0, hard: 0 };
-      user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
-      user._lastSyncedRecords = { easy: 0, medium: 0, hard: 0 };
-      delete user.lastNewBestAt;
-      delete user.lastNewBestReadable;
-      delete user.lastNewBestMode;
-      delete user.lastNewBestScore;
-      delete user.lastNewBestPrevious;
-      user.lastNewBestText = 'No personal best set yet';
+    if (forceBackup) {
+      if (pendingSaveTimer) {
+        clearTimeout(pendingSaveTimer);
+        pendingSaveTimer = null;
+      }
+      writeOrderedDbToDisk(true);
+    } else {
+      if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
+      pendingSaveTimer = setTimeout(() => {
+        pendingSaveTimer = null;
+        writeOrderedDbToDisk(false);
+      }, 30);
+      if (typeof pendingSaveTimer.unref === 'function') {
+        pendingSaveTimer.unref();
+      }
     }
+  } catch (err) {
+    console.error('Error scheduling database save:', err.message);
   }
+}
 
-  // Clear active sessions
-  db.sessions = {};
-
-  // Log Season Reset Event
-  logDatabaseEvent(
-    'SEASON_RESET',
-    adminUsername,
-    `🚀 Season 2 Reset: All player records and leaderboard runs have been reset by ${adminUsername}!`,
-    { admin: adminUsername, timestamp: now }
-  );
-
-  if (!db.databaseStatus || typeof db.databaseStatus !== 'object') db.databaseStatus = {};
-  db.databaseStatus.latestEventBanner = '🟢 Database Active — Season 2 Reset (0 Runs Recorded)';
-  db.databaseStatus.currentChampions = { easy: 'None', medium: 'None', hard: 'None' };
-  db.databaseStatus.totalLeaderboardRuns = { easy: 0, medium: 0, hard: 0, total: 0 };
-
-  saveDatabase(true);
+/**
+ * Bulk reset of all records is disabled to protect all-time, weekly, and daily leaderboards.
+ * MeDonut can add, edit, or delete individual records at any time.
+ */
+function resetAllRecordsAdmin() {
   return {
-    ok: true,
-    message: 'All player records and leaderboard entries have been successfully reset for Season 2.',
-    timestamp: now,
-    readable
+    ok: false,
+    error: 'Bulk reset of all records is disabled. Use individual player/run controls to add, edit, or delete records.'
   };
 }
 
@@ -1006,6 +1085,7 @@ function buildLeaderboards(limit = 100, timeframe = 'all', nowMs = Date.now()) {
       .filter(entry => {
         if (!entry || typeof entry.score !== 'number' || entry.score <= 0 || entry.hidden) return false;
         if (minCreatedAt > 0 && (!entry.createdAt || entry.createdAt < minCreatedAt)) return false;
+        if (entry.adminOverride) return true;
         if (entry.isWithinDanishWindow !== undefined) return entry.isWithinDanishWindow;
         entry.isWithinDanishWindow = isWithinDanishWindow(entry.createdAt);
         return entry.isWithinDanishWindow;
@@ -1158,40 +1238,15 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
     if (!Array.isArray(db.runs[diffKey])) db.runs[diffKey] = [];
 
     newRunId = crypto.randomBytes(8).toString('hex');
-    const userKey = user.username.toLowerCase();
-    const userRunsInMode = db.runs[diffKey].filter(
-      r => r && r.username && r.username.toLowerCase() === userKey
-    );
-
-    // Maintain up to 100 highest runs for THIS PLAYER in this gamemode
-    if (userRunsInMode.length >= 100) {
-      userRunsInMode.sort((a, b) => {
-        if (a.score !== b.score) return a.score - b.score;
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      });
-      const lowestRun = userRunsInMode[0];
-      if (verifiedScore >= lowestRun.score) {
-        const rmIdx = db.runs[diffKey].findIndex(r => r.id === lowestRun.id);
-        if (rmIdx !== -1) {
-          db.runs[diffKey].splice(rmIdx, 1);
-        }
-        db.runs[diffKey].push({
-          id: newRunId,
-          username: user.username,
-          score: verifiedScore,
-          hidden: !withinWindow,
-          createdAt: now
-        });
-      }
-    } else {
-      db.runs[diffKey].push({
-        id: newRunId,
-        username: user.username,
-        score: verifiedScore,
-        hidden: !withinWindow,
-        createdAt: now
-      });
-    }
+    // Always append the new run so Daily and Weekly leaderboards NEVER drop a run even if the player has 100+ historical runs!
+    // syncAndRebuildOverview() automatically retains all active Weekly/Daily runs + up to 100 top historical runs per player.
+    db.runs[diffKey].push({
+      id: newRunId,
+      username: user.username,
+      score: verifiedScore,
+      hidden: !withinWindow,
+      createdAt: now
+    });
 
     db.runs[diffKey].sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
@@ -1207,7 +1262,7 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
  * Allows the game owner (MeDonut) to directly update a player's records or skins via the `/database` manager
  * AND immediately syncs `db.runs[diff]` so the leaderboard reflects the new best score (whether raised, lowered, or set to 0)!
  */
-function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPipeSkin) {
+function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPipeSkin, newDuelElo = undefined) {
   const cleanName = typeof username === 'string' ? username.trim() : '';
   const uKey = cleanName.toLowerCase();
   const user = db.users[uKey];
@@ -1226,13 +1281,22 @@ function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPi
       const oldVal = Number(user.records[diff]) || 0;
       user.records[diff] = val;
       if (user._lastSyncedRecords) user._lastSyncedRecords[diff] = val;
-      syncUserRunsToBestScore(user.username, diff, val, now);
       if (val !== oldVal) {
+        syncUserRunsToBestScore(user.username, diff, val, now);
         user.recordTimestamps[diff] = now;
         changes.push(`${diff.toUpperCase()}: ${oldVal} -> ${val}`);
       }
     }
   });
+
+  if (newDuelElo !== undefined && newDuelElo !== null && newDuelElo !== '') {
+    const cleanElo = Math.max(0, Math.floor(Number(newDuelElo) || 0));
+    const oldElo = typeof user.duelElo === 'number' ? user.duelElo : 1000;
+    user.duelElo = cleanElo;
+    if (cleanElo !== oldElo) {
+      changes.push(`DUEL ELO: ${oldElo} -> ${cleanElo}`);
+    }
+  }
 
   if (typeof selectedSkin === 'string' && selectedSkin.trim()) {
     user.selectedSkin = selectedSkin.trim();
@@ -1287,14 +1351,16 @@ function updateLeaderboardRunAdmin(difficulty, entryId, updates = {}) {
     const newScore = Math.max(1, Math.floor(Number(updates.score) || 1));
     if (newScore !== oldScore) {
       run.score = newScore;
+      run.adminOverride = true;
       actionParts.push(`score ${oldScore} -> ${newScore} pts`);
     }
   }
 
   if (updates.hidden !== undefined) {
     const newHidden = Boolean(updates.hidden);
+    run.hidden = newHidden;
+    run.adminOverride = true;
     if (newHidden !== oldHidden) {
-      run.hidden = newHidden;
       actionParts.push(newHidden ? 'visibility OFF (hidden from leaderboard)' : 'visibility ON (shown on leaderboard)');
     }
   }
@@ -1331,32 +1397,16 @@ function addLeaderboardRunAdmin(username, difficulty, score, hidden = false) {
   }
   const cleanScore = Math.max(1, Math.floor(Number(score) || 0));
   const now = Date.now();
-  const isOffHours = !isWithinDanishWindow(now);
-  const cleanHidden = isOffHours ? true : Boolean(hidden);
+  const cleanHidden = Boolean(hidden);
 
   if (!db.runs[difficulty]) db.runs[difficulty] = [];
-
-  const userKey = canonicalUsername.toLowerCase();
-  const userRunsInMode = db.runs[difficulty].filter(
-    r => r && r.username && r.username.toLowerCase() === userKey
-  );
-  if (userRunsInMode.length >= 100) {
-    userRunsInMode.sort((a, b) => {
-      if (a.score !== b.score) return a.score - b.score;
-      return (a.createdAt || 0) - (b.createdAt || 0);
-    });
-    const lowestRun = userRunsInMode[0];
-    const rmIdx = db.runs[difficulty].findIndex(r => r.id === lowestRun.id);
-    if (rmIdx !== -1) {
-      db.runs[difficulty].splice(rmIdx, 1);
-    }
-  }
 
   const newRun = {
     id: crypto.randomBytes(8).toString('hex'),
     username: canonicalUsername,
     score: cleanScore,
     hidden: cleanHidden,
+    adminOverride: true,
     createdAt: now
   };
   db.runs[difficulty].push(newRun);
@@ -1372,7 +1422,7 @@ function addLeaderboardRunAdmin(username, difficulty, score, hidden = false) {
   logDatabaseEvent(
     'ADMIN_ADD_RUN',
     canonicalUsername,
-    `➕ Added ${difficulty.toUpperCase()} run of ${cleanScore} pts for ${canonicalUsername} (${hidden ? 'Hidden' : 'Visible'})`,
+    `➕ Added ${difficulty.toUpperCase()} run of ${cleanScore} pts for ${canonicalUsername} (${cleanHidden ? 'Hidden' : 'Visible'})`,
     { difficulty, run: newRun }
   );
   saveDatabase();
@@ -1398,6 +1448,7 @@ function toggleUserRunsVisibilityAdmin(username, difficulty, hidden) {
     list.forEach(r => {
       if (r && r.username && r.username.toLowerCase() === uLower) {
         r.hidden = makeHidden;
+        r.adminOverride = true;
         count++;
       }
     });
@@ -1414,10 +1465,13 @@ function toggleUserRunsVisibilityAdmin(username, difficulty, hidden) {
   return { affectedRuns: count, hidden: makeHidden };
 }
 
+let cachedAllRunsAdmin = null;
+
 /**
  * Returns all runs across Easy, Medium, and Hard (including hidden runs) with formatted timestamps and visible rank.
  */
 function getAllRunsAdmin() {
+  if (cachedAllRunsAdmin) return cachedAllRunsAdmin;
   const result = { easy: [], medium: [], hard: [] };
   ['easy', 'medium', 'hard'].forEach(diff => {
     const list = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
@@ -1430,7 +1484,7 @@ function getAllRunsAdmin() {
       })
       .map(r => {
         const isOffHours = !isWithinDanishWindow(r.createdAt);
-        const isHidden = Boolean(r.hidden) || isOffHours;
+        const isHidden = r.adminOverride ? Boolean(r.hidden) : (Boolean(r.hidden) || isOffHours);
         if (!isHidden) visibleRankCounter++;
         return {
           id: r.id,
@@ -1445,6 +1499,7 @@ function getAllRunsAdmin() {
         };
       });
   });
+  cachedAllRunsAdmin = result;
   return result;
 }
 
@@ -1477,6 +1532,7 @@ function deleteLeaderboardEntryAdmin(difficulty, entryId) {
 
 /**
  * Allows MeDonut Admin to grant skins, lock/ban skins for a player, or change their equipped skin.
+ * Equipping a skin does NOT add it to `grantedSkins`!
  */
 function adminUpdateUserSkins(username, options = {}) {
   const cleanName = typeof username === 'string' ? username.trim() : '';
@@ -1495,7 +1551,7 @@ function adminUpdateUserSkins(username, options = {}) {
 
   if (grantSkinId) {
     const skinId = String(grantSkinId).trim();
-    if (!user.grantedSkins.includes(skinId)) {
+    if (!isSkinNaturallyUnlockedForUser(skinId, user) && !user.grantedSkins.includes(skinId)) {
       user.grantedSkins.push(skinId);
     }
     user.adminLockedSkins = user.adminLockedSkins.filter(id => id !== skinId);
@@ -1531,16 +1587,16 @@ function adminUpdateUserSkins(username, options = {}) {
 
   if (typeof selectedSkin === 'string' && selectedSkin.trim()) {
     user.selectedSkin = selectedSkin.trim();
-    if (!user.grantedSkins) user.grantedSkins = [];
-    if (!user.grantedSkins.includes(user.selectedSkin)) user.grantedSkins.push(user.selectedSkin);
+    // Do NOT add equipped skin to grantedSkins!
+    user.grantedSkins = user.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && !isSkinNaturallyUnlockedForUser(id, user));
     actionLog.push(`Set bird skin to "${user.selectedSkin}"`);
     changed = true;
   }
 
   if (typeof selectedPipeSkin === 'string' && selectedPipeSkin.trim()) {
     user.selectedPipeSkin = selectedPipeSkin.trim();
-    if (!user.grantedSkins) user.grantedSkins = [];
-    if (!user.grantedSkins.includes(user.selectedPipeSkin)) user.grantedSkins.push(user.selectedPipeSkin);
+    // Do NOT add equipped pipe skin to grantedSkins!
+    user.grantedSkins = user.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && !isSkinNaturallyUnlockedForUser(id, user));
     actionLog.push(`Set pipe skin to "${user.selectedPipeSkin}"`);
     changed = true;
   }
@@ -1621,6 +1677,197 @@ function addChatMessage({ type = 'user', subtype = null, tagLabel = null, leader
   return message;
 }
 
+/**
+ * Calculates Ranked Duel Elo changes using the competitive Elo formula.
+ * Winning against a higher-Elo opponent yields MORE Elo (up to +36);
+ * winning against a lower-Elo opponent yields LESS Elo (down to +4).
+ * Losing against a lower-Elo opponent loses MORE Elo; losing against a higher-Elo opponent loses LESS Elo.
+ */
+function calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB) {
+  const rA = (typeof eloA === 'number' && !Number.isNaN(eloA)) ? eloA : 1000;
+  const rB = (typeof eloB === 'number' && !Number.isNaN(eloB)) ? eloB : 1000;
+  const K = 40;
+
+  const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
+  const expectedB = 1 - expectedA;
+
+  let actualA = 0.5;
+  let actualB = 0.5;
+  if (pointsA > pointsB) {
+    actualA = 1;
+    actualB = 0;
+  } else if (pointsB > pointsA) {
+    actualA = 0;
+    actualB = 1;
+  }
+
+  let deltaA = Math.round(K * (actualA - expectedA));
+  let deltaB = Math.round(K * (actualB - expectedB));
+
+  if (actualA === 1) {
+    deltaA = Math.max(4, deltaA);
+    deltaB = -deltaA;
+  } else if (actualB === 1) {
+    deltaB = Math.max(4, deltaB);
+    deltaA = -deltaB;
+  } else {
+    deltaB = -deltaA;
+  }
+
+  const newEloA = Math.max(100, rA + deltaA);
+  const newEloB = Math.max(100, rB + deltaB);
+
+  return {
+    oldEloA: rA,
+    oldEloB: rB,
+    newEloA,
+    newEloB,
+    deltaA: newEloA - rA,
+    deltaB: newEloB - rB
+  };
+}
+
+/**
+ * Records the final outcome of a 3-round Ranked Duel in the database and updates both players' Elo.
+ */
+function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB) {
+  if (!db.users) db.users = {};
+  const keyA = String(usernameA || '').toLowerCase();
+  const keyB = String(usernameB || '').toLowerCase();
+  const userA = db.users[keyA];
+  const userB = db.users[keyB];
+
+  const eloA = (userA && typeof userA.duelElo === 'number') ? userA.duelElo : 1000;
+  const eloB = (userB && typeof userB.duelElo === 'number') ? userB.duelElo : 1000;
+
+  const eloRes = calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB);
+
+  const safePointsA = Math.max(0, Number(pointsA) || 0);
+  const safePointsB = Math.max(0, Number(pointsB) || 0);
+  let coinsA = Math.round(safePointsA);
+  let coinsB = Math.round(safePointsB);
+  if (safePointsA > safePointsB) {
+    coinsA = Math.round(safePointsA * 1.5);
+    coinsB = Math.round(safePointsB * 0.7);
+  } else if (safePointsB > safePointsA) {
+    coinsA = Math.round(safePointsA * 0.7);
+    coinsB = Math.round(safePointsB * 1.5);
+  }
+
+  if (userA && keyA !== keyB) {
+    userA.duelElo = eloRes.newEloA;
+    userA.duelMatches = (userA.duelMatches || 0) + 1;
+    userA.duelCoins = Math.max(0, Math.round(Number(userA.duelCoins) || 0) + coinsA);
+    if (pointsA > pointsB) userA.duelWins = (userA.duelWins || 0) + 1;
+    else if (pointsB > pointsA) userA.duelLosses = (userA.duelLosses || 0) + 1;
+    else userA.duelDraws = (userA.duelDraws || 0) + 1;
+  }
+
+  if (userB && keyA !== keyB) {
+    userB.duelElo = eloRes.newEloB;
+    userB.duelMatches = (userB.duelMatches || 0) + 1;
+    userB.duelCoins = Math.max(0, Math.round(Number(userB.duelCoins) || 0) + coinsB);
+    if (pointsB > pointsA) userB.duelWins = (userB.duelWins || 0) + 1;
+    else if (pointsA > pointsB) userB.duelLosses = (userB.duelLosses || 0) + 1;
+    else userB.duelDraws = (userB.duelDraws || 0) + 1;
+  }
+
+  saveDatabase(false);
+  return {
+    ...eloRes,
+    coinsEarnedA: coinsA,
+    coinsEarnedB: coinsB,
+    newCoinsA: userA ? Math.round(userA.duelCoins || 0) : coinsA,
+    newCoinsB: userB ? Math.round(userB.duelCoins || 0) : coinsB
+  };
+}
+
+/**
+ * Builds the Ranked Duels Leaderboard with strictly 1 placement per player, sorted by highest Elo.
+ */
+function buildDuelRankedLeaderboard() {
+  if (!db.users || typeof db.users !== 'object') return [];
+  const seenKeys = new Set();
+  const list = [];
+
+  for (const u of Object.values(db.users)) {
+    if (!u || !u.username) continue;
+    const uKey = String(u.username).toLowerCase();
+    if (seenKeys.has(uKey)) continue;
+    seenKeys.add(uKey);
+
+    const duelElo = (typeof u.duelElo === 'number' && !Number.isNaN(u.duelElo)) ? u.duelElo : 1000;
+    const duelWins = Number(u.duelWins) || 0;
+    const duelLosses = Number(u.duelLosses) || 0;
+    const duelDraws = Number(u.duelDraws) || 0;
+    const duelMatches = Number(u.duelMatches) || (duelWins + duelLosses + duelDraws);
+    const bestSingle = Math.max(
+      Number(u.records?.easy) || 0,
+      Number(u.records?.medium) || 0,
+      Number(u.records?.hard) || 0
+    );
+
+    list.push({
+      username: u.username,
+      duelElo,
+      duelWins,
+      duelLosses,
+      duelDraws,
+      duelMatches,
+      bestSingle,
+      selectedSkin: u.selectedSkin || 'classic',
+      avatarSkinId: u.avatarSkinId || u.selectedSkin || 'classic'
+    });
+  }
+
+  list.sort((a, b) => {
+    if (b.duelElo !== a.duelElo) return b.duelElo - a.duelElo;
+    if (b.duelWins !== a.duelWins) return b.duelWins - a.duelWins;
+    if (b.bestSingle !== a.bestSingle) return b.bestSingle - a.bestSingle;
+    return a.username.localeCompare(b.username);
+  });
+
+  return list.map((item, idx) => ({
+    rank: idx + 1,
+    username: item.username,
+    duelElo: item.duelElo,
+    duelWins: item.duelWins,
+    duelLosses: item.duelLosses,
+    duelDraws: item.duelDraws,
+    duelMatches: item.duelMatches,
+    selectedSkin: item.selectedSkin,
+    avatarSkinId: item.avatarSkinId
+  }));
+}
+
+/**
+ * Allows MeDonut Admin to directly set or change any player's Ranked Duel Elo.
+ */
+function adminUpdatePlayerDuelElo(username, newElo) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  const user = db.users && db.users[uKey];
+  if (!user) {
+    throw new Error(`Player "${cleanName}" not found in database.`);
+  }
+  const cleanVal = Math.max(0, Math.floor(Number(newElo) || 0));
+  const oldVal = typeof user.duelElo === 'number' ? user.duelElo : 1000;
+  user.duelElo = cleanVal;
+
+  logDatabaseEvent(
+    'ADMIN_ELO_CHANGE',
+    user.username,
+    `👑 MeDonut updated ${user.username}'s Ranked Duel Elo: ${oldVal} -> ${cleanVal} ELO`,
+    { oldElo: oldVal, newElo: cleanVal }
+  );
+  saveDatabase();
+  return {
+    username: user.username,
+    oldElo: oldVal,
+    newElo: cleanVal
+  };
+}
+
 loadDatabase(false);
 
 module.exports = {
@@ -1642,6 +1889,7 @@ module.exports = {
   getAllRunsAdmin,
   deleteLeaderboardEntryAdmin,
   adminUpdateUserSkins,
+  adminUpdatePlayerDuelElo,
   resetAllRecordsAdmin,
   BACKUPS_DIR,
   TEMPLATE_FILE,
@@ -1650,6 +1898,10 @@ module.exports = {
   isWithinDanishWindow,
   pruneBackups,
   isSkinUnlockedForUser,
+  isSkinNaturallyUnlockedForUser,
   getChatMessages,
-  addChatMessage
+  addChatMessage,
+  calculateDuelEloUpdate,
+  recordDuelMatchResult,
+  buildDuelRankedLeaderboard
 };
