@@ -58,7 +58,7 @@
           this.pendingFlap = false;
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
-          this.lastFlapTick = -10;
+          this.lastFlapTick = 0;
           this.lastQueueFlapTime = 0;
           this.physicsAccumulator = 0;
 
@@ -178,6 +178,22 @@
           window.addEventListener('keydown', (e) => {
             const activeEl = document.activeElement;
             const tag = activeEl && activeEl.tagName;
+            const isJumpKey = (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W');
+
+            if (this.state === GAME_STATE.PLAYING && isJumpKey) {
+              // Never let lingering input focus, chat drawer, or modals swallow a jump during active flight!
+              if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') {
+                if (activeEl && typeof activeEl.blur === 'function') activeEl.blur();
+              }
+              if (this.chat && this.chat.isOpen && typeof this.chat.onRoundStart === 'function') {
+                this.chat.onRoundStart();
+              }
+              e.preventDefault();
+              if (e.repeat) return;
+              this.queueFlap();
+              return;
+            }
+
             if (tag === 'INPUT' || tag === 'TEXTAREA') {
               if (this.state === GAME_STATE.PLAYING && !(this.chat && this.chat.isOpen)) {
                 activeEl.blur();
@@ -211,13 +227,10 @@
               return;
             }
 
-            const isJumpKey = (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W');
             if (isJumpKey) {
               e.preventDefault();
               if (e.repeat) return;
-              if (this.state === GAME_STATE.PLAYING) {
-                this.queueFlap();
-              } else if (this.state === GAME_STATE.START || this.state === GAME_STATE.GAMEOVER) {
+              if (this.state === GAME_STATE.START || this.state === GAME_STATE.GAMEOVER) {
                 triggerStartGame();
               }
             } else if (e.code === 'KeyM') {
@@ -262,19 +275,27 @@
           };
 
           const handlePointerFlapAction = (e) => {
+            if (e.type === 'pointerdown') {
+              if (e.isPrimary === false) return;
+              if (e.pointerType === 'mouse' && typeof e.button === 'number' && e.button !== 0) return;
+            }
+
             const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-            // Deduplicate companion synthetic events (e.g. pointerdown + mousedown / touchstart at the same instant)
-            if (now - lastPointerActionTime < 18) {
+            // Deduplicate companion or contact-bounce events
+            if (now - lastPointerActionTime < 22) {
               return;
             }
             lastPointerActionTime = now;
 
             const target = e.target;
 
-            //During active gameplay, tapping anywhere (except interactive chat/buttons) triggers an instant jump!
+            // During active gameplay, tapping anywhere (except interactive chat/buttons) triggers an instant jump!
             if (this.state === GAME_STATE.PLAYING) {
               if (target && target.closest && target.closest('button, a, input, textarea, select, option, label, header, #top-app-bar, #game-chat-panel, #btn-chat-toggle, .floating-chat-btn')) {
                 return;
+              }
+              if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
               }
               if (e.cancelable) e.preventDefault();
               this.queueFlap();
@@ -298,11 +319,18 @@
 
           if (window.PointerEvent) {
             window.addEventListener('pointerdown', handlePointerFlapAction, { passive: false });
+          } else {
+            window.addEventListener('touchstart', handlePointerFlapAction, { passive: false });
+            window.addEventListener('mousedown', (e) => {
+              if (e.button === 0) handlePointerFlapAction(e);
+            }, { passive: false });
           }
-          window.addEventListener('touchstart', handlePointerFlapAction, { passive: false });
-          window.addEventListener('mousedown', (e) => {
-            if (e.button === 0) handlePointerFlapAction(e);
-          }, { passive: false });
+
+          window.addEventListener('keyup', (e) => {
+            if (this.state === GAME_STATE.PLAYING && (e.code === 'Space' || e.key === ' ')) {
+              e.preventDefault();
+            }
+          });
 
           const bindStartButton = (btnId) => {
             const btn = document.getElementById(btnId);
@@ -468,6 +496,23 @@
               this.handleDuelLeaveLobby();
             });
           }
+
+          [
+            'btn-duel-exit-solo-battle',
+            'btn-duel-exit-countdown',
+            'btn-duel-exit-waiting-opp',
+            'btn-duel-exit-round-summary'
+          ].forEach(btnId => {
+            const btnEl = document.getElementById(btnId);
+            if (!btnEl) return;
+            btnEl.addEventListener('mousedown', (e) => e.stopPropagation());
+            btnEl.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+            btnEl.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              this.handleDuelLeaveLobby();
+            });
+          });
 
           const finishBackBtn = document.getElementById('btn-duel-finish-back');
           if (finishBackBtn) {
@@ -1258,7 +1303,7 @@
           this.pendingFlap = false;
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
-          this.lastFlapTick = -10;
+          this.lastFlapTick = 0;
           this.lastQueueFlapTime = 0;
           this.physicsAccumulator = 0;
           this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -1302,9 +1347,16 @@
 
         queueFlap() {
           if (this.state !== GAME_STATE.PLAYING) return;
+          const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          // Debounce hardware bounce or overlapping Space+Click (<45ms) so 1 tap never double-jumps!
+          if (now - (this.lastQueueFlapTime || 0) < 45) {
+            return;
+          }
+          this.lastQueueFlapTime = now;
           this.pendingFlap = true;
-          this.queuedFlaps = Math.min(3, (this.queuedFlaps || 0) + 1);
-          this.flapBufferTicks = 20; // Generous 20-tick buffer (~333ms) so rapid taps and double taps are never dropped
+          // Queue at most 1 pending jump so rapid taps execute sequentially without stacking into a double jump
+          this.queuedFlaps = 1;
+          this.flapBufferTicks = 12;
           this.wingFlapBoost = 1.0;
         }
 
@@ -1575,9 +1627,12 @@
               this.flapBufferTicks = (this.queuedFlaps > 0) ? 20 : 0;
             } else {
               // Only 1 tick elapsed since last flap (tick T+1). Retain queued jump for tick T+2!
-              // NEVER zero out queuedFlaps or pendingFlap here!
               if (this.flapBufferTicks > 0) {
                 this.flapBufferTicks--;
+              }
+              if (this.flapBufferTicks <= 0) {
+                this.pendingFlap = false;
+                this.queuedFlaps = 0;
               }
             }
           }
@@ -1924,8 +1979,13 @@
               this.duelSoloSpectatingOpp ||
               (this.activeDuelLobby && this.activeDuelLobby.status === 'playing' && this.duelRoundFinishedLocal)
             );
+            const isNearCountdownEnd = Boolean(
+              this.activeDuelLobby &&
+              this.activeDuelLobby.status === 'countdown' &&
+              (this.duelCountdownTargetMs - now < 500)
+            );
             const isFastPoll = Boolean(this.activeDuelLobbyId || this.duelSpectatingLobbyId);
-            const intervalMs = isLiveSpectating ? 95 : (isFastPoll ? 200 : 1200);
+            const intervalMs = (isLiveSpectating || isNearCountdownEnd) ? 95 : (isFastPoll ? 200 : 1200);
             if (!isFastPoll && this.currentAppView !== 'duels') return;
             if (now - this.lastDuelPollAt >= intervalMs) {
               this.lastDuelPollAt = now;
@@ -2074,9 +2134,11 @@
               this.activeDuelLobby = data.activeLobby;
               this.activeDuelLobbyId = data.activeLobby.id;
               this.syncDuelMatchState(data.activeLobby);
-            } else if (this.activeDuelLobbyId && (!this.activeDuelLobby || this.activeDuelLobby.status === 'waiting')) {
-              this.activeDuelLobby = null;
-              this.activeDuelLobbyId = null;
+            } else if (this.activeDuelLobbyId) {
+              const wasInMatchView = Boolean(
+                this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting'
+              ) || document.body.classList.contains('in-game');
+              this.releaseStuckDuelState(wasInMatchView);
             }
 
             this.renderDuelLobbiesList();
@@ -2160,26 +2222,44 @@
           }
         }
 
-        async handleDuelLeaveLobby() {
-          const targetId = this.activeDuelLobbyId;
+        releaseStuckDuelState(returnToHub = true) {
           this.activeDuelLobby = null;
           this.activeDuelLobbyId = null;
           this.duelRoundPlaying = null;
           this.duelRoundFinishedLocal = false;
+          if (this.state === GAME_STATE.PLAYING) {
+            this.state = GAME_STATE.START;
+          }
           this.exitSoloOpponentSpectate();
           this.hideAllDuelOverlays();
-          if (targetId) {
-            try {
-              const res = await this.apiRequest('/api/duels/leave', 'POST', {
-                lobbyId: targetId,
-                clientId: this.duelClientId,
-                guestUsername: this.getDuelDisplayUsername()
-              });
-              if (res && Array.isArray(res.lobbies)) {
-                this.duelLobbies = res.lobbies;
-              }
-            } catch (_) {}
+          if (returnToHub) {
+            this.showLobbyScreen();
+            this.switchView('duels');
+            if (typeof this.activateDuelTab === 'function') {
+              this.activateDuelTab('join', false);
+            }
           }
+        }
+
+        async handleDuelLeaveLobby() {
+          const targetId = this.activeDuelLobbyId;
+          const prevStatus = this.activeDuelLobby ? this.activeDuelLobby.status : '';
+          const shouldReturnToHub = Boolean(
+            (prevStatus && prevStatus !== 'waiting') ||
+            document.body.classList.contains('in-game') ||
+            this.duelSoloSpectatingOpp
+          );
+          this.releaseStuckDuelState(shouldReturnToHub);
+          try {
+            const res = await this.apiRequest('/api/duels/leave', 'POST', {
+              lobbyId: targetId || '',
+              clientId: this.duelClientId,
+              guestUsername: this.getDuelDisplayUsername()
+            });
+            if (res && Array.isArray(res.lobbies)) {
+              this.duelLobbies = res.lobbies;
+            }
+          } catch (_) {}
           this.renderDuelLobbiesList();
         }
 
@@ -2242,10 +2322,18 @@
           if (!lobby) return;
           const { me, opp, p1, p2 } = this.getDuelMyAndOppSlots(lobby);
 
+          if (me && me.leftMatch) {
+            this.releaseStuckDuelState(true);
+            return;
+          }
+
           // 1. Waiting for 2nd player
           if (lobby.status === 'waiting') {
             this.exitSoloOpponentSpectate();
             this.hideAllDuelOverlays();
+            if (document.body.classList.contains('in-game')) {
+              this.showLobbyScreen();
+            }
             this.renderDuelLobbiesList();
             return;
           }
@@ -2496,6 +2584,36 @@
           this.duelRoundPlaying = roundDiff;
           this.duelRoundFinishedLocal = false;
           this.selectedDifficulty = roundDiff;
+          this.exitSoloOpponentSpectate();
+          this.hideAllDuelOverlays();
+
+          document.body.classList.add('in-game');
+          const topBarEl = document.getElementById('top-app-bar');
+          if (topBarEl) {
+            topBarEl.classList.add('in-game');
+            topBarEl.style.setProperty('display', 'none', 'important');
+          }
+          const pModalEl = document.getElementById('profile-modal');
+          if (pModalEl) pModalEl.classList.remove('active');
+          const pubProfEl = document.getElementById('player-public-profile-modal');
+          if (pubProfEl) {
+            pubProfEl.classList.remove('active', 'visible');
+            pubProfEl.style.display = 'none';
+          }
+          const guestModalEl = document.getElementById('guest-login-modal');
+          if (guestModalEl) {
+            guestModalEl.classList.remove('active', 'visible');
+            guestModalEl.style.display = 'none';
+          }
+          if (this.chat && typeof this.chat.onRoundStart === 'function') {
+            this.chat.onRoundStart();
+          }
+          if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+          }
+          if (typeof window.focus === 'function') {
+            window.focus();
+          }
 
           if (this.previewSkinId) {
             this.previewSkinId = null;
@@ -2515,7 +2633,7 @@
           this.pendingFlap = false;
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
-          this.lastFlapTick = -10;
+          this.lastFlapTick = 0;
           this.lastQueueFlapTime = 0;
           this.physicsAccumulator = 0;
           this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();

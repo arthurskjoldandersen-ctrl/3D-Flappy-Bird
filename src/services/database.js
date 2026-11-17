@@ -1017,6 +1017,7 @@ function loadDatabase(fromWatcher = false) {
     }
 
     syncAndRebuildOverview(fromWatcher);
+    enrichOverviewWithClientSignals();
     if (!fromWatcher) {
       saveDatabase(false);
     }
@@ -1084,6 +1085,7 @@ function saveDatabase(forceBackup = false) {
     cachedAllLeaderboards = null;
     cachedAllRunsAdmin = null;
     syncAndRebuildOverview(false);
+    enrichOverviewWithClientSignals();
 
     if (forceBackup) {
       if (pendingSaveTimer) {
@@ -2046,6 +2048,285 @@ function adminUpdatePlayerDuelElo(username, newElo) {
   };
 }
 
+function normalizeClientIp(rawIp) {
+  if (!rawIp || typeof rawIp !== 'string') return '';
+  let ip = rawIp.split(',')[0].trim();
+  if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+  if (ip === '::1') ip = '127.0.0.1';
+  return ip.slice(0, 64);
+}
+
+function appendUniqueLimited(arr, val, maxLen = 15) {
+  if (!val) return { list: Array.isArray(arr) ? arr : [], changed: false };
+  const clean = String(val).trim().slice(0, 128);
+  if (!clean) return { list: Array.isArray(arr) ? arr : [], changed: false };
+  const existing = Array.isArray(arr) ? arr.slice() : [];
+  if (existing[0] === clean) return { list: existing, changed: false };
+  const idx = existing.indexOf(clean);
+  if (idx !== -1) {
+    existing.splice(idx, 1);
+  }
+  existing.unshift(clean);
+  if (existing.length > maxLen) existing.length = maxLen;
+  return { list: existing, changed: idx === -1 };
+}
+
+/**
+ * Records client network/device signals (IP, persistent Browser Device ID, Hardware Fingerprint)
+ * onto a user account so alt accounts can be detected reliably beyond IP alone.
+ */
+function trackUserClientSignals(user, clientInfo = {}, persistIfNew = true) {
+  if (!user || typeof user !== 'object') return false;
+  let dirty = false;
+
+  const ip = normalizeClientIp(clientInfo.ip || '');
+  const deviceId = typeof clientInfo.deviceId === 'string' ? clientInfo.deviceId.trim().slice(0, 80) : '';
+  const fingerprint = typeof clientInfo.fingerprint === 'string' ? clientInfo.fingerprint.trim().slice(0, 80) : '';
+
+  if (ip && ip !== 'unknown') {
+    const res = appendUniqueLimited(user.ips, ip, 15);
+    user.ips = res.list;
+    if (user.lastIp !== ip) {
+      user.lastIp = ip;
+      dirty = true;
+    }
+    if (res.changed) dirty = true;
+  }
+
+  if (deviceId && deviceId.length >= 6) {
+    const res = appendUniqueLimited(user.deviceIds, deviceId, 15);
+    user.deviceIds = res.list;
+    if (user.lastDeviceId !== deviceId) {
+      user.lastDeviceId = deviceId;
+      dirty = true;
+    }
+    if (res.changed) dirty = true;
+  }
+
+  if (fingerprint && fingerprint.length >= 6) {
+    const res = appendUniqueLimited(user.fingerprints, fingerprint, 15);
+    user.fingerprints = res.list;
+    if (user.lastFingerprint !== fingerprint) {
+      user.lastFingerprint = fingerprint;
+      dirty = true;
+    }
+    if (res.changed) dirty = true;
+  }
+
+  if (dirty) {
+    user.lastSignalAt = Date.now();
+    if (persistIfNew) {
+      saveDatabase(false);
+    }
+  }
+  return dirty;
+}
+
+function computeAltAccountMatches(targetUser, allUsersObj) {
+  if (!targetUser || !allUsersObj || typeof allUsersObj !== 'object') return [];
+  const targetKey = String(targetUser.username || '').toLowerCase();
+  const tDevices = new Set(Array.isArray(targetUser.deviceIds) ? targetUser.deviceIds : (targetUser.lastDeviceId ? [targetUser.lastDeviceId] : []));
+  const tPrints = new Set(Array.isArray(targetUser.fingerprints) ? targetUser.fingerprints : (targetUser.lastFingerprint ? [targetUser.lastFingerprint] : []));
+  const tIps = new Set(Array.isArray(targetUser.ips) ? targetUser.ips : (targetUser.lastIp ? [targetUser.lastIp] : []));
+
+  const matches = [];
+  for (const [uKey, other] of Object.entries(allUsersObj)) {
+    if (!other || !other.username) continue;
+    const oKey = String(other.username || uKey).toLowerCase();
+    if (oKey === targetKey) continue;
+
+    const oDevices = Array.isArray(other.deviceIds) ? other.deviceIds : (other.lastDeviceId ? [other.lastDeviceId] : []);
+    const oPrints = Array.isArray(other.fingerprints) ? other.fingerprints : (other.lastFingerprint ? [other.lastFingerprint] : []);
+    const oIps = Array.isArray(other.ips) ? other.ips : (other.lastIp ? [other.lastIp] : []);
+
+    const sharedDeviceIds = oDevices.filter(d => tDevices.has(d));
+    const sharedFingerprints = oPrints.filter(f => tPrints.has(f));
+    const sharedIps = oIps.filter(ip => tIps.has(ip));
+
+    if (sharedDeviceIds.length === 0 && sharedFingerprints.length === 0 && sharedIps.length === 0) {
+      continue;
+    }
+
+    let confidenceScore = 0;
+    let confidenceLabel = 'Same IP Only (Shared Wi-Fi / School possible)';
+    let confidenceTier = 'low';
+
+    if (sharedDeviceIds.length > 0 && sharedFingerprints.length > 0 && sharedIps.length > 0) {
+      confidenceScore = 100;
+      confidenceLabel = 'Confirmed Same Browser + Hardware + IP';
+      confidenceTier = 'certain';
+    } else if (sharedDeviceIds.length > 0) {
+      confidenceScore = 90;
+      confidenceLabel = 'Very High (Same Browser Device ID)';
+      confidenceTier = 'high';
+    } else if (sharedFingerprints.length > 0 && sharedIps.length > 0) {
+      confidenceScore = 82;
+      confidenceLabel = 'High (Same Hardware + IP — e.g. Incognito)';
+      confidenceTier = 'high';
+    } else if (sharedFingerprints.length > 0) {
+      confidenceScore = 65;
+      confidenceLabel = 'Medium-High (Same Hardware Fingerprint)';
+      confidenceTier = 'medium';
+    } else if (sharedIps.length > 0) {
+      confidenceScore = 40;
+      confidenceLabel = 'Same IP Only (Shared Wi-Fi / School possible)';
+      confidenceTier = 'low';
+    }
+
+    matches.push({
+      username: other.username,
+      usernameKey: oKey,
+      confidenceScore,
+      confidenceTier,
+      confidenceLabel,
+      sharedDeviceIds,
+      sharedFingerprints,
+      sharedIps,
+      lastIp: other.lastIp || oIps[0] || '',
+      ips: oIps,
+      lastDeviceId: other.lastDeviceId || oDevices[0] || '',
+      deviceIds: oDevices,
+      lastFingerprint: other.lastFingerprint || oPrints[0] || '',
+      fingerprints: oPrints,
+      createdAt: Number(other.createdAt) || 0,
+      lastLoginAt: Number(other.lastLoginAt) || 0,
+      lastLoginReadable: other.lastLoginReadable || formatReadableTimestamp(other.lastLoginAt) || 'Unknown',
+      loginCount: Number(other.loginCount) || 0,
+      duelElo: typeof other.duelElo === 'number' ? other.duelElo : 1000,
+      records: other.records || { easy: 0, medium: 0, hard: 0 },
+      duelCoins: Math.round(Number(other.duelCoins) || 0)
+    });
+  }
+
+  matches.sort((a, b) => (b.confidenceScore - a.confidenceScore) || ((b.lastLoginAt || 0) - (a.lastLoginAt || 0)));
+  return matches;
+}
+
+/**
+ * Enriches `db.playerRecordsOverview` entries with IP / Device / Fingerprint & alt counts.
+ */
+function enrichOverviewWithClientSignals() {
+  if (!db || !db.playerRecordsOverview || !db.users) return;
+  for (const [ovName, ovData] of Object.entries(db.playerRecordsOverview)) {
+    if (!ovData || typeof ovData !== 'object') continue;
+    const uKey = String(ovData.username || ovName).toLowerCase();
+    const user = db.users[uKey];
+    if (!user) continue;
+
+    const ips = Array.isArray(user.ips) ? user.ips : (user.lastIp ? [user.lastIp] : []);
+    const deviceIds = Array.isArray(user.deviceIds) ? user.deviceIds : (user.lastDeviceId ? [user.lastDeviceId] : []);
+    const fingerprints = Array.isArray(user.fingerprints) ? user.fingerprints : (user.lastFingerprint ? [user.lastFingerprint] : []);
+    const matches = computeAltAccountMatches(user, db.users);
+
+    ovData.lastIp = user.lastIp || ips[0] || '';
+    ovData.ips = ips;
+    ovData.lastDeviceId = user.lastDeviceId || deviceIds[0] || '';
+    ovData.deviceIds = deviceIds;
+    ovData.lastFingerprint = user.lastFingerprint || fingerprints[0] || '';
+    ovData.fingerprints = fingerprints;
+    ovData.altAccountCount = matches.length;
+    ovData.highConfidenceAltCount = matches.filter(m => m.confidenceTier === 'certain' || m.confidenceTier === 'high').length;
+  }
+}
+
+/**
+ * Finds all potential alt accounts for a target player using Device ID, Hardware Fingerprint, and IP.
+ */
+function findAltAccountsForUser(username) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  const user = db.users && db.users[uKey];
+  if (!user) {
+    throw new Error(`Player "${cleanName}" not found in database.`);
+  }
+  const matches = computeAltAccountMatches(user, db.users);
+  return {
+    target: {
+      username: user.username,
+      usernameKey: uKey,
+      lastIp: user.lastIp || '',
+      ips: Array.isArray(user.ips) ? user.ips : (user.lastIp ? [user.lastIp] : []),
+      lastDeviceId: user.lastDeviceId || '',
+      deviceIds: Array.isArray(user.deviceIds) ? user.deviceIds : (user.lastDeviceId ? [user.lastDeviceId] : []),
+      lastFingerprint: user.lastFingerprint || '',
+      fingerprints: Array.isArray(user.fingerprints) ? user.fingerprints : (user.lastFingerprint ? [user.lastFingerprint] : []),
+      createdAt: Number(user.createdAt) || 0,
+      lastLoginAt: Number(user.lastLoginAt) || 0,
+      lastLoginReadable: user.lastLoginReadable || formatReadableTimestamp(user.lastLoginAt) || 'Unknown',
+      records: user.records || { easy: 0, medium: 0, hard: 0 },
+      duelElo: typeof user.duelElo === 'number' ? user.duelElo : 1000
+    },
+    matches
+  };
+}
+
+/**
+ * Permanently deletes a player account and purges their sessions, leaderboard runs, and duel high scores.
+ * Protects the primary `MeDonut` admin account.
+ */
+function deletePlayerAccountAdmin(username) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  if (!uKey || !db.users || !db.users[uKey]) {
+    throw new Error(`Player "${cleanName}" not found in database.`);
+  }
+  if (uKey === 'medonut') {
+    throw new Error('Cannot delete the primary MeDonut admin account.');
+  }
+
+  const deletedUser = db.users[uKey];
+  const displayName = deletedUser.username || cleanName;
+  delete db.users[uKey];
+
+  let removedSessions = 0;
+  if (db.sessions && typeof db.sessions === 'object') {
+    for (const [tok, sess] of Object.entries(db.sessions)) {
+      if (sess && ((sess.usernameKey && sess.usernameKey.toLowerCase() === uKey) || (sess.username && sess.username.toLowerCase() === uKey))) {
+        delete db.sessions[tok];
+        removedSessions++;
+      }
+    }
+  }
+
+  let removedRuns = 0;
+  if (db.runs && typeof db.runs === 'object') {
+    ['easy', 'medium', 'hard'].forEach(diff => {
+      if (!Array.isArray(db.runs[diff])) return;
+      const before = db.runs[diff].length;
+      db.runs[diff] = db.runs[diff].filter(r => !r || !r.username || r.username.toLowerCase() !== uKey);
+      removedRuns += (before - db.runs[diff].length);
+    });
+  }
+
+  if (Array.isArray(db.duelMatchHighScores)) {
+    db.duelMatchHighScores = db.duelMatchHighScores.filter(
+      e => !e || !e.username || e.username.toLowerCase() !== uKey
+    );
+  }
+
+  if (db.playerRecordsOverview && typeof db.playerRecordsOverview === 'object') {
+    for (const ovKey of Object.keys(db.playerRecordsOverview)) {
+      if (ovKey.toLowerCase() === uKey) {
+        delete db.playerRecordsOverview[ovKey];
+      }
+    }
+  }
+
+  logDatabaseEvent(
+    'ACCOUNT_DELETED',
+    displayName,
+    `🗑️ MeDonut permanently deleted account "${displayName}" (${removedRuns} runs & ${removedSessions} sessions removed)`,
+    { deletedUsername: displayName, lastIp: deletedUser.lastIp || '', removedRuns, removedSessions }
+  );
+
+  saveDatabase(true);
+  return {
+    deletedUsername: displayName,
+    removedRuns,
+    removedSessions
+  };
+}
+
 loadDatabase(false);
 
 module.exports = {
@@ -2082,5 +2363,9 @@ module.exports = {
   calculateDuelEloUpdate,
   recordDuelMatchResult,
   buildDuelRankedLeaderboard,
-  buildDuelHighScoreLeaderboard
+  buildDuelHighScoreLeaderboard,
+  trackUserClientSignals,
+  enrichOverviewWithClientSignals,
+  findAltAccountsForUser,
+  deletePlayerAccountAdmin
 };

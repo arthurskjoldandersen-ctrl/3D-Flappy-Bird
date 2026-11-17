@@ -794,6 +794,91 @@
       align-items: center;
       gap: 10px;
     }
+
+    /* Alt Account Detection & Delete Controls */
+    .ip-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.7rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #bae6fd;
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+
+    .alt-warn-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.69rem;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid rgba(245, 158, 11, 0.55);
+      color: #fde047;
+    }
+
+    .alt-warn-pill.high-conf {
+      background: rgba(239, 68, 68, 0.24);
+      border-color: rgba(248, 113, 113, 0.7);
+      color: #fecaca;
+    }
+
+    .alt-match-card {
+      background: #0f172a;
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .alt-match-card.tier-certain,
+    .alt-match-card.tier-high {
+      border-color: rgba(248, 113, 113, 0.6);
+      background: linear-gradient(135deg, rgba(127, 29, 29, 0.25) 0%, #0f172a 100%);
+    }
+
+    .alt-match-card.tier-medium {
+      border-color: rgba(251, 146, 60, 0.55);
+      background: linear-gradient(135deg, rgba(124, 45, 18, 0.2) 0%, #0f172a 100%);
+    }
+
+    .alt-conf-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 900;
+      padding: 3px 9px;
+      border-radius: 999px;
+      margin-top: 4px;
+    }
+
+    .alt-conf-badge.tier-certain,
+    .alt-conf-badge.tier-high {
+      background: rgba(239, 68, 68, 0.26);
+      color: #fecaca;
+      border: 1px solid rgba(248, 113, 113, 0.65);
+    }
+
+    .alt-conf-badge.tier-medium {
+      background: rgba(249, 115, 22, 0.24);
+      color: #fed7aa;
+      border: 1px solid rgba(251, 146, 60, 0.6);
+    }
+
+    .alt-conf-badge.tier-low {
+      background: rgba(245, 158, 11, 0.18);
+      color: #fde68a;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
   </style>
 </head>
 <body>
@@ -1253,6 +1338,41 @@
     </div>
   </div>
 
+  <!-- ============================================================ -->
+  <!-- ALT ACCOUNT & IP / DEVICE FINGERPRINT INSPECTOR MODAL        -->
+  <!-- ============================================================ -->
+  <div class="modal-backdrop" id="player-alts-modal" role="dialog" aria-modal="true" aria-labelledby="modal-alts-title" style="display:none;">
+    <div class="runs-modal-box" style="max-width:860px;">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-avatar-badge">🔍</div>
+          <div>
+            <div class="modal-title" id="modal-alts-title">Alt Account &amp; Device Check</div>
+            <div class="modal-subtitle" id="modal-alts-meta">Scanning matching Browser Device IDs, Hardware Fingerprints &amp; IPs...</div>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="modal-alts-close-btn" title="Close Popup (Esc)">✕</button>
+      </div>
+
+      <div style="padding:10px 26px; background:rgba(14,165,233,0.08); border-bottom:1px solid var(--border); font-size:0.78rem; color:#bae6fd; line-height:1.45;">
+        <strong>Why IP alone isn't enough:</strong> Classmates or siblings on the same Wi-Fi/school share one IP, while VPNs/mobile data change IPs.
+        This scanner checks <strong>1) Persistent Browser Device ID</strong> (same browser even if IP changes),
+        <strong>2) Hardware Fingerprint</strong> (catches Incognito / cleared storage on the same PC), and <strong>3) IP History</strong>.
+      </div>
+
+      <div id="modal-alts-target-summary" style="padding:12px 26px; background:rgba(15,23,42,0.55); border-bottom:1px solid var(--border); font-size:0.8rem;"></div>
+
+      <div class="modal-body" id="modal-alts-results-body">
+        <div style="text-align:center; color:var(--text-sub); padding:28px;">Loading...</div>
+      </div>
+
+      <div class="modal-footer">
+        <span style="font-size:0.76rem; color:var(--text-sub);" id="modal-alts-footer-note">Deleting an account removes their user login, runs, sessions &amp; duel high scores.</span>
+        <button type="button" class="btn" id="modal-alts-footer-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast-msg">✅ Saved to database!</div>
 
   <script>
@@ -1560,15 +1680,23 @@
           : ((p.leaderboardPlacements && p.leaderboardPlacements.total) || 0);
         const hiddenRuns = (p.leaderboardPlacements && p.leaderboardPlacements.hiddenRuns) || 0;
         const visibleRuns = Math.max(0, totalRuns - hiddenRuns);
+        const isMeDonut = p.username.toLowerCase() === 'medonut';
+        const lastIp = p.lastIp || '';
+        const altCount = Number(p.altAccountCount) || 0;
+        const highAltCount = Number(p.highConfidenceAltCount) || 0;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>
             <div class="player-name">
-              <span>👤 ${p.username}</span>
-              ${p.username.toLowerCase() === 'medonut' ? '<span style="font-size:0.68rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:2px 8px; border-radius:999px;">ADMIN</span>' : ''}
+              <span>👤 ${escapeHtml(p.username)}</span>
+              ${isMeDonut ? '<span style="font-size:0.68rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:2px 8px; border-radius:999px;">ADMIN</span>' : ''}
             </div>
-            <div class="player-meta">🐦 ${p.selectedSkin} • 🏗️ ${p.selectedPipeSkin}</div>
+            <div class="player-meta">🐦 ${escapeHtml(p.selectedSkin)} • 🏗️ ${escapeHtml(p.selectedPipeSkin)}</div>
+            <div class="player-meta" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; align-items:center;">
+              <span class="ip-chip" title="Latest IP address seen for this account${(p.ips && p.ips.length > 1) ? ` (${p.ips.length} IPs total)` : ''}">🌐 ${lastIp ? escapeHtml(lastIp) : 'No IP yet'}</span>
+              ${altCount > 0 ? `<span class="alt-warn-pill ${highAltCount > 0 ? 'high-conf' : ''}" title="Click Find Alts to inspect shared Device ID, Hardware Fingerprint & IP">${highAltCount > 0 ? `⚠️ ${highAltCount} Likely Alt(s)` : `🌐 ${altCount} Shared IP`}</span>` : ''}
+            </div>
             <div class="player-meta" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:3px;">
               ${(p.adminLockedSkins && p.adminLockedSkins.length > 0) ? `<span style="font-size:0.68rem; background:rgba(239,68,68,0.22); color:#fca5a5; padding:1px 7px; border-radius:999px; border:1px solid rgba(239,68,68,0.5);">🔒 ${p.adminLockedSkins.length} Locked Skin(s)</span>` : ''}
               ${(p.grantedSkins && p.grantedSkins.length > 0) ? `<span style="font-size:0.68rem; background:rgba(168,85,247,0.22); color:#d8b4fe; padding:1px 7px; border-radius:999px; border:1px solid rgba(168,85,247,0.5);">🎁 ${p.grantedSkins.length} Granted</span>` : ''}
@@ -1578,32 +1706,36 @@
             </div>
           </td>
           <td>
-            <div><span class="status-badge badge-login">${p.loginStatus}</span></div>
-            <div><span class="status-badge badge-best">${p.newBestStatus}</span></div>
+            <div><span class="status-badge badge-login">${escapeHtml(p.loginStatus)}</span></div>
+            <div><span class="status-badge badge-best">${escapeHtml(p.newBestStatus)}</span></div>
           </td>
           <td>
-            <input type="number" min="0" class="score-input easy-in" data-user="${p.username}" data-diff="easy" value="${p.records.easy}" />
+            <input type="number" min="0" class="score-input easy-in" data-user="${escapeHtml(p.username)}" data-diff="easy" value="${p.records.easy}" />
           </td>
           <td>
-            <input type="number" min="0" class="score-input med-in" data-user="${p.username}" data-diff="medium" value="${p.records.medium}" />
+            <input type="number" min="0" class="score-input med-in" data-user="${escapeHtml(p.username)}" data-diff="medium" value="${p.records.medium}" />
           </td>
           <td>
-            <input type="number" min="0" class="score-input hard-in" data-user="${p.username}" data-diff="hard" value="${p.records.hard}" />
+            <input type="number" min="0" class="score-input hard-in" data-user="${escapeHtml(p.username)}" data-diff="hard" value="${p.records.hard}" />
           </td>
           <td>
-            <input type="number" min="0" step="10" class="score-input elo-in" data-user="${p.username}" data-diff="elo" value="${p.duelElo !== undefined ? p.duelElo : 1000}" style="border-color:rgba(251,191,36,0.5); color:#fbbf24;" />
+            <input type="number" min="0" step="10" class="score-input elo-in" data-user="${escapeHtml(p.username)}" data-diff="elo" value="${p.duelElo !== undefined ? p.duelElo : 1000}" style="border-color:rgba(251,191,36,0.5); color:#fbbf24;" />
           </td>
           <td>
             <div style="display:flex; flex-direction:column; gap:6px; align-items:stretch;">
-              <button type="button" class="btn btn-success save-record-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center;">
+              <button type="button" class="btn btn-success save-record-btn" data-user="${escapeHtml(p.username)}" style="padding:6px 12px; font-size:0.78rem; justify-content:center;">
                 💾 Save Bests &amp; Elo
               </button>
-              <button type="button" class="btn manage-player-skins-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(168,85,247,0.5); color:#d8b4fe; background:rgba(168,85,247,0.15);">
+              <button type="button" class="btn manage-player-skins-btn" data-user="${escapeHtml(p.username)}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(168,85,247,0.5); color:#d8b4fe; background:rgba(168,85,247,0.15);">
                 🎨 Manage Skins (${(p.adminLockedSkins || []).length} locked)
               </button>
-              <button type="button" class="btn inspect-user-runs-btn" data-user="${p.username}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(56,189,248,0.5); color:#7dd3fc; background:rgba(2,132,199,0.15);">
+              <button type="button" class="btn inspect-user-runs-btn" data-user="${escapeHtml(p.username)}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(56,189,248,0.5); color:#7dd3fc; background:rgba(2,132,199,0.15);">
                 📋 Inspect Runs (${totalRuns})
               </button>
+              <button type="button" class="btn find-player-alts-btn" data-user="${escapeHtml(p.username)}" style="padding:6px 12px; font-size:0.78rem; justify-content:center; border-color:rgba(251,146,60,0.55); color:#fdba74; background:rgba(234,88,12,0.16);">
+                🔍 Find Alts &amp; IP${altCount > 0 ? ` (${altCount})` : ''}
+              </button>
+              ${!isMeDonut ? `<button type="button" class="btn btn-danger delete-player-account-btn" data-user="${escapeHtml(p.username)}" style="padding:6px 12px; font-size:0.78rem; justify-content:center;">🗑️ Delete Account</button>` : ''}
             </div>
           </td>
         `;
@@ -1628,6 +1760,22 @@
         btn.addEventListener('click', () => {
           const username = btn.getAttribute('data-user');
           openPlayerRunsModal(username);
+        });
+      });
+
+      // Hook up Find Alts & IP button -> Opens the dedicated Alt Inspector Modal!
+      tbody.querySelectorAll('.find-player-alts-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const username = btn.getAttribute('data-user');
+          openPlayerAltsModal(username);
+        });
+      });
+
+      // Hook up Delete Account button -> Permanently deletes the account!
+      tbody.querySelectorAll('.delete-player-account-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const username = btn.getAttribute('data-user');
+          deletePlayerAccountFromAdmin(username, btn);
         });
       });
 
@@ -2757,6 +2905,201 @@
 
     document.getElementById('modal-skins-close-btn')?.addEventListener('click', closePlayerSkinsModal);
     document.getElementById('modal-skins-footer-close-btn')?.addEventListener('click', closePlayerSkinsModal);
+
+    // ============================================================
+    // ALT ACCOUNT FINDER & PERMANENT ACCOUNT DELETE HANDLERS
+    // ============================================================
+    let modalAltsTargetUsername = null;
+
+    function escapeHtml(str) {
+      return String(str === undefined || str === null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function closePlayerAltsModal() {
+      const modal = document.getElementById('player-alts-modal');
+      if (!modal) return;
+      modal.classList.remove('is-open');
+      modal.style.display = 'none';
+      modalAltsTargetUsername = null;
+    }
+
+    document.getElementById('modal-alts-close-btn')?.addEventListener('click', closePlayerAltsModal);
+    document.getElementById('modal-alts-footer-close-btn')?.addEventListener('click', closePlayerAltsModal);
+    document.getElementById('player-alts-modal')?.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'player-alts-modal') {
+        closePlayerAltsModal();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const altsModal = document.getElementById('player-alts-modal');
+        if (altsModal && altsModal.style.display !== 'none') {
+          closePlayerAltsModal();
+        }
+      }
+    });
+
+    async function openPlayerAltsModal(username) {
+      modalAltsTargetUsername = username;
+      const modal = document.getElementById('player-alts-modal');
+      const titleEl = document.getElementById('modal-alts-title');
+      const metaEl = document.getElementById('modal-alts-meta');
+      const targetSumEl = document.getElementById('modal-alts-target-summary');
+      const bodyEl = document.getElementById('modal-alts-results-body');
+
+      if (titleEl) titleEl.textContent = `🔍 Alt Account Check: ${username}`;
+      if (metaEl) metaEl.textContent = 'Comparing Device IDs, Hardware Fingerprints & IPs...';
+      if (targetSumEl) targetSumEl.innerHTML = '';
+      if (bodyEl) bodyEl.innerHTML = '<div style="text-align:center; color:var(--text-sub); padding:28px;">Scanning all accounts...</div>';
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('is-open');
+      }
+
+      try {
+        const res = await fetch(`/api/database/find-alts?username=${encodeURIComponent(username)}`, {
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (bodyEl) bodyEl.innerHTML = `<div style="color:#fda4af; text-align:center; padding:24px;">❌ ${escapeHtml(data.error || 'Failed to scan accounts')}</div>`;
+          return;
+        }
+
+        const t = data.target || {};
+        const matches = Array.isArray(data.matches) ? data.matches : [];
+        if (metaEl) {
+          metaEl.textContent = `${matches.length} matching account(s) found for ${t.username || username}`;
+        }
+
+        const ipsHtml = (t.ips && t.ips.length > 0)
+          ? t.ips.map(ip => `<span class="ip-chip">🌐 ${escapeHtml(ip)}</span>`).join(' ')
+          : '<span style="color:var(--text-sub);">No IP logged yet (will record on their next request)</span>';
+        const devsText = (t.deviceIds && t.deviceIds.length > 0)
+          ? t.deviceIds.map(d => escapeHtml(d.slice(0, 14) + '…')).join(', ')
+          : 'None recorded yet';
+        const fpsText = (t.fingerprints && t.fingerprints.length > 0)
+          ? t.fingerprints.map(f => escapeHtml(f)).join(', ')
+          : 'None recorded yet';
+
+        if (targetSumEl) {
+          targetSumEl.innerHTML = `
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div><strong>Target Account:</strong> 👤 ${escapeHtml(t.username || username)} • Best: 🟢 ${t.records?.easy || 0} / 🟡 ${t.records?.medium || 0} / 🔴 ${t.records?.hard || 0} • 🏆 ${t.duelElo ?? 1000} ELO</div>
+              <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;"><strong>Known IPs:</strong> ${ipsHtml}</div>
+              <div style="color:#cbd5e1; font-size:0.74rem;"><strong>Browser Device IDs:</strong> <code>${devsText}</code> &nbsp;|&nbsp; <strong>Hardware Fingerprints:</strong> <code>${fpsText}</code></div>
+            </div>
+          `;
+        }
+
+        if (!bodyEl) return;
+        if (matches.length === 0) {
+          bodyEl.innerHTML = `
+            <div style="text-align:center; padding:32px; color:#86efac; font-weight:800;">
+              ✅ No other accounts share any Browser Device ID, Hardware Fingerprint, or IP with <strong>${escapeHtml(t.username || username)}</strong>!
+            </div>
+          `;
+          return;
+        }
+
+        bodyEl.innerHTML = matches.map(m => {
+          const isMeDonutMatch = m.username && m.username.toLowerCase() === 'medonut';
+          const signals = [];
+          if (m.sharedDeviceIds && m.sharedDeviceIds.length > 0) {
+            signals.push(`<span class="ip-chip" style="border-color:rgba(248,113,113,0.65); color:#fecaca;">💻 Same Browser ID (${escapeHtml(m.sharedDeviceIds[0].slice(0, 12))}…)</span>`);
+          }
+          if (m.sharedFingerprints && m.sharedFingerprints.length > 0) {
+            signals.push(`<span class="ip-chip" style="border-color:rgba(251,146,60,0.65); color:#fed7aa;">🖥️ Same PC Fingerprint (${escapeHtml(m.sharedFingerprints[0])})</span>`);
+          }
+          if (m.sharedIps && m.sharedIps.length > 0) {
+            signals.push(`<span class="ip-chip" style="border-color:rgba(250,204,21,0.55); color:#fde68a;">🌐 Same IP (${escapeHtml(m.sharedIps.join(', '))})</span>`);
+          }
+          return `
+            <div class="alt-match-card tier-${escapeHtml(m.confidenceTier || 'low')}">
+              <div style="flex:1; min-width:240px;">
+                <div style="font-size:0.96rem; font-weight:900; color:#fff;">
+                  👤 ${escapeHtml(m.username)}
+                  ${isMeDonutMatch ? '<span style="font-size:0.68rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:2px 8px; border-radius:999px; margin-left:6px;">ADMIN</span>' : ''}
+                </div>
+                <div><span class="alt-conf-badge tier-${escapeHtml(m.confidenceTier || 'low')}">${escapeHtml(m.confidenceLabel || 'Matched')}</span></div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">${signals.join(' ')}</div>
+                <div style="font-size:0.74rem; color:var(--text-sub); margin-top:7px;">
+                  Last IP: <code>${escapeHtml(m.lastIp || 'N/A')}</code> • Logins: ${m.loginCount || 0} • Last Login: ${escapeHtml(m.lastLoginReadable || 'Unknown')}
+                </div>
+                <div style="font-size:0.74rem; color:#93c5fd; margin-top:3px;">
+                  Bests: 🟢 ${m.records?.easy || 0} / 🟡 ${m.records?.medium || 0} / 🔴 ${m.records?.hard || 0} • 🏆 ${m.duelElo ?? 1000} ELO • 🪙 ${m.duelCoins || 0} Coins
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                ${!isMeDonutMatch ? `<button type="button" class="btn btn-danger modal-delete-alt-btn" data-user="${escapeHtml(m.username)}" style="padding:7px 14px; font-size:0.78rem;">🗑️ Delete Account</button>` : '<span style="font-size:0.74rem; color:var(--text-sub);">Protected Admin</span>'}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        bodyEl.querySelectorAll('.modal-delete-alt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const targetDel = btn.getAttribute('data-user');
+            deletePlayerAccountFromAdmin(targetDel, btn);
+          });
+        });
+      } catch (err) {
+        if (bodyEl) bodyEl.innerHTML = `<div style="color:#fda4af; text-align:center; padding:24px;">❌ Network error scanning alts: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    async function deletePlayerAccountFromAdmin(username, btnEl = null) {
+      if (!username) return;
+      if (username.toLowerCase() === 'medonut') {
+        showToast('❌ Cannot delete the MeDonut admin account.');
+        return;
+      }
+      const confirmed = window.confirm(
+        `Permanently delete account "${username}"?\n\nThis will delete their user account, active sessions, leaderboard runs, and duel high scores from the database.`
+      );
+      if (!confirmed) return;
+
+      const origText = btnEl ? btnEl.textContent : '';
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = '⏳ Deleting...';
+      }
+
+      try {
+        const res = await fetch('/api/database/delete-account', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ username })
+        });
+        const updated = await res.json();
+        if (res.ok) {
+          currentDbData = updated;
+          renderDashboard(updated);
+          showToast(`🗑️ Permanently deleted account "${updated.deletedUsername}"!`);
+          if (modalAltsTargetUsername) {
+            if (modalAltsTargetUsername.toLowerCase() === username.toLowerCase()) {
+              closePlayerAltsModal();
+            } else {
+              openPlayerAltsModal(modalAltsTargetUsername);
+            }
+          }
+        } else {
+          alert(updated.error || 'Failed to delete account');
+        }
+      } catch (err) {
+        alert('Error deleting account: ' + err.message);
+      } finally {
+        if (btnEl && btnEl.isConnected) {
+          btnEl.disabled = false;
+          btnEl.textContent = origText;
+        }
+      }
+    }
 
     // Initialize Database
     fetchDatabase();

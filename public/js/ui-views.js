@@ -495,8 +495,73 @@ class FlappyBirdUIAndProgression {
         // ------------------------------------------------------------------------
         // ONLINE API & AUTHENTICATION (WITH COLD-START 502/503 RESILIENT RETRIES)
         // ------------------------------------------------------------------------
+        getClientDeviceId() {
+          if (this._cachedDeviceId) return this._cachedDeviceId;
+          let devId = '';
+          try {
+            devId = localStorage.getItem('flappy3d_device_id') || '';
+          } catch (_) {}
+          if (!devId && typeof document !== 'undefined' && document.cookie) {
+            const m = document.cookie.match(/(?:^|;\s*)flappy3d_device_id=([^;]+)/);
+            if (m && m[1]) devId = decodeURIComponent(m[1]);
+          }
+          if (!devId || devId.length < 8) {
+            const randPart = (typeof crypto !== 'undefined' && crypto.randomUUID)
+              ? crypto.randomUUID()
+              : ('dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36));
+            devId = randPart.slice(0, 64);
+          }
+          try { localStorage.setItem('flappy3d_device_id', devId); } catch (_) {}
+          try {
+            if (typeof document !== 'undefined') {
+              document.cookie = `flappy3d_device_id=${encodeURIComponent(devId)}; path=/; max-age=31536000; SameSite=Lax`;
+            }
+          } catch (_) {}
+          this._cachedDeviceId = devId;
+          return devId;
+        }
+
+        getClientHardwareFingerprint() {
+          if (this._cachedHardwareFingerprint) return this._cachedHardwareFingerprint;
+          let fp = 'fp_unknown';
+          try {
+            const nav = typeof navigator !== 'undefined' ? navigator : {};
+            const scr = typeof screen !== 'undefined' ? screen : {};
+            const tz = (typeof Intl !== 'undefined' && Intl.DateTimeFormat)
+              ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
+              : '';
+            const raw = [
+              nav.userAgent || '',
+              nav.platform || '',
+              nav.language || '',
+              String(nav.hardwareConcurrency || ''),
+              String(nav.deviceMemory || ''),
+              `${scr.width || 0}x${scr.height || 0}x${scr.colorDepth || 0}`,
+              String(typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1),
+              tz
+            ].join('|');
+            // Deterministic 64-bit FNV-1a twin hash so incognito mode still matches same machine
+            let h1 = 0x811c9dc5;
+            let h2 = 0x811c9dc5;
+            for (let i = 0; i < raw.length; i++) {
+              const c = raw.charCodeAt(i);
+              h1 ^= c;
+              h1 = Math.imul(h1, 0x01000193);
+              h2 ^= (c + i);
+              h2 = Math.imul(h2, 0x01000193);
+            }
+            fp = 'fp_' + (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+          } catch (_) {}
+          this._cachedHardwareFingerprint = fp;
+          return fp;
+        }
+
         async apiRequest(path, method = 'GET', body = null, maxRetries = 2) {
-          const headers = { 'Content-Type': 'application/json' };
+          const headers = {
+            'Content-Type': 'application/json',
+            'X-Device-Id': this.getClientDeviceId(),
+            'X-Device-Fingerprint': this.getClientHardwareFingerprint()
+          };
           if (this.authToken) {
             headers['Authorization'] = `Bearer ${this.authToken}`;
           }

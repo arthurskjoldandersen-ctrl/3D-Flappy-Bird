@@ -1153,6 +1153,7 @@
         <span>Spectating <strong id="duel-solo-opp-name">Opponent</strong> (<span id="duel-solo-opp-elo">1000 ELO</span>)</span>
         <span class="duel-spec-round-pill" id="duel-solo-opp-score">0 (0 pts)</span>
         <span class="duel-solo-my-score" id="duel-solo-my-score">You: 0</span>
+        <button type="button" class="btn-duel-exit-battle-mini" id="btn-duel-exit-solo-battle" title="Leave this Duel Match">🚪 Exit Battle</button>
       </div>
     </div>
 
@@ -1170,6 +1171,7 @@
         <div class="duel-countdown-sub" id="duel-countdown-sub">
           Get ready to fly! Points count 1x in Easy, 2x in Medium, 3x in Hard!
         </div>
+        <button type="button" class="btn-duel-exit-battle" id="btn-duel-exit-countdown">🚪 Leave Match</button>
       </div>
 
       <!-- State B: Waiting for Other Player to Die in Current Round -->
@@ -1192,6 +1194,7 @@
             <span class="duel-compare-status" id="duel-wait-p2-status">🟢 Still Flying...</span>
           </div>
         </div>
+        <button type="button" class="btn-duel-exit-battle" id="btn-duel-exit-waiting-opp">🚪 Leave Match</button>
       </div>
 
       <!-- State C: Between-Round Summary (Shown when BOTH players have died in the round) -->
@@ -1219,6 +1222,7 @@
         <div class="duel-summary-next-hint" id="duel-summary-next-hint">
           Next Round starting shortly...
         </div>
+        <button type="button" class="btn-duel-exit-battle" id="btn-duel-exit-round-summary">🚪 Leave Match</button>
       </div>
 
       <!-- State D: Final Duel Match Results (All 3 Rounds Counted Together + Ranked Elo Changes) -->

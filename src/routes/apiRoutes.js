@@ -38,8 +38,20 @@ const {
   calculateDuelEloUpdate,
   recordDuelMatchResult,
   buildDuelRankedLeaderboard,
-  buildDuelHighScoreLeaderboard
+  buildDuelHighScoreLeaderboard,
+  trackUserClientSignals,
+  findAltAccountsForUser,
+  deletePlayerAccountAdmin
 } = require('../services/database');
+
+function extractClientInfo(req) {
+  const rawFwd = req && req.headers ? (req.headers['x-forwarded-for'] || '') : '';
+  const sockIp = req && req.socket ? (req.socket.remoteAddress || '') : '';
+  const ip = String(rawFwd || sockIp || '').split(',')[0].trim();
+  const deviceId = req && req.headers ? String(req.headers['x-device-id'] || '').trim() : '';
+  const fingerprint = req && req.headers ? String(req.headers['x-device-fingerprint'] || '').trim() : '';
+  return { ip, deviceId, fingerprint };
+}
 
 let BIRD_SKINS_LIST = [];
 try {
@@ -436,12 +448,21 @@ function advanceDuelLobbyClock(lobby) {
     }
 
     if (p1 && p2) {
-      // Auto-complete stalled player if one player finished and the other hasn't sent a heartbeat for 15s
-      if (p1.rounds[rKey].finished && !p2.rounds[rKey].finished && (now - p2.lastHeartbeat > 15000)) {
+      // Auto-complete stalled player if one player finished and the other hasn't sent a heartbeat for 15s,
+      // OR if a human player has stopped sending heartbeats for > 45s in the middle of a round
+      if (p1.rounds[rKey].finished && !p2.rounds[rKey].finished && (!p2.isBot && (now - p2.lastHeartbeat > 15000))) {
         p2.rounds[rKey].finished = true;
         p2.live.alive = false;
         recomputeDuelPlayerPoints(p2);
-      } else if (p2.rounds[rKey].finished && !p1.rounds[rKey].finished && (now - p1.lastHeartbeat > 15000)) {
+      } else if (p2.rounds[rKey].finished && !p1.rounds[rKey].finished && (!p1.isBot && (now - p1.lastHeartbeat > 15000))) {
+        p1.rounds[rKey].finished = true;
+        p1.live.alive = false;
+        recomputeDuelPlayerPoints(p1);
+      } else if (!p2.isBot && !p2.rounds[rKey].finished && (now - p2.lastHeartbeat > 45000)) {
+        p2.rounds[rKey].finished = true;
+        p2.live.alive = false;
+        recomputeDuelPlayerPoints(p2);
+      } else if (!p1.isBot && !p1.rounds[rKey].finished && (now - p1.lastHeartbeat > 45000)) {
         p1.rounds[rKey].finished = true;
         p1.live.alive = false;
         recomputeDuelPlayerPoints(p1);
@@ -542,19 +563,50 @@ function serializeDuelLobby(lobby, includeLivePipes = false) {
   };
 }
 
+const DUEL_MAX_LIFETIME_MS = 15 * 60 * 1000; // Remove any ongoing/waiting duel lobby after 15 minutes
+const DUEL_WAITING_STALE_MS = 2 * 60 * 1000; // 2 minutes if a waiting human host stopped polling
+const DUEL_ALL_HUMANS_STALE_MS = 90 * 1000;  // 90s if every human player disconnected mid-match
+
+function shouldPruneDuelLobby(lobby, now = Date.now()) {
+  if (!lobby) return true;
+  if (lobby.status === 'finished') {
+    if (now - (lobby.finishedAt || lobby.createdAt || now) > 25000) return true;
+    const humans = (lobby.players || []).filter(p => p && !p.isBot);
+    if (humans.length === 0 || humans.every(h => h.leftMatch)) return true;
+    return false;
+  }
+  const ageMs = now - (lobby.createdAt || now);
+  if (ageMs >= DUEL_MAX_LIFETIME_MS) {
+    return true;
+  }
+  if (lobby.status === 'waiting') {
+    const host = lobby.players && lobby.players[0];
+    if (!host) return true;
+    if (!host.isBot && (now - (host.lastHeartbeat || lobby.createdAt || now) > DUEL_WAITING_STALE_MS)) {
+      return true;
+    }
+    return false;
+  }
+  const humans = (lobby.players || []).filter(p => p && !p.isBot);
+  if (humans.length === 0 || humans.every(h => h.leftMatch)) {
+    return true;
+  }
+  if (humans.every(h => (now - (h.lastHeartbeat || lobby.createdAt || now)) > DUEL_ALL_HUMANS_STALE_MS)) {
+    return true;
+  }
+  return false;
+}
+
 function getPublicDuelLobbiesList() {
   const now = Date.now();
   const list = [];
   for (const [id, lobby] of duelLobbies.entries()) {
     advanceDuelLobbyClock(lobby);
-    if (lobby.status === 'finished') {
-      if (now - (lobby.finishedAt || now) > 25000) {
-        duelLobbies.delete(id);
-      }
+    if (shouldPruneDuelLobby(lobby, now)) {
+      duelLobbies.delete(id);
       continue;
     }
-    if (lobby.status === 'waiting' && lobby.players[0] && (now - lobby.players[0].lastHeartbeat > 120000)) {
-      duelLobbies.delete(id);
+    if (lobby.status === 'finished') {
       continue;
     }
     list.push(serializeDuelLobby(lobby, false));
@@ -579,7 +631,7 @@ setInterval(() => {
   }
   for (const [lobbyId, lobby] of duelLobbies.entries()) {
     advanceDuelLobbyClock(lobby);
-    if (lobby.status === 'finished' && (now - (lobby.finishedAt || now) > 30000)) {
+    if (shouldPruneDuelLobby(lobby, now)) {
       duelLobbies.delete(lobbyId);
     }
   }
@@ -651,6 +703,7 @@ function getAuthenticatedUser(req) {
   if (!session) return null;
   const user = db.users[session.usernameKey];
   if (!user) return null;
+  trackUserClientSignals(user, extractClientInfo(req), true);
   return { token, user, usernameKey: session.usernameKey };
 }
 
@@ -1040,6 +1093,7 @@ async function handleApiRequest(req, res, pathname, port) {
     const token = crypto.randomBytes(24).toString('hex');
     db.sessions[token] = { usernameKey, username: cleanName, createdAt: now };
 
+    trackUserClientSignals(db.users[usernameKey], extractClientInfo(req), false);
     recordUserLogin(db.users[usernameKey], 'register');
 
     logDatabaseEvent(
@@ -1100,6 +1154,7 @@ async function handleApiRequest(req, res, pathname, port) {
       ? (getPermanentMeDonutToken(db) || crypto.randomBytes(24).toString('hex'))
       : crypto.randomBytes(24).toString('hex');
     db.sessions[token] = { usernameKey, username: user.username, createdAt: Date.now() };
+    trackUserClientSignals(user, extractClientInfo(req), false);
     recordUserLogin(user, 'password');
 
     return sendJSON(res, 200, {
@@ -1541,15 +1596,21 @@ async function handleApiRequest(req, res, pathname, port) {
 
       let activeLobby = null;
       if (reqLobbyId && duelLobbies.has(reqLobbyId)) {
-        activeLobby = duelLobbies.get(reqLobbyId);
-        const mySlot = activeLobby.players.find(p => p.slotId === caller.clientId || p.usernameKey === caller.usernameKey);
-        if (mySlot) {
-          mySlot.lastHeartbeat = Date.now();
+        const candidateLobby = duelLobbies.get(reqLobbyId);
+        advanceDuelLobbyClock(candidateLobby);
+        if (shouldPruneDuelLobby(candidateLobby, Date.now())) {
+          duelLobbies.delete(reqLobbyId);
+        } else {
+          const mySlot = candidateLobby.players.find(p => (p.slotId === caller.clientId || p.usernameKey === caller.usernameKey) && !p.leftMatch);
+          if (mySlot) {
+            mySlot.lastHeartbeat = Date.now();
+            activeLobby = candidateLobby;
+          }
         }
       } else {
         for (const lobby of duelLobbies.values()) {
-          if (lobby.status !== 'finished') {
-            const mySlot = lobby.players.find(p => p.slotId === caller.clientId);
+          if (lobby.status !== 'finished' && !shouldPruneDuelLobby(lobby)) {
+            const mySlot = lobby.players.find(p => p.slotId === caller.clientId && !p.leftMatch);
             if (mySlot) {
               mySlot.lastHeartbeat = Date.now();
               activeLobby = lobby;
@@ -1759,15 +1820,23 @@ async function handleApiRequest(req, res, pathname, port) {
     // POST /api/duels/leave
     if (req.method === 'POST' && pathname === '/api/duels/leave') {
       const targetId = String(body.lobbyId || '');
-      const lobby = duelLobbies.get(targetId);
-      if (lobby) {
+      const idsToCheck = targetId ? [targetId] : Array.from(duelLobbies.keys());
+      for (const lid of idsToCheck) {
+        const lobby = duelLobbies.get(lid);
+        if (!lobby) continue;
+        const leaver = lobby.players.find(p => p.slotId === caller.clientId || p.usernameKey === caller.usernameKey);
+        if (!leaver) continue;
+
+        leaver.leftMatch = true;
         if (lobby.status === 'waiting') {
-          duelLobbies.delete(targetId);
-        } else if (lobby.status !== 'finished') {
-          const leaver = lobby.players.find(p => p.slotId === caller.clientId || p.usernameKey === caller.usernameKey);
-          if (leaver) {
-            ['easy', 'medium', 'hard'].forEach(r => { leaver.rounds[r].finished = true; });
-            leaver.live.alive = false;
+          duelLobbies.delete(lid);
+        } else {
+          ['easy', 'medium', 'hard'].forEach(r => { leaver.rounds[r].finished = true; });
+          leaver.live.alive = false;
+          const remainingActiveHumans = lobby.players.some(p => p !== leaver && !p.isBot && !p.leftMatch);
+          if (!remainingActiveHumans) {
+            duelLobbies.delete(lid);
+          } else if (lobby.status !== 'finished') {
             finalizeDuelLobbyMatch(lobby);
           }
         }
@@ -2206,6 +2275,48 @@ async function handleApiRequest(req, res, pathname, port) {
         message: `Updated skins for ${result.username}!`,
         ...result,
         userSkins: result,
+        databaseStatus: db.databaseStatus,
+        playerRecordsOverview: db.playerRecordsOverview,
+        activityFeed: (db.activityFeed || []).slice(0, 100),
+        leaderboards: buildLeaderboards(),
+        allRuns: getAllRunsAdmin(),
+        loginHistory: (db.loginHistory || []).slice(0, 300)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  // 13. Admin Multi-Account / Alt Detection (Device ID + Hardware Fingerprint + IP)
+  if (req.method === 'GET' && pathname === '/api/database/find-alts') {
+    const username = parsedUrl.query && parsedUrl.query.username ? String(parsedUrl.query.username).trim() : '';
+    if (!username) {
+      return sendJSON(res, 400, { error: 'Username query parameter is required.' });
+    }
+    try {
+      const result = findAltAccountsForUser(username);
+      return sendJSON(res, 200, {
+        ok: true,
+        ...result
+      });
+    } catch (err) {
+      return sendJSON(res, 404, { error: err.message });
+    }
+  }
+
+  // 14. Admin Permanent Player Account Deletion
+  if (req.method === 'POST' && pathname === '/api/database/delete-account') {
+    const { username } = await readJsonBody(req);
+    if (!username) {
+      return sendJSON(res, 400, { error: 'Username is required.' });
+    }
+    try {
+      const result = deletePlayerAccountAdmin(username);
+      return sendJSON(res, 200, {
+        ok: true,
+        success: true,
+        message: `Permanently deleted account "${result.deletedUsername}".`,
+        ...result,
         databaseStatus: db.databaseStatus,
         playerRecordsOverview: db.playerRecordsOverview,
         activityFeed: (db.activityFeed || []).slice(0, 100),

@@ -4893,6 +4893,43 @@ body.in-game #top-app-bar,
   border-left: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
+.btn-duel-exit-battle-mini {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  margin-left: 6px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(248, 113, 113, 0.65) !important;
+  background: rgba(220, 38, 38, 0.85) !important;
+  color: #ffffff !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  transition: transform 0.12s ease, background 0.12s ease !important;
+}
+
+.btn-duel-exit-battle-mini:hover {
+  background: rgba(239, 68, 68, 1) !important;
+  transform: scale(1.04) !important;
+}
+
+.btn-duel-exit-battle {
+  margin-top: 12px !important;
+  padding: 8px 18px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(248, 113, 113, 0.55) !important;
+  background: rgba(185, 28, 28, 0.82) !important;
+  color: #ffffff !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: transform 0.12s ease, background 0.12s ease !important;
+}
+
+.btn-duel-exit-battle:hover {
+  background: rgba(220, 38, 38, 0.96) !important;
+  transform: translateY(-1px) !important;
+}
+
 .duels-tab-placeholder {
   display: flex !important;
   flex-direction: column !important;
