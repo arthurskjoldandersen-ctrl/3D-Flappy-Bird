@@ -37,7 +37,8 @@ const {
   addChatMessage,
   calculateDuelEloUpdate,
   recordDuelMatchResult,
-  buildDuelRankedLeaderboard
+  buildDuelRankedLeaderboard,
+  buildDuelHighScoreLeaderboard
 } = require('../services/database');
 
 let BIRD_SKINS_LIST = [];
@@ -152,7 +153,10 @@ function finalizeDuelLobbyMatch(lobby) {
 
   let eloRes;
   if (p1.usernameKey !== p2.usernameKey) {
-    eloRes = recordDuelMatchResult(p1.username, p2.username, p1.totalPoints, p2.totalPoints);
+    eloRes = recordDuelMatchResult(p1.username, p2.username, p1.totalPoints, p2.totalPoints, {
+      roundsA: p1.rounds,
+      roundsB: p2.rounds
+    });
   } else {
     eloRes = calculateDuelEloUpdate(p1.elo, p2.elo, p1.totalPoints, p2.totalPoints);
   }
@@ -352,7 +356,8 @@ function stepDuelBotSimulation(bot, lobby, rKey, now, humanFinishedForMs) {
     bot.live.birdY = Number(sim.birdY.toFixed(2));
     bot.live.birdVelocityY = Number(sim.birdVelocityY.toFixed(2));
     bot.live.speed = Number(diff.speed.toFixed(2));
-    bot.live.updatedAt = now;
+    const simTimestamp = Math.round((lobby.roundStartedAt || now) + sim.ticksSimulated * (1000 / SIM_CONFIG.tickRate));
+  bot.live.updatedAt = simTimestamp;
     recomputeDuelPlayerPoints(bot);
     return;
   }
@@ -371,7 +376,8 @@ function stepDuelBotSimulation(bot, lobby, rKey, now, humanFinishedForMs) {
     gapCenterY: Number(pp.gapCenterY.toFixed(2)),
     gapSize: Number(pp.gapSize.toFixed(2))
   }));
-  bot.live.updatedAt = now;
+  const simTimestamp = Math.round((lobby.roundStartedAt || now) + sim.ticksSimulated * (1000 / SIM_CONFIG.tickRate));
+  bot.live.updatedAt = simTimestamp;
   recomputeDuelPlayerPoints(bot);
 }
 
@@ -679,6 +685,279 @@ function getLocalAddresses() {
     }
   }
   return addresses;
+}
+
+function processVerifiedRunSubmission(user, diffKey, verifiedScore) {
+  const { isNewRecord, newRunId, previousBest, autoHidden, withinWindow } = recordVerifiedRun(user, diffKey, verifiedScore);
+
+  let timeframePlacements = { daily: 1, weekly: 1, all: 1 };
+  try {
+    const db = getDb();
+    const modeLabel = diffKey === 'easy' ? 'EASY' : (diffKey === 'hard' ? 'HARD' : 'MEDIUM');
+    const now = Date.now();
+    const boundaries = getLeaderboardResetBoundaries(now);
+    const dailyResetMs = boundaries.daily.currentResetMs;
+    const weeklyResetMs = boundaries.weekly.currentResetMs;
+
+    const allVisibleRuns = (db.runs && Array.isArray(db.runs[diffKey]))
+      ? db.runs[diffKey].filter(r => !r.hidden && (r.adminOverride || (r.isWithinDanishWindow !== undefined ? r.isWithinDanishWindow : isWithinDanishWindow(r.createdAt))))
+      : [];
+
+    const weeklyVisibleRuns = allVisibleRuns.filter(r => (r.createdAt || 0) >= weeklyResetMs);
+    const dailyVisibleRuns = allVisibleRuns.filter(r => (r.createdAt || 0) >= dailyResetMs);
+
+    const getTimeframeStats = (runsList, targetRunId, username) => {
+      const sorted = runsList.slice().sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+
+      const runIdx = targetRunId ? sorted.findIndex(r => r.id === targetRunId) : -1;
+      const runRank = runIdx !== -1 ? (runIdx + 1) : (sorted.length + 1);
+      const targetRun = runIdx !== -1 ? sorted[runIdx] : null;
+      const thisRunScore = targetRun ? targetRun.score : verifiedScore;
+
+      const uKey = (username || '').toLowerCase();
+      let prevBestInTimeframe = 0;
+      const maxScoreMap = new Map();
+      for (const r of sorted) {
+        const k = (r.username || '').toLowerCase();
+        if (k === uKey && r.id !== targetRunId && r.score > prevBestInTimeframe) {
+          prevBestInTimeframe = r.score;
+        }
+        const cur = maxScoreMap.get(k);
+        if (cur === undefined || r.score > cur) {
+          maxScoreMap.set(k, r.score);
+        }
+      }
+
+      const isNewTimeframeBest = thisRunScore > prevBestInTimeframe;
+
+      const uniquePlayers = [];
+      const seen = new Set();
+      for (const r of sorted) {
+        const k = (r.username || '').toLowerCase();
+        if (!seen.has(k) && r.score === maxScoreMap.get(k)) {
+          seen.add(k);
+          uniquePlayers.push(r);
+        }
+      }
+
+      const playerIdx = uniquePlayers.findIndex(r => (r.username || '').toLowerCase() === uKey);
+      const playerRank = playerIdx !== -1 ? (playerIdx + 1) : (uniquePlayers.length + 1);
+      const placementRank = isNewTimeframeBest ? playerRank : runRank;
+
+      return {
+        runRank,
+        playerRank,
+        placementRank,
+        isNewTimeframeBest,
+        totalRuns: sorted.length,
+        totalPlayers: uniquePlayers.length,
+        isTop1: isNewTimeframeBest && playerRank === 1 && runRank === 1,
+        isTop2: isNewTimeframeBest && playerRank === 2,
+        isTop3: isNewTimeframeBest && playerRank === 3,
+        isTop5: isNewTimeframeBest && playerRank <= 5,
+        isTop10: isNewTimeframeBest && playerRank <= 10
+      };
+    };
+
+    const dailyStats = getTimeframeStats(dailyVisibleRuns, newRunId, user.username);
+    const weeklyStats = getTimeframeStats(weeklyVisibleRuns, newRunId, user.username);
+    const allStats = getTimeframeStats(allVisibleRuns, newRunId, user.username);
+
+    timeframePlacements = {
+      daily: dailyStats.placementRank,
+      weekly: weeklyStats.placementRank,
+      all: allStats.placementRank
+    };
+
+    if (withinWindow && verifiedScore > 0) {
+      if (allStats.isTop1) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top1',
+          tagLabel: `ALL-TIME #1 • ${modeLabel}`,
+          leaderboardType: 'all',
+          username: 'Leaderboard Bot',
+          avatar: '👑',
+          text: `${user.username} got #1 on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
+        });
+      } else if (allStats.isTop2 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top2',
+          tagLabel: `ALL-TIME #2 • ${modeLabel}`,
+          leaderboardType: 'all',
+          username: 'Leaderboard Bot',
+          avatar: '🥈',
+          text: `${user.username} got #2 on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
+        });
+      } else if (allStats.isTop3 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top3',
+          tagLabel: `ALL-TIME #3 • ${modeLabel}`,
+          leaderboardType: 'all',
+          username: 'Leaderboard Bot',
+          avatar: '🥉',
+          text: `${user.username} got #3 on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
+        });
+      } else if (allStats.isTop5 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top5',
+          tagLabel: `ALL-TIME TOP 5 • ${modeLabel}`,
+          leaderboardType: 'all',
+          username: 'Leaderboard Bot',
+          avatar: isNewRecord ? '🔥' : '⭐',
+          text: `${user.username} reached #${allStats.playerRank} on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
+        });
+      } else if (weeklyStats.isTop1 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top1',
+          tagLabel: `WEEKLY #1 • ${modeLabel}`,
+          leaderboardType: 'weekly',
+          username: 'Leaderboard Bot',
+          avatar: '👑',
+          text: `${user.username} got #1 on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
+        });
+      } else if (weeklyStats.isTop2 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top2',
+          tagLabel: `WEEKLY #2 • ${modeLabel}`,
+          leaderboardType: 'weekly',
+          username: 'Leaderboard Bot',
+          avatar: '🥈',
+          text: `${user.username} got #2 on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
+        });
+      } else if (weeklyStats.isTop3 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top3',
+          tagLabel: `WEEKLY #3 • ${modeLabel}`,
+          leaderboardType: 'weekly',
+          username: 'Leaderboard Bot',
+          avatar: '🥉',
+          text: `${user.username} got #3 on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
+        });
+      } else if (weeklyStats.isTop5 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top5',
+          tagLabel: `WEEKLY TOP 5 • ${modeLabel}`,
+          leaderboardType: 'weekly',
+          username: 'Leaderboard Bot',
+          avatar: isNewRecord ? '🔥' : '⭐',
+          text: `${user.username} reached #${weeklyStats.playerRank} on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
+        });
+      } else if (dailyStats.isTop1 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top1',
+          tagLabel: `DAILY #1 • ${modeLabel}`,
+          leaderboardType: 'daily',
+          username: 'Leaderboard Bot',
+          avatar: '👑',
+          text: `${user.username} got #1 on ${modeLabel} (Daily) with ${verifiedScore} pts!`
+        });
+      } else if (dailyStats.isTop2 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top2',
+          tagLabel: `DAILY #2 • ${modeLabel}`,
+          leaderboardType: 'daily',
+          username: 'Leaderboard Bot',
+          avatar: '🥈',
+          text: `${user.username} got #2 on ${modeLabel} (Daily) with ${verifiedScore} pts!`
+        });
+      } else if (dailyStats.isTop3 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top3',
+          tagLabel: `DAILY #3 • ${modeLabel}`,
+          leaderboardType: 'daily',
+          username: 'Leaderboard Bot',
+          avatar: '🥉',
+          text: `${user.username} got #3 on ${modeLabel} (Daily) with ${verifiedScore} pts!`
+        });
+      } else if (dailyStats.isTop5 && (isNewRecord || verifiedScore >= 5)) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top5',
+          tagLabel: `DAILY TOP 5 • ${modeLabel}`,
+          leaderboardType: 'daily',
+          username: 'Leaderboard Bot',
+          avatar: isNewRecord ? '🔥' : '⭐',
+          text: `${user.username} reached #${dailyStats.playerRank} on ${modeLabel} (Daily) with ${verifiedScore} pts!`
+        });
+      } else if (isNewRecord && allStats.isTop10) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top10',
+          tagLabel: `ALL-TIME TOP 10 • ${modeLabel}`,
+          leaderboardType: 'all',
+          username: 'Leaderboard Bot',
+          avatar: '⭐',
+          text: `${user.username} reached #${allStats.playerRank} on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
+        });
+      } else if (isNewRecord && weeklyStats.isTop10) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top10',
+          tagLabel: `WEEKLY TOP 10 • ${modeLabel}`,
+          leaderboardType: 'weekly',
+          username: 'Leaderboard Bot',
+          avatar: '⭐',
+          text: `${user.username} reached #${weeklyStats.playerRank} on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
+        });
+      } else if (isNewRecord && dailyStats.isTop10) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'top10',
+          tagLabel: `DAILY TOP 10 • ${modeLabel}`,
+          leaderboardType: 'daily',
+          username: 'Leaderboard Bot',
+          avatar: '⭐',
+          text: `${user.username} reached #${dailyStats.playerRank} on ${modeLabel} (Daily) with ${verifiedScore} pts!`
+        });
+      } else if (isNewRecord) {
+        addChatMessage({
+          type: 'system',
+          subtype: 'new_best',
+          tagLabel: `NEW BEST • ${modeLabel}`,
+          leaderboardType: 'personal',
+          username: 'Record Bot',
+          avatar: '🎉',
+          text: `${user.username} set a new ${modeLabel} Personal Best of ${verifiedScore} pts!`
+        });
+      }
+    }
+  } catch (annErr) {
+    console.warn('Chat announcement notice:', annErr.message);
+  }
+
+  return {
+    verified: true,
+    verifiedScore,
+    difficulty: diffKey,
+    isNewRecord,
+    previousBest,
+    autoHidden: Boolean(autoHidden),
+    withinWindow: Boolean(withinWindow),
+    entryId: newRunId,
+    timeframePlacements,
+    records: user.records,
+    leaderboards: buildLeaderboards(),
+    timeframeLeaderboards: {
+      all: buildLeaderboards(100, 'all'),
+      weekly: buildLeaderboards(100, 'weekly'),
+      daily: buildLeaderboards(100, 'daily')
+    },
+    resetBoundaries: getLeaderboardResetBoundaries()
+  };
 }
 
 async function handleApiRequest(req, res, pathname, port) {
@@ -1085,302 +1364,8 @@ async function handleApiRequest(req, res, pathname, port) {
       });
     }
 
-    const verifiedScore = verification.verifiedScore;
-    const diffKey = run.difficulty;
-    const user = auth.user;
-
-    const { isNewRecord, newRunId, previousBest, autoHidden, withinWindow } = recordVerifiedRun(user, diffKey, verifiedScore);
-
-    // Automatic Chat Announcements for Personal Bests, Placements & Top Runs across Timeframes (Daily, Weekly, All-Time)
-    let timeframePlacements = { daily: 1, weekly: 1, all: 1 };
-    try {
-      const db = getDb();
-      const modeLabel = diffKey === 'easy' ? 'EASY' : (diffKey === 'hard' ? 'HARD' : 'MEDIUM');
-      const now = Date.now();
-      const boundaries = getLeaderboardResetBoundaries(now);
-      const dailyResetMs = boundaries.daily.currentResetMs;
-      const weeklyResetMs = boundaries.weekly.currentResetMs;
-
-      const allVisibleRuns = (db.runs && Array.isArray(db.runs[diffKey]))
-        ? db.runs[diffKey].filter(r => !r.hidden && (r.adminOverride || (r.isWithinDanishWindow !== undefined ? r.isWithinDanishWindow : isWithinDanishWindow(r.createdAt))))
-        : [];
-
-      const weeklyVisibleRuns = allVisibleRuns.filter(r => (r.createdAt || 0) >= weeklyResetMs);
-      const dailyVisibleRuns = allVisibleRuns.filter(r => (r.createdAt || 0) >= dailyResetMs);
-
-      const getTimeframeStats = (runsList, targetRunId, username, isNewPb) => {
-        const sorted = runsList.slice().sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score;
-          return (a.createdAt || 0) - (b.createdAt || 0);
-        });
-
-        // Rank of THIS specific run among all runs in this timeframe
-        const runIdx = targetRunId ? sorted.findIndex(r => r.id === targetRunId) : -1;
-        const runRank = runIdx !== -1 ? (runIdx + 1) : (sorted.length + 1);
-        const targetRun = runIdx !== -1 ? sorted[runIdx] : null;
-        const thisRunScore = targetRun ? targetRun.score : verifiedScore;
-
-        // Unique players ranking (each player's best score in this timeframe)
-        const uKey = (username || '').toLowerCase();
-        let prevBestInTimeframe = 0;
-        const maxScoreMap = new Map();
-        for (const r of sorted) {
-          const k = (r.username || '').toLowerCase();
-          if (k === uKey && r.id !== targetRunId && r.score > prevBestInTimeframe) {
-            prevBestInTimeframe = r.score;
-          }
-          const cur = maxScoreMap.get(k);
-          if (cur === undefined || r.score > cur) {
-            maxScoreMap.set(k, r.score);
-          }
-        }
-
-        const isNewTimeframeBest = thisRunScore > prevBestInTimeframe;
-
-        const uniquePlayers = [];
-        const seen = new Set();
-        for (const r of sorted) {
-          const k = (r.username || '').toLowerCase();
-          if (!seen.has(k) && r.score === maxScoreMap.get(k)) {
-            seen.add(k);
-            uniquePlayers.push(r);
-          }
-        }
-
-        const playerIdx = uniquePlayers.findIndex(r => (r.username || '').toLowerCase() === uKey);
-        const playerRank = playerIdx !== -1 ? (playerIdx + 1) : (uniquePlayers.length + 1);
-
-        // CRITICAL FIX: A run only claims the player's unique standing rank (playerRank) in this timeframe
-        // if THIS specific run beat the player's previous best score in this timeframe (isNewTimeframeBest)!
-        const placementRank = isNewTimeframeBest ? playerRank : runRank;
-
-        // Only announce podium / top placements if this run actually set a new best for this player in this timeframe!
-        const isTop1 = isNewTimeframeBest && playerRank === 1 && runRank === 1;
-        const isTop2 = isNewTimeframeBest && playerRank === 2;
-        const isTop3 = isNewTimeframeBest && playerRank === 3;
-        const isTop5 = isNewTimeframeBest && playerRank <= 5;
-        const isTop10 = isNewTimeframeBest && playerRank <= 10;
-
-        return {
-          runRank,
-          playerRank,
-          placementRank,
-          isNewTimeframeBest,
-          totalRuns: sorted.length,
-          totalPlayers: uniquePlayers.length,
-          isTop1,
-          isTop2,
-          isTop3,
-          isTop5,
-          isTop10
-        };
-      };
-
-      const dailyStats = getTimeframeStats(dailyVisibleRuns, newRunId, user.username, isNewRecord);
-      const weeklyStats = getTimeframeStats(weeklyVisibleRuns, newRunId, user.username, isNewRecord);
-      const allStats = getTimeframeStats(allVisibleRuns, newRunId, user.username, isNewRecord);
-
-      timeframePlacements = {
-        daily: dailyStats.placementRank,
-        weekly: weeklyStats.placementRank,
-        all: allStats.placementRank
-      };
-
-      if (withinWindow && verifiedScore > 0) {
-        // TIER 1: ALL-TIME PODIUM (Top 1, 2, 3) & TOP 5
-        if (allStats.isTop1) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top1',
-            tagLabel: `ALL-TIME #1 • ${modeLabel}`,
-            leaderboardType: 'all',
-            username: 'Leaderboard Bot',
-            avatar: '👑',
-            text: `${user.username} got #1 on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
-          });
-        } else if (allStats.isTop2 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top2',
-            tagLabel: `ALL-TIME #2 • ${modeLabel}`,
-            leaderboardType: 'all',
-            username: 'Leaderboard Bot',
-            avatar: '🥈',
-            text: `${user.username} got #2 on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
-          });
-        } else if (allStats.isTop3 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top3',
-            tagLabel: `ALL-TIME #3 • ${modeLabel}`,
-            leaderboardType: 'all',
-            username: 'Leaderboard Bot',
-            avatar: '🥉',
-            text: `${user.username} got #3 on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
-          });
-        } else if (allStats.isTop5 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top5',
-            tagLabel: `ALL-TIME TOP 5 • ${modeLabel}`,
-            leaderboardType: 'all',
-            username: 'Leaderboard Bot',
-            avatar: isNewRecord ? '🔥' : '⭐',
-            text: `${user.username} reached #${allStats.playerRank} on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
-          });
-        }
-        // TIER 2: WEEKLY PODIUM (Top 1, 2, 3) & TOP 5
-        else if (weeklyStats.isTop1 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top1',
-            tagLabel: `WEEKLY #1 • ${modeLabel}`,
-            leaderboardType: 'weekly',
-            username: 'Leaderboard Bot',
-            avatar: '👑',
-            text: `${user.username} got #1 on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
-          });
-        } else if (weeklyStats.isTop2 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top2',
-            tagLabel: `WEEKLY #2 • ${modeLabel}`,
-            leaderboardType: 'weekly',
-            username: 'Leaderboard Bot',
-            avatar: '🥈',
-            text: `${user.username} got #2 on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
-          });
-        } else if (weeklyStats.isTop3 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top3',
-            tagLabel: `WEEKLY #3 • ${modeLabel}`,
-            leaderboardType: 'weekly',
-            username: 'Leaderboard Bot',
-            avatar: '🥉',
-            text: `${user.username} got #3 on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
-          });
-        } else if (weeklyStats.isTop5 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top5',
-            tagLabel: `WEEKLY TOP 5 • ${modeLabel}`,
-            leaderboardType: 'weekly',
-            username: 'Leaderboard Bot',
-            avatar: isNewRecord ? '🔥' : '⭐',
-            text: `${user.username} reached #${weeklyStats.playerRank} on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
-          });
-        }
-        // TIER 3: DAILY PODIUM (Top 1, 2, 3) & TOP 5
-        else if (dailyStats.isTop1 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top1',
-            tagLabel: `DAILY #1 • ${modeLabel}`,
-            leaderboardType: 'daily',
-            username: 'Leaderboard Bot',
-            avatar: '👑',
-            text: `${user.username} got #1 on ${modeLabel} (Daily) with ${verifiedScore} pts!`
-          });
-        } else if (dailyStats.isTop2 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top2',
-            tagLabel: `DAILY #2 • ${modeLabel}`,
-            leaderboardType: 'daily',
-            username: 'Leaderboard Bot',
-            avatar: '🥈',
-            text: `${user.username} got #2 on ${modeLabel} (Daily) with ${verifiedScore} pts!`
-          });
-        } else if (dailyStats.isTop3 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top3',
-            tagLabel: `DAILY #3 • ${modeLabel}`,
-            leaderboardType: 'daily',
-            username: 'Leaderboard Bot',
-            avatar: '🥉',
-            text: `${user.username} got #3 on ${modeLabel} (Daily) with ${verifiedScore} pts!`
-          });
-        } else if (dailyStats.isTop5 && (isNewRecord || verifiedScore >= 5)) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top5',
-            tagLabel: `DAILY TOP 5 • ${modeLabel}`,
-            leaderboardType: 'daily',
-            username: 'Leaderboard Bot',
-            avatar: isNewRecord ? '🔥' : '⭐',
-            text: `${user.username} reached #${dailyStats.playerRank} on ${modeLabel} (Daily) with ${verifiedScore} pts!`
-          });
-        }
-        // TIER 4: TOP 10 (All-Time, Weekly, Daily)
-        else if (isNewRecord && allStats.isTop10) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top10',
-            tagLabel: `ALL-TIME TOP 10 • ${modeLabel}`,
-            leaderboardType: 'all',
-            username: 'Leaderboard Bot',
-            avatar: '⭐',
-            text: `${user.username} reached #${allStats.playerRank} on ${modeLabel} (All-Time) with ${verifiedScore} pts!`
-          });
-        } else if (isNewRecord && weeklyStats.isTop10) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top10',
-            tagLabel: `WEEKLY TOP 10 • ${modeLabel}`,
-            leaderboardType: 'weekly',
-            username: 'Leaderboard Bot',
-            avatar: '⭐',
-            text: `${user.username} reached #${weeklyStats.playerRank} on ${modeLabel} (Weekly) with ${verifiedScore} pts!`
-          });
-        } else if (isNewRecord && dailyStats.isTop10) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'top10',
-            tagLabel: `DAILY TOP 10 • ${modeLabel}`,
-            leaderboardType: 'daily',
-            username: 'Leaderboard Bot',
-            avatar: '⭐',
-            text: `${user.username} reached #${dailyStats.playerRank} on ${modeLabel} (Daily) with ${verifiedScore} pts!`
-          });
-        }
-        // TIER 5: PERSONAL BEST BEYOND TOP 10
-        else if (isNewRecord) {
-          addChatMessage({
-            type: 'system',
-            subtype: 'new_best',
-            tagLabel: `NEW BEST • ${modeLabel}`,
-            leaderboardType: 'personal',
-            username: 'Record Bot',
-            avatar: '🎉',
-            text: `${user.username} set a new ${modeLabel} Personal Best of ${verifiedScore} pts!`
-          });
-        }
-      }
-    } catch (annErr) {
-      console.warn('Chat announcement notice:', annErr.message);
-    }
-
-    return sendJSON(res, 200, {
-      verified: true,
-      verifiedScore,
-      difficulty: diffKey,
-      isNewRecord,
-      previousBest,
-      autoHidden: Boolean(autoHidden),
-      withinWindow: Boolean(withinWindow),
-      entryId: newRunId,
-      timeframePlacements,
-      records: user.records,
-      leaderboards: buildLeaderboards(),
-      timeframeLeaderboards: {
-        all: buildLeaderboards(100, 'all'),
-        weekly: buildLeaderboards(100, 'weekly'),
-        daily: buildLeaderboards(100, 'daily')
-      },
-      resetBoundaries: getLeaderboardResetBoundaries()
-    });
+    const resultPayload = processVerifiedRunSubmission(auth.user, run.difficulty, verification.verifiedScore);
+    return sendJSON(res, 200, resultPayload);
   }
 
   // --------------------------------------------------------------------------
@@ -1586,11 +1571,16 @@ async function handleApiRequest(req, res, pathname, port) {
       }
 
       const rankedLeaderboard = buildDuelRankedLeaderboard();
+      const duelHighScoreLeaderboard = buildDuelHighScoreLeaderboard(true);
+      const duelHighScoreAllMatches = buildDuelHighScoreLeaderboard(false);
       const myRankEntry = rankedLeaderboard.find(r => r.username.toLowerCase() === caller.usernameKey);
+      const myHighEntry = duelHighScoreLeaderboard.find(r => r.username.toLowerCase() === caller.usernameKey);
 
       return sendJSON(res, 200, {
         lobbies: getPublicDuelLobbiesList(),
         rankedLeaderboard,
+        duelHighScoreLeaderboard,
+        duelHighScoreAllMatches,
         activeLobby: activeLobby ? serializeDuelLobby(activeLobby, true) : null,
         spectatingLobby,
         myDuelStats: {
@@ -1600,7 +1590,9 @@ async function handleApiRequest(req, res, pathname, port) {
           duelLosses: myRankEntry ? myRankEntry.duelLosses : caller.duelLosses,
           duelMatches: myRankEntry ? myRankEntry.duelMatches : caller.duelMatches,
           duelCoins: Math.round(Number(caller.duelCoins) || 0),
-          rank: myRankEntry ? myRankEntry.rank : null
+          rank: myRankEntry ? myRankEntry.rank : null,
+          duelBestMatchPoints: myHighEntry ? myHighEntry.points : (caller.duelBestMatchPoints || 0),
+          highScoreRank: myHighEntry ? myHighEntry.rank : null
         },
         serverTime: Date.now()
       });
@@ -1855,6 +1847,7 @@ async function handleApiRequest(req, res, pathname, port) {
                      lobby.players.find(p => p.usernameKey === caller.usernameKey);
       const rKey = (body.round && DUEL_ROUNDS.includes(body.round)) ? body.round : (lobby.currentRound || 'easy');
 
+      let runResult = null;
       if (player && DUEL_ROUNDS.includes(rKey)) {
         const cleanScore = Math.max(0, Math.floor(Number(body.rawScore) || 0));
         player.rounds[rKey].rawScore = cleanScore;
@@ -1864,12 +1857,32 @@ async function handleApiRequest(req, res, pathname, port) {
         player.live.alive = false;
         player.lastHeartbeat = Date.now();
         recomputeDuelPlayerPoints(player);
+
+        // Also submit to the normal leaderboard if authenticated, score > 0, and replay passes anti-cheat!
+        const auth = getAuthenticatedUser(req);
+        if (auth && cleanScore > 0 && Array.isArray(body.flapTicks) && typeof body.totalTicks === 'number') {
+          const elapsedWallMs = Date.now() - (lobby.roundStartedAt || Date.now());
+          const simulatedDurationMs = (body.totalTicks / SIM_CONFIG.tickRate) * 1000;
+          if (simulatedDurationMs <= elapsedWallMs + 3500) {
+            const verification = verifyGameReplay({
+              seed: lobby.roundSeed,
+              difficulty: rKey,
+              flapTicks: body.flapTicks,
+              totalTicks: body.totalTicks,
+              claimedScore: cleanScore
+            });
+            if (verification.valid && verification.verifiedScore > 0) {
+              runResult = processVerifiedRunSubmission(auth.user, rKey, verification.verifiedScore);
+            }
+          }
+        }
       }
 
       advanceDuelLobbyClock(lobby);
 
       return sendJSON(res, 200, {
-        lobby: serializeDuelLobby(lobby, true)
+        lobby: serializeDuelLobby(lobby, true),
+        runResult
       });
     }
 
@@ -2049,7 +2062,8 @@ async function handleApiRequest(req, res, pathname, port) {
       loginHistory: db.loginHistory || [],
       adminSettings: db.adminSettings || {},
       users: db.users,
-      runs: db.runs
+      runs: db.runs,
+      duelMatchHighScores: db.duelMatchHighScores || []
     };
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',

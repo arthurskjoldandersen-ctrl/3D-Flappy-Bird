@@ -100,7 +100,7 @@ function isSkinNaturallyUnlockedForUser(skinId, user) {
   }
 
   if (item.reqMode === 'meme') {
-    if (item.reqScore && anyBest >= item.reqScore) return true;
+    return true;
   }
 
   return false;
@@ -798,6 +798,9 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     if (typeof u.duelDraws !== 'number' || Number.isNaN(u.duelDraws)) u.duelDraws = 0;
     if (typeof u.duelMatches !== 'number' || Number.isNaN(u.duelMatches)) u.duelMatches = 0;
     if (typeof u.duelCoins !== 'number' || Number.isNaN(u.duelCoins)) u.duelCoins = 0;
+    if (typeof u.duelBestMatchPoints !== 'number' || Number.isNaN(u.duelBestMatchPoints)) u.duelBestMatchPoints = 0;
+    u.duelBestMatchPoints = Math.max(0, Math.floor(u.duelBestMatchPoints));
+    if (u.duelBestMatchBreakdown && typeof u.duelBestMatchBreakdown !== 'object') u.duelBestMatchBreakdown = null;
 
     // Clean grantedSkins: never count default skins or skins the player already naturally unlocked via their scores!
     u.grantedSkins = u.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && !isSkinNaturallyUnlockedForUser(id, u));
@@ -828,6 +831,8 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       duelWins: u.duelWins,
       duelLosses: u.duelLosses,
       duelCoins: Math.round(Number(u.duelCoins) || 0),
+      duelBestMatchPoints: u.duelBestMatchPoints || 0,
+      duelBestMatchBreakdown: u.duelBestMatchBreakdown || null,
       allTimeBest,
       leaderboardPlacements: {
         total: easySpots + medSpots + hardSpots,
@@ -849,6 +854,63 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     };
   }
   if (!db.loginHistory) db.loginHistory = [];
+  if (!Array.isArray(db.duelMatchHighScores)) db.duelMatchHighScores = [];
+
+  // Ensure every registered user's duelBestMatchPoints is reflected in db.duelMatchHighScores (and vice versa)
+  const bestInListByUser = new Map();
+  for (const entry of db.duelMatchHighScores) {
+    if (!entry || !entry.username) continue;
+    const uKey = String(entry.username).toLowerCase();
+    const pts = Math.max(0, Math.floor(Number(entry.points) || 0));
+    if (pts <= 0) continue;
+    if (!bestInListByUser.has(uKey) || pts > bestInListByUser.get(uKey)) {
+      bestInListByUser.set(uKey, pts);
+    }
+    const usr = db.users[uKey];
+    if (usr && pts > (Number(usr.duelBestMatchPoints) || 0)) {
+      usr.duelBestMatchPoints = pts;
+      usr.duelBestMatchBreakdown = {
+        easyRaw: Number(entry.easyRaw) || 0,
+        mediumRaw: Number(entry.mediumRaw) || 0,
+        hardRaw: Number(entry.hardRaw) || 0,
+        easyPts: Number(entry.easyPts) || 0,
+        mediumPts: Number(entry.mediumPts) || 0,
+        hardPts: Number(entry.hardPts) || 0,
+        opponent: entry.opponent || '',
+        achievedAt: Number(entry.createdAt) || Date.now()
+      };
+      if (overview[usr.username]) {
+        overview[usr.username].duelBestMatchPoints = pts;
+        overview[usr.username].duelBestMatchBreakdown = usr.duelBestMatchBreakdown;
+      }
+    }
+  }
+  for (const u of Object.values(db.users)) {
+    if (!u || !u.username) continue;
+    const uKey = u.username.toLowerCase();
+    const bestPts = Math.max(0, Math.floor(Number(u.duelBestMatchPoints) || 0));
+    if (bestPts > 0 && bestPts > (bestInListByUser.get(uKey) || 0)) {
+      const bd = u.duelBestMatchBreakdown || {};
+      db.duelMatchHighScores.push({
+        id: crypto.randomBytes(6).toString('hex'),
+        username: u.username,
+        points: bestPts,
+        easyRaw: Number(bd.easyRaw) || 0,
+        mediumRaw: Number(bd.mediumRaw) || 0,
+        hardRaw: Number(bd.hardRaw) || 0,
+        easyPts: Number(bd.easyPts) || 0,
+        mediumPts: Number(bd.mediumPts) || 0,
+        hardPts: Number(bd.hardPts) || 0,
+        opponent: bd.opponent || '',
+        createdAt: Number(bd.achievedAt) || Date.now()
+      });
+    }
+  }
+  db.duelMatchHighScores = db.duelMatchHighScores
+    .filter(e => e && e.username && Number(e.points) > 0)
+    .sort((a, b) => (b.points - a.points) || ((a.createdAt || 0) - (b.createdAt || 0)))
+    .slice(0, 200);
+
   db.playerRecordsOverview = overview;
 
   // 5. Update `databaseStatus` summary header at the very top of `db.json`
@@ -931,6 +993,7 @@ function loadDatabase(fromWatcher = false) {
         adminSettings: (parsed.adminSettings && typeof parsed.adminSettings === 'object') ? parsed.adminSettings : {},
         users: parsed.users || {},
         runs: parsed.runs || { easy: [], medium: [], hard: [] },
+        duelMatchHighScores: Array.isArray(parsed.duelMatchHighScores) ? parsed.duelMatchHighScores : [],
         sessions: parsed.sessions || {},
         chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : []
       };
@@ -943,6 +1006,7 @@ function loadDatabase(fromWatcher = false) {
     ['easy', 'medium', 'hard'].forEach(diff => {
       if (!Array.isArray(db.runs[diff])) db.runs[diff] = [];
     });
+    if (!Array.isArray(db.duelMatchHighScores)) db.duelMatchHighScores = [];
 
     if (db.activityFeed.length === 0) {
       logDatabaseEvent(
@@ -975,6 +1039,7 @@ function writeOrderedDbToDisk(forceBackup = false) {
       adminSettings: db.adminSettings || {},
       users: db.users,
       runs: db.runs,
+      duelMatchHighScores: db.duelMatchHighScores || [],
       sessions: db.sessions,
       chatMessages: db.chatMessages || []
     };
@@ -1706,12 +1771,16 @@ function calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB) {
 
   if (actualA === 1) {
     deltaA = Math.max(4, deltaA);
-    deltaB = -deltaA;
+    const lossReduction = deltaA >= 16 ? 2 : 1;
+    deltaB = -Math.max(2, deltaA - lossReduction);
   } else if (actualB === 1) {
     deltaB = Math.max(4, deltaB);
-    deltaA = -deltaB;
+    const lossReduction = deltaB >= 16 ? 2 : 1;
+    deltaA = -Math.max(2, deltaB - lossReduction);
   } else {
-    deltaB = -deltaA;
+    if (deltaA > 0) deltaB = -Math.max(0, deltaA - 1);
+    else if (deltaB > 0) deltaA = -Math.max(0, deltaB - 1);
+    else deltaB = -deltaA;
   }
 
   const newEloA = Math.max(100, rA + deltaA);
@@ -1730,8 +1799,9 @@ function calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB) {
 /**
  * Records the final outcome of a 3-round Ranked Duel in the database and updates both players' Elo.
  */
-function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB) {
+function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details = {}) {
   if (!db.users) db.users = {};
+  if (!Array.isArray(db.duelMatchHighScores)) db.duelMatchHighScores = [];
   const keyA = String(usernameA || '').toLowerCase();
   const keyB = String(usernameB || '').toLowerCase();
   const userA = db.users[keyA];
@@ -1742,10 +1812,10 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB) {
 
   const eloRes = calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB);
 
-  const safePointsA = Math.max(0, Number(pointsA) || 0);
-  const safePointsB = Math.max(0, Number(pointsB) || 0);
-  let coinsA = Math.round(safePointsA);
-  let coinsB = Math.round(safePointsB);
+  const safePointsA = Math.max(0, Math.round(Number(pointsA) || 0));
+  const safePointsB = Math.max(0, Math.round(Number(pointsB) || 0));
+  let coinsA = safePointsA;
+  let coinsB = safePointsB;
   if (safePointsA > safePointsB) {
     coinsA = Math.round(safePointsA * 1.5);
     coinsB = Math.round(safePointsB * 0.7);
@@ -1754,6 +1824,41 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB) {
     coinsB = Math.round(safePointsB * 1.5);
   }
 
+  const now = Date.now();
+  const recordUserMatchHighScore = (userObj, pts, roundsObj, oppName) => {
+    if (!userObj || pts <= 0) return;
+    const rE = (roundsObj && roundsObj.easy) || {};
+    const rM = (roundsObj && roundsObj.medium) || {};
+    const rH = (roundsObj && roundsObj.hard) || {};
+    const entry = {
+      id: crypto.randomBytes(6).toString('hex'),
+      username: userObj.username,
+      points: pts,
+      easyRaw: Number(rE.rawScore) || 0,
+      mediumRaw: Number(rM.rawScore) || 0,
+      hardRaw: Number(rH.rawScore) || 0,
+      easyPts: Number(rE.weightedScore) || 0,
+      mediumPts: Number(rM.weightedScore) || 0,
+      hardPts: Number(rH.weightedScore) || 0,
+      opponent: String(oppName || ''),
+      createdAt: now
+    };
+    db.duelMatchHighScores.push(entry);
+    if (pts > (Number(userObj.duelBestMatchPoints) || 0)) {
+      userObj.duelBestMatchPoints = pts;
+      userObj.duelBestMatchBreakdown = {
+        easyRaw: entry.easyRaw,
+        mediumRaw: entry.mediumRaw,
+        hardRaw: entry.hardRaw,
+        easyPts: entry.easyPts,
+        mediumPts: entry.mediumPts,
+        hardPts: entry.hardPts,
+        opponent: entry.opponent,
+        achievedAt: now
+      };
+    }
+  };
+
   if (userA && keyA !== keyB) {
     userA.duelElo = eloRes.newEloA;
     userA.duelMatches = (userA.duelMatches || 0) + 1;
@@ -1761,6 +1866,7 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB) {
     if (pointsA > pointsB) userA.duelWins = (userA.duelWins || 0) + 1;
     else if (pointsB > pointsA) userA.duelLosses = (userA.duelLosses || 0) + 1;
     else userA.duelDraws = (userA.duelDraws || 0) + 1;
+    recordUserMatchHighScore(userA, safePointsA, details.roundsA, usernameB);
   }
 
   if (userB && keyA !== keyB) {
@@ -1770,7 +1876,13 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB) {
     if (pointsB > pointsA) userB.duelWins = (userB.duelWins || 0) + 1;
     else if (pointsA > pointsB) userB.duelLosses = (userB.duelLosses || 0) + 1;
     else userB.duelDraws = (userB.duelDraws || 0) + 1;
+    recordUserMatchHighScore(userB, safePointsB, details.roundsB, usernameA);
   }
+
+  db.duelMatchHighScores = db.duelMatchHighScores
+    .filter(e => e && e.username && Number(e.points) > 0)
+    .sort((a, b) => (b.points - a.points) || ((a.createdAt || 0) - (b.createdAt || 0)))
+    .slice(0, 200);
 
   saveDatabase(false);
   return {
@@ -1780,6 +1892,72 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB) {
     newCoinsA: userA ? Math.round(userA.duelCoins || 0) : coinsA,
     newCoinsB: userB ? Math.round(userB.duelCoins || 0) : coinsB
   };
+}
+
+/**
+ * Builds the Ranked Duels High-Score Leaderboard (most points in 1 ranked 3-round game).
+ * Uses `db.duelMatchHighScores` + `users[*].duelBestMatchPoints` so nothing is ever lost.
+ */
+function buildDuelHighScoreLeaderboard(uniqueOnly = false, limit = 100) {
+  const rawList = Array.isArray(db.duelMatchHighScores) ? db.duelMatchHighScores.slice() : [];
+  const seenBestByUser = new Set();
+  for (const e of rawList) {
+    if (e && e.username) seenBestByUser.add(String(e.username).toLowerCase());
+  }
+
+  if (db.users && typeof db.users === 'object') {
+    for (const u of Object.values(db.users)) {
+      if (!u || !u.username) continue;
+      const pts = Math.max(0, Math.floor(Number(u.duelBestMatchPoints) || 0));
+      if (pts > 0 && !seenBestByUser.has(u.username.toLowerCase())) {
+        const bd = u.duelBestMatchBreakdown || {};
+        rawList.push({
+          id: 'best_' + u.username.toLowerCase(),
+          username: u.username,
+          points: pts,
+          easyRaw: Number(bd.easyRaw) || 0,
+          mediumRaw: Number(bd.mediumRaw) || 0,
+          hardRaw: Number(bd.hardRaw) || 0,
+          easyPts: Number(bd.easyPts) || 0,
+          mediumPts: Number(bd.mediumPts) || 0,
+          hardPts: Number(bd.hardPts) || 0,
+          opponent: bd.opponent || '',
+          createdAt: Number(bd.achievedAt) || Number(u.lastNewBestAt) || 0
+        });
+      }
+    }
+  }
+
+  const sorted = rawList
+    .filter(e => e && e.username && Number(e.points) > 0)
+    .sort((a, b) => (b.points - a.points) || ((a.createdAt || 0) - (b.createdAt || 0)));
+
+  const finalItems = [];
+  const uniqueUsers = new Set();
+  for (const e of sorted) {
+    const uKey = String(e.username).toLowerCase();
+    if (uniqueOnly) {
+      if (uniqueUsers.has(uKey)) continue;
+      uniqueUsers.add(uKey);
+    }
+    const usr = db.users && db.users[uKey];
+    finalItems.push({
+      rank: finalItems.length + 1,
+      id: e.id || '',
+      username: usr ? usr.username : e.username,
+      points: Math.round(Number(e.points) || 0),
+      easyRaw: Number(e.easyRaw) || 0,
+      mediumRaw: Number(e.mediumRaw) || 0,
+      hardRaw: Number(e.hardRaw) || 0,
+      easyPts: Number(e.easyPts) || 0,
+      mediumPts: Number(e.mediumPts) || 0,
+      hardPts: Number(e.hardPts) || 0,
+      opponent: e.opponent || '',
+      createdAt: Number(e.createdAt) || 0
+    });
+    if (finalItems.length >= limit) break;
+  }
+  return finalItems;
 }
 
 /**
@@ -1903,5 +2081,6 @@ module.exports = {
   addChatMessage,
   calculateDuelEloUpdate,
   recordDuelMatchResult,
-  buildDuelRankedLeaderboard
+  buildDuelRankedLeaderboard,
+  buildDuelHighScoreLeaderboard
 };

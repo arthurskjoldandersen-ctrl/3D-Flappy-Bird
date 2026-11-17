@@ -3009,7 +3009,23 @@ class FlappyBirdUIAndProgression {
           this.applySkinVisualsOnly(skin, skipProfileUpdate);
 
           if (saveToServer && this.authToken && this.currentUser) {
-            this.apiRequest('/api/skin', 'POST', { skinId: skin.id }).catch(() => {});
+            this.currentUser.selectedSkin = skin.id;
+            this._pendingBirdSkinSave = skin.id;
+            this._lastLocalBirdSkinChangeAt = Date.now();
+            this.apiRequest('/api/skin', 'POST', { skinId: skin.id })
+              .then((res) => {
+                if (this._pendingBirdSkinSave === skin.id) {
+                  this._pendingBirdSkinSave = null;
+                }
+                if (res && res.selectedSkin && this.currentUser && this._lastLocalBirdSkinChangeAt && !this._pendingBirdSkinSave) {
+                  this.currentUser.selectedSkin = res.selectedSkin;
+                }
+              })
+              .catch(() => {
+                if (this._pendingBirdSkinSave === skin.id) {
+                  this._pendingBirdSkinSave = null;
+                }
+              });
           }
         }
 
@@ -3170,7 +3186,23 @@ class FlappyBirdUIAndProgression {
           this.applyPipeSkinVisualsOnly(pipeSkin, skipProfileUpdate);
 
           if (saveToServer && this.authToken && this.currentUser) {
-            this.apiRequest('/api/skin', 'POST', { pipeSkinId: pipeSkin.id }).catch(() => {});
+            this.currentUser.selectedPipeSkin = pipeSkin.id;
+            this._pendingPipeSkinSave = pipeSkin.id;
+            this._lastLocalPipeSkinChangeAt = Date.now();
+            this.apiRequest('/api/skin', 'POST', { pipeSkinId: pipeSkin.id })
+              .then((res) => {
+                if (this._pendingPipeSkinSave === pipeSkin.id) {
+                  this._pendingPipeSkinSave = null;
+                }
+                if (res && res.selectedPipeSkin && this.currentUser && this._lastLocalPipeSkinChangeAt && !this._pendingPipeSkinSave) {
+                  this.currentUser.selectedPipeSkin = res.selectedPipeSkin;
+                }
+              })
+              .catch(() => {
+                if (this._pendingPipeSkinSave === pipeSkin.id) {
+                  this._pendingPipeSkinSave = null;
+                }
+              });
           }
         }
 
@@ -3529,9 +3561,11 @@ class FlappyBirdUIAndProgression {
             this.currentUser.duelElo = userSync.duelElo;
           }
 
-          // 4. Sync equipped bird skin
+          // 4. Sync equipped bird skin (never overwrite an in-flight or just-saved local skin change)
           const targetBirdSkin = userSync.selectedSkin || 'classic';
-          if (this.currentUser.selectedSkin !== targetBirdSkin || this.selectedSkinId !== targetBirdSkin) {
+          const birdSaveGrace = this._pendingBirdSkinSave || (Date.now() - (this._lastLocalBirdSkinChangeAt || 0) < 5000);
+          if ((!birdSaveGrace || targetBirdSkin === this.selectedSkinId) &&
+              (this.currentUser.selectedSkin !== targetBirdSkin || this.selectedSkinId !== targetBirdSkin)) {
             this.currentUser.selectedSkin = targetBirdSkin;
             this.selectedSkinId = targetBirdSkin;
             localStorage.setItem('flappy3d_skin', targetBirdSkin);
@@ -3540,9 +3574,11 @@ class FlappyBirdUIAndProgression {
             hasGridChanges = true;
           }
 
-          // 5. Sync equipped pipe skin
+          // 5. Sync equipped pipe skin (never overwrite an in-flight or just-saved local pipe skin change)
           const targetPipeSkin = userSync.selectedPipeSkin || 'classic_pipe';
-          if (this.currentUser.selectedPipeSkin !== targetPipeSkin || this.selectedPipeSkinId !== targetPipeSkin) {
+          const pipeSaveGrace = this._pendingPipeSkinSave || (Date.now() - (this._lastLocalPipeSkinChangeAt || 0) < 5000);
+          if ((!pipeSaveGrace || targetPipeSkin === this.selectedPipeSkinId) &&
+              (this.currentUser.selectedPipeSkin !== targetPipeSkin || this.selectedPipeSkinId !== targetPipeSkin)) {
             this.currentUser.selectedPipeSkin = targetPipeSkin;
             this.selectedPipeSkinId = targetPipeSkin;
             localStorage.setItem('flappy3d_pipe_skin', targetPipeSkin);

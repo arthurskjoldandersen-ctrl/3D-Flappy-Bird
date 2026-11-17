@@ -134,15 +134,23 @@ async function syncLiveDatabase() {
       liveDb.runs[diff] = prunedRuns;
     });
 
+    const rawHighScores = Array.isArray(liveDb.duelMatchHighScores) ? liveDb.duelMatchHighScores : [];
+    liveDb.duelMatchHighScores = rawHighScores
+      .filter(e => e && e.username && Number(e.points) > 0)
+      .sort((a, b) => (b.points - a.points) || ((a.createdAt || 0) - (b.createdAt || 0)))
+      .slice(0, 200);
+
     const userCount = Object.keys(liveDb.users || {}).length;
     const easyCount = liveDb.runs?.easy?.length || 0;
     const medCount = liveDb.runs?.medium?.length || 0;
     const hardCount = liveDb.runs?.hard?.length || 0;
+    const rankedMatchCount = liveDb.duelMatchHighScores.length;
     const totalRuns = easyCount + medCount + hardCount;
 
     console.log(`✅ Live Database Retrieved!`);
     console.log(`   👥 Total Registered Players: ${userCount}`);
     console.log(`   🏃 Total Verified Runs: ${totalRuns} (Easy: ${easyCount}, Med: ${medCount}, Hard: ${hardCount} — capped at Top 100 runs per player per mode)`);
+    console.log(`   ⚔️ Ranked Match High Scores: ${rankedMatchCount} saved`);
 
     // 3. Create a safety backup of local db.json if it exists
     if (!fs.existsSync(BACKUPS_DIR)) {

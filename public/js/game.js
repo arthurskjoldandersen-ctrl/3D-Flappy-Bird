@@ -417,6 +417,23 @@
             btn.addEventListener('click', (e) => handleDuelTabTrigger(btn, e));
           });
 
+          document.querySelectorAll('.duel-ranked-mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const mode = btn.getAttribute('data-duel-ranked-mode') === 'points' ? 'points' : 'elo';
+              this.currentDuelRankedMode = mode;
+              document.querySelectorAll('.duel-ranked-mode-btn').forEach(b => {
+                const isSel = b.getAttribute('data-duel-ranked-mode') === mode;
+                b.classList.toggle('active', isSel);
+                b.setAttribute('aria-selected', isSel ? 'true' : 'false');
+              });
+              if (this.sound) this.sound.playFlap();
+              if (typeof this.renderDuelRankedLeaderboard === 'function') {
+                this.renderDuelRankedLeaderboard();
+              }
+            });
+          });
+
           const qmBtn = document.getElementById('btn-duel-quick-match');
           if (qmBtn) {
             qmBtn.addEventListener('click', (e) => {
@@ -1619,13 +1636,18 @@
         // ------------------------------------------------------------------------
         update(frameDt) {
           this.elapsedTime += frameDt;
-          const isSpectatingDuel = Boolean(this.duelSpectatingLobbyId && this.duelSpectatingLobby);
-          const specRoundKey = (isSpectatingDuel && this.duelSpectatingLobby.currentRound) || this.selectedDifficulty || 'medium';
+          const activeSpecLobby = (this.duelSpectatingLobbyId && this.duelSpectatingLobby)
+            ? this.duelSpectatingLobby
+            : (this.duelSoloSpectatingOpp && this.activeDuelLobby && this.activeDuelLobby.status === 'playing'
+              ? this.activeDuelLobby
+              : null);
+          const isSpectatingDuel = Boolean(activeSpecLobby);
+          const specRoundKey = (activeSpecLobby && activeSpecLobby.currentRound) || this.selectedDifficulty || 'medium';
           const specDiffCfg = CONFIG.difficulties[specRoundKey] || CONFIG.difficulties.medium;
           const diff = this.getDifficultyParams();
           const visualScrollSpeed = (this.state === GAME_STATE.PLAYING)
             ? diff.speed
-            : (isSpectatingDuel && this.duelSpectatingLobby.status === 'playing'
+            : (isSpectatingDuel && activeSpecLobby.status === 'playing'
               ? (specDiffCfg.maxSpeed ? (CONFIG.baseSpeed + specDiffCfg.maxSpeed) * 0.5 : CONFIG.baseSpeed)
               : (this.state === GAME_STATE.START ? 3.2 : 0));
 
@@ -1647,7 +1669,7 @@
             }
           }
 
-          if (this.state === GAME_STATE.START) {
+          if (this.state === GAME_STATE.START && !isSpectatingDuel) {
             const hoverY = CONFIG.birdStartY + Math.sin(this.elapsedTime * 3.6) * 0.42;
             this.birdGroup.position.set(CONFIG.birdX, hoverY, 0);
             this.birdGroup.rotation.z = Math.cos(this.elapsedTime * 3.6) * 0.08;
@@ -1698,7 +1720,7 @@
             const flapAngle = Math.sin(this.wingPhase) * flapAmp;
             this.leftWingPivot.rotation.x = flapAngle;
             this.rightWingPivot.rotation.x = -flapAngle;
-          } else if (this.state === GAME_STATE.CRASHING || this.state === GAME_STATE.GAMEOVER) {
+          } else if ((this.state === GAME_STATE.CRASHING || this.state === GAME_STATE.GAMEOVER) && !isSpectatingDuel) {
             if (this.birdGroup.position.y > CONFIG.groundY + CONFIG.birdRadius) {
               this.birdVelocityY += CONFIG.gravity * 1.2 * frameDt;
               this.birdGroup.position.y = Math.max(
@@ -1832,6 +1854,8 @@
           if (this.renderer && this.scene && this.camera) {
             if (this.duelSpectatingLobbyId && this.duelSpectatingLobby) {
               this.renderDuelSpectatorSplitScreen(dt);
+            } else if (this.duelSoloSpectatingOpp && this.activeDuelLobby && this.activeDuelLobby.status === 'playing') {
+              this.renderSoloOpponentSpectate(dt);
             } else {
               this.renderer.setScissorTest(false);
               this.renderer.setViewport(0, 0, Math.max(1, window.innerWidth), Math.max(1, window.innerHeight));
@@ -1861,9 +1885,12 @@
           this.duelGuestName = gName;
 
           this.currentDuelTab = 'join';
+          this.currentDuelRankedMode = 'elo';
           this.duelLobbies = [];
           this.duelRankedLeaderboard = [];
-          this.myDuelStats = { duelElo: 1000, duelWins: 0, duelLosses: 0, duelMatches: 0, duelCoins: 0, rank: null };
+          this.duelHighScoreLeaderboard = [];
+          this.duelHighScoreAllMatches = [];
+          this.myDuelStats = { duelElo: 1000, duelWins: 0, duelLosses: 0, duelMatches: 0, duelCoins: 0, duelBestMatchPoints: 0, rank: null, highScoreRank: null };
           this.activeDuelLobby = null;
           this.activeDuelLobbyId = null;
           this.duelSpectatingLobby = null;
@@ -1874,11 +1901,16 @@
           this.lastDuelPollAt = 0;
           this.duelCountdownTargetMs = 0;
 
+          this.duelSoloSpectatingOpp = false;
+          this.duelSoloSpectateDelayUntil = 0;
+          this._specServerClockOffset = null;
+
           this.duelSpecSim = {
-            p1: { y: CONFIG.birdStartY, vy: 0, prevVy: 0, rotZ: 0, alive: true, speed: 0, birdOffsetY: 0, pipeOffsetX: 0, lastLiveUpdatedAt: 0, selectedSkin: 'classic', selectedPipeSkin: 'classic_pipe', wingPhase: 0, wingFlapBoost: 0, pipes: [] },
-            p2: { y: CONFIG.birdStartY, vy: 0, prevVy: 0, rotZ: 0, alive: true, speed: 0, birdOffsetY: 0, pipeOffsetX: 0, lastLiveUpdatedAt: 0, selectedSkin: 'classic', selectedPipeSkin: 'classic_pipe', wingPhase: 0, wingFlapBoost: 0, pipes: [] }
+            p1: this.createEmptySpecSim(),
+            p2: this.createEmptySpecSim(),
+            opp: this.createEmptySpecSim()
           };
-          this.duelSpecPipePools = { p1: [], p2: [] };
+          this.duelSpecPipePools = { p1: [], p2: [], opp: [] };
           this._lastSpecAppliedSkinId = null;
 
           this.hideAllDuelOverlays();
@@ -1887,15 +1919,19 @@
           this._duelPollTimer = setInterval(() => {
             if (document.hidden) return;
             const now = Date.now();
-            const isSpectating = Boolean(this.duelSpectatingLobbyId);
-            const isFastPoll = Boolean(this.activeDuelLobbyId || isSpectating);
-            const intervalMs = isSpectating ? 150 : (isFastPoll ? 250 : 1200);
+            const isLiveSpectating = Boolean(
+              this.duelSpectatingLobbyId ||
+              this.duelSoloSpectatingOpp ||
+              (this.activeDuelLobby && this.activeDuelLobby.status === 'playing' && this.duelRoundFinishedLocal)
+            );
+            const isFastPoll = Boolean(this.activeDuelLobbyId || this.duelSpectatingLobbyId);
+            const intervalMs = isLiveSpectating ? 95 : (isFastPoll ? 200 : 1200);
             if (!isFastPoll && this.currentAppView !== 'duels') return;
             if (now - this.lastDuelPollAt >= intervalMs) {
               this.lastDuelPollAt = now;
               this.fetchDuelsState();
             }
-          }, 75);
+          }, 50);
 
           if (this._duelCountdownTicker) clearInterval(this._duelCountdownTicker);
           this._duelCountdownTicker = setInterval(() => {
@@ -1991,11 +2027,28 @@
             const data = await this.apiRequest('/api/duels/state', 'POST', payload);
             if (!data) return;
 
+            if (typeof data.serverTime === 'number' && Number.isFinite(data.serverTime)) {
+              const localNow = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+              const sampleOffset = data.serverTime - localNow;
+              if (this._specServerClockOffset === null) {
+                this._specServerClockOffset = sampleOffset;
+              } else {
+                const diff = sampleOffset - this._specServerClockOffset;
+                this._specServerClockOffset += Math.abs(diff) > 350 ? diff * 0.5 : diff * 0.12;
+              }
+            }
+
             if (Array.isArray(data.lobbies)) {
               this.duelLobbies = data.lobbies;
             }
             if (Array.isArray(data.rankedLeaderboard)) {
               this.duelRankedLeaderboard = data.rankedLeaderboard;
+            }
+            if (Array.isArray(data.duelHighScoreLeaderboard)) {
+              this.duelHighScoreLeaderboard = data.duelHighScoreLeaderboard;
+            }
+            if (Array.isArray(data.duelHighScoreAllMatches)) {
+              this.duelHighScoreAllMatches = data.duelHighScoreAllMatches;
             }
             if (data.myDuelStats) {
               this.myDuelStats = data.myDuelStats;
@@ -2113,6 +2166,7 @@
           this.activeDuelLobbyId = null;
           this.duelRoundPlaying = null;
           this.duelRoundFinishedLocal = false;
+          this.exitSoloOpponentSpectate();
           this.hideAllDuelOverlays();
           if (targetId) {
             try {
@@ -2154,6 +2208,8 @@
           if (liveHud) liveHud.style.display = 'none';
           const specOverlay = document.getElementById('duel-spectator-overlay');
           if (specOverlay) specOverlay.style.display = 'none';
+          const soloSpecOverlay = document.getElementById('duel-solo-spectate-overlay');
+          if (soloSpecOverlay) soloSpecOverlay.style.display = 'none';
           ['duel-view-countdown', 'duel-view-waiting-opponent', 'duel-view-round-summary', 'duel-view-final-results'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
@@ -2188,6 +2244,7 @@
 
           // 1. Waiting for 2nd player
           if (lobby.status === 'waiting') {
+            this.exitSoloOpponentSpectate();
             this.hideAllDuelOverlays();
             this.renderDuelLobbiesList();
             return;
@@ -2210,6 +2267,10 @@
           if (lobby.status === 'countdown') {
             this.duelRoundPlaying = null;
             this.duelRoundFinishedLocal = false;
+            this.exitSoloOpponentSpectate();
+            if (this.duelSpecSim && this.duelSpecSim.opp) {
+              this.duelSpecSim.opp = this.createEmptySpecSim();
+            }
             if (this.state === GAME_STATE.PLAYING) {
               this.state = GAME_STATE.START;
             }
@@ -2250,6 +2311,7 @@
             const oppRound = opp && opp.rounds && opp.rounds[rKey] ? opp.rounds[rKey] : { rawScore: 0, weightedScore: 0, finished: false };
 
             if (!myRound.finished && !this.duelRoundFinishedLocal) {
+              this.exitSoloOpponentSpectate();
               // Start flying this round if not already started
               if (this.duelRoundPlaying !== rKey) {
                 this.startDuelRoundGameplay(rKey, lobby.roundSeed);
@@ -2260,10 +2322,23 @@
               if (liveHud) liveHud.style.display = 'flex';
               this.updateDuelLiveHUD();
             } else {
-              // I have already crashed in this round — waiting for the other player to die so both can see the Round Summary!
+              // I have already crashed in this round — spectate opponent full-screen until they die!
               const liveHud = document.getElementById('duel-live-hud');
               if (liveHud) liveHud.style.display = 'none';
 
+              const oppStillFlying = Boolean(opp && !oppRound.finished && (!opp.live || opp.live.alive !== false));
+              if (oppStillFlying && this.duelSpecSim && this.duelSpecSim.opp) {
+                this.pushSpectatorSnapshot(this.duelSpecSim.opp, opp, lobby.status);
+                if (Date.now() >= (this.duelSoloSpectateDelayUntil || 0)) {
+                  this.enterSoloOpponentSpectate(lobby, me, opp);
+                  return;
+                }
+                const backdrop = document.getElementById('duel-overlay-backdrop');
+                if (backdrop) backdrop.style.display = 'none';
+                return;
+              }
+
+              this.exitSoloOpponentSpectate();
               const waitTitle = document.getElementById('duel-waiting-opp-title');
               if (waitTitle) {
                 waitTitle.textContent = `Round ${lobby.currentRoundNumber} (${lobby.currentRoundLabel} • ${lobby.currentMultiplier}x) — You Got ${myRound.rawScore} (${myRound.weightedScore} PTS)`;
@@ -2298,6 +2373,7 @@
           if (lobby.status === 'round_summary') {
             this.duelRoundPlaying = null;
             this.duelRoundFinishedLocal = false;
+            this.exitSoloOpponentSpectate();
             if (this.state === GAME_STATE.PLAYING) {
               this.state = GAME_STATE.START;
             }
@@ -2313,6 +2389,7 @@
           if (lobby.status === 'finished') {
             this.duelRoundPlaying = null;
             this.duelRoundFinishedLocal = false;
+            this.exitSoloOpponentSpectate();
             if (this.state === GAME_STATE.PLAYING) {
               this.state = GAME_STATE.START;
             }
@@ -2478,7 +2555,15 @@
         async handleDuelRoundCrash() {
           const crashedRound = this.duelRoundPlaying || (this.activeDuelLobby && this.activeDuelLobby.currentRound) || 'easy';
           const achievedScore = this.score;
+          const recordedFlaps = this.flapTicks ? this.flapTicks.slice() : [];
+          const finalTicks = this.currentTick || 0;
           this.duelRoundFinishedLocal = true;
+          this.duelSoloSpectateDelayUntil = Date.now() + 420;
+
+          if (achievedScore > (this.localRecords[crashedRound] || 0)) {
+            this.localRecords[crashedRound] = achievedScore;
+            this.saveLocalRecords();
+          }
 
           this.state = GAME_STATE.CRASHING;
           this.sound.playCollision();
@@ -2502,8 +2587,29 @@
               clientId: this.duelClientId,
               guestUsername: this.getDuelDisplayUsername(),
               round: crashedRound,
-              rawScore: achievedScore
+              rawScore: achievedScore,
+              flapTicks: recordedFlaps,
+              totalTicks: finalTicks
             });
+            if (res && res.runResult) {
+              const rr = res.runResult;
+              if (this.currentUser && rr.records) {
+                this.currentUser.records = rr.records;
+              }
+              if (rr.leaderboards) {
+                this.leaderboards = rr.leaderboards;
+              }
+              if (rr.timeframeLeaderboards) {
+                this.timeframeLeaderboards = rr.timeframeLeaderboards;
+              }
+              if (rr.resetBoundaries) {
+                this.resetBoundaries = rr.resetBoundaries;
+              }
+              this.renderLeaderboard(rr.entryId || null);
+              if (typeof this.updateProfileRecordPills === 'function') {
+                this.updateProfileRecordPills();
+              }
+            }
             if (res && res.lobby) {
               this.activeDuelLobby = res.lobby;
               this.syncDuelMatchState(res.lobby);
@@ -2515,7 +2621,7 @@
 
         sendDuelLiveTelemetryIfNeeded(now) {
           if (!this.activeDuelLobbyId || !this.duelRoundPlaying) return;
-          if (now - this.lastDuelTelemetrySentAt < 85) return;
+          if (now - this.lastDuelTelemetrySentAt < 60) return;
           this.lastDuelTelemetrySentAt = now;
 
           const diff = this.getDifficultyParams();
@@ -2761,29 +2867,95 @@
         }
 
         renderDuelRankedLeaderboard() {
+          const isPointsMode = this.currentDuelRankedMode === 'points';
           const isMeDonut = this.isMeDonutUser();
+          const titleEl = document.getElementById('duel-ranked-title');
+          const subEl = document.getElementById('duel-ranked-sub');
+          if (titleEl) {
+            titleEl.textContent = isPointsMode ? '🔥 Most Points in 1 Ranked Game' : '🏆 Ranked Elo Leaderboard';
+          }
+          if (subEl) {
+            subEl.textContent = isPointsMode
+              ? 'Best total points in a single 3-round duel (Easy 1x + Med 2x + Hard 3x) • 1 placement per player'
+              : '1 placement per player • Beat higher Elo opponents to gain more rating!';
+          }
+
           const myPill = document.getElementById('duel-ranked-my-pill');
           if (myPill) {
-            const rText = this.myDuelStats.rank ? `Rank #${this.myDuelStats.rank}` : 'Unranked';
-            myPill.textContent = `${rText} • 🏆 ${this.myDuelStats.duelElo || 1000} ELO`;
+            if (isPointsMode) {
+              const hsRank = this.myDuelStats.highScoreRank ? `Rank #${this.myDuelStats.highScoreRank}` : 'Unranked';
+              myPill.textContent = `${hsRank} • 🔥 ${this.myDuelStats.duelBestMatchPoints || 0} PTS`;
+            } else {
+              const rText = this.myDuelStats.rank ? `Rank #${this.myDuelStats.rank}` : 'Unranked';
+              myPill.textContent = `${rText} • 🏆 ${this.myDuelStats.duelElo || 1000} ELO`;
+            }
           }
 
           const listEl = document.getElementById('duel-ranked-list');
           if (!listEl) return;
 
           // If MeDonut is currently typing inside an Elo input in this list, don't wipe focus on background poll
-          if (document.activeElement && listEl.contains(document.activeElement) && document.activeElement.classList.contains('duel-elo-admin-input')) {
+          if (!isPointsMode && document.activeElement && listEl.contains(document.activeElement) && document.activeElement.classList.contains('duel-elo-admin-input')) {
             return;
           }
 
           listEl.innerHTML = '';
 
+          const myUKey = this.getDuelDisplayUsername().toLowerCase();
+
+          if (isPointsMode) {
+            const entries = Array.isArray(this.duelHighScoreLeaderboard) ? this.duelHighScoreLeaderboard : [];
+            if (entries.length === 0) {
+              listEl.innerHTML = '<div class="lb-empty">No completed ranked matches recorded yet. Finish a 3-round duel to set a record!</div>';
+              return;
+            }
+            for (const entry of entries) {
+              const row = document.createElement('div');
+              const isMe = entry.username.toLowerCase() === myUKey;
+              row.className = 'duel-ranked-row' + (isMe ? ' is-me' : '');
+
+              const leftDiv = document.createElement('div');
+              leftDiv.className = 'duel-ranked-left';
+
+              const posSpan = document.createElement('span');
+              posSpan.className = 'duel-ranked-pos' + (entry.rank <= 3 ? ` top-${entry.rank}` : '');
+              posSpan.textContent = entry.rank === 1 ? '🥇 #1' : (entry.rank === 2 ? '🥈 #2' : (entry.rank === 3 ? '🥉 #3' : `#${entry.rank}`));
+
+              const userSpan = document.createElement('span');
+              userSpan.className = 'duel-ranked-user';
+              userSpan.textContent = entry.username;
+              userSpan.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof this.openPublicProfileModal === 'function') {
+                  this.openPublicProfileModal(entry.username);
+                }
+              });
+
+              leftDiv.append(posSpan, userSpan);
+
+              const rightDiv = document.createElement('div');
+              rightDiv.className = 'duel-ranked-right';
+
+              const bdSpan = document.createElement('span');
+              bdSpan.className = 'duel-ranked-breakdown';
+              const oppSuffix = entry.opponent ? ` vs ${entry.opponent}` : '';
+              bdSpan.textContent = `E:${entry.easyRaw || 0} • M:${entry.mediumRaw || 0} • H:${entry.hardRaw || 0}${oppSuffix}`;
+
+              const ptsSpan = document.createElement('span');
+              ptsSpan.className = 'duel-ranked-points-badge';
+              ptsSpan.textContent = `🔥 ${entry.points} PTS`;
+
+              rightDiv.append(bdSpan, ptsSpan);
+              row.append(leftDiv, rightDiv);
+              listEl.appendChild(row);
+            }
+            return;
+          }
+
           if (!Array.isArray(this.duelRankedLeaderboard) || this.duelRankedLeaderboard.length === 0) {
             listEl.innerHTML = '<div class="lb-empty">No ranked players found yet.</div>';
             return;
           }
-
-          const myUKey = this.getDuelDisplayUsername().toLowerCase();
 
           for (const entry of this.duelRankedLeaderboard) {
             const row = document.createElement('div');
@@ -2870,7 +3042,7 @@
         }
 
         // --------------------------------------------------------------------
-        // SPLIT-SCREEN SPECTATOR MODE (Left = Player 1, Right = Player 2)
+        // SPLIT-SCREEN & SOLO OPPONENT SPECTATOR ENGINE (Snapshot Interpolation)
         // --------------------------------------------------------------------
         getDefaultSpectatorPipes() {
           return [
@@ -2880,18 +3052,229 @@
           ];
         }
 
+        createEmptySpecSim() {
+          return {
+            y: CONFIG.birdStartY,
+            vy: 0,
+            prevVy: 0,
+            rotZ: 0,
+            alive: true,
+            speed: 0,
+            lastLiveUpdatedAt: 0,
+            selectedSkin: 'classic',
+            selectedPipeSkin: 'classic_pipe',
+            wingPhase: 0,
+            wingFlapBoost: 0,
+            pipes: this.getDefaultSpectatorPipes(),
+            snapshots: []
+          };
+        }
+
+        getSpectatorRenderServerTime() {
+          const localNow = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          const estServerNow = (this._specServerClockOffset !== null)
+            ? (localNow + this._specServerClockOffset)
+            : Date.now();
+          const targetRenderTs = estServerNow - 220;
+          if (!this._lastRenderServerTime || Math.abs(targetRenderTs - this._lastRenderServerTime) > 1500) {
+            this._lastRenderServerTime = targetRenderTs;
+          } else {
+            this._lastRenderServerTime = Math.max(this._lastRenderServerTime, targetRenderTs);
+          }
+          return this._lastRenderServerTime;
+        }
+
+        pushSpectatorSnapshot(simTarget, p, lobbyStatus, rObjFinished = false) {
+          if (!simTarget || !p) return;
+          simTarget.selectedSkin = p.selectedSkin || 'classic';
+          simTarget.selectedPipeSkin = p.selectedPipeSkin || 'classic_pipe';
+          if (!p.live) return;
+
+          const liveTs = Number(p.live.updatedAt) || 0;
+          const isAliveNow = Boolean(p.live.alive && !rObjFinished);
+          simTarget.alive = isAliveNow;
+
+          if (!Array.isArray(simTarget.snapshots)) simTarget.snapshots = [];
+          if (liveTs > (simTarget.lastLiveUpdatedAt || 0) || simTarget.snapshots.length === 0) {
+            const newVy = typeof p.live.birdVelocityY === 'number' ? p.live.birdVelocityY : 0;
+            if (newVy > 2.2 && newVy > (simTarget.prevVy || 0) + 1.5) {
+              simTarget.wingFlapBoost = 1.0;
+            }
+            simTarget.prevVy = newVy;
+
+            const newY = typeof p.live.birdY === 'number' ? p.live.birdY : CONFIG.birdStartY;
+            const newRotZ = typeof p.live.rotZ === 'number' ? p.live.rotZ : 0;
+            const newSpeed = (typeof p.live.speed === 'number' && p.live.speed > 0) ? p.live.speed : 0;
+            const snapPipes = (Array.isArray(p.live.pipes) && p.live.pipes.length > 0)
+              ? p.live.pipes.map(pp => ({ ...pp }))
+              : (lobbyStatus !== 'playing' ? this.getDefaultSpectatorPipes() : []);
+
+            const tsToStore = liveTs > 0 ? liveTs : Date.now();
+            simTarget.lastLiveUpdatedAt = Math.max(simTarget.lastLiveUpdatedAt || 0, tsToStore);
+            simTarget.y = newY;
+            simTarget.vy = newVy;
+            simTarget.rotZ = newRotZ;
+            if (newSpeed > 0) simTarget.speed = newSpeed;
+            if (snapPipes.length > 0) simTarget.pipes = snapPipes;
+
+            simTarget.snapshots.push({
+              ts: tsToStore,
+              y: newY,
+              vy: newVy,
+              rotZ: newRotZ,
+              speed: newSpeed,
+              alive: isAliveNow,
+              pipes: snapPipes
+            });
+            simTarget.snapshots.sort((a, b) => a.ts - b.ts);
+            if (simTarget.snapshots.length > 20) {
+              simTarget.snapshots.splice(0, simTarget.snapshots.length - 20);
+            }
+          }
+        }
+
+        evaluateSpectatorSimAt(sim, renderServerTime, dt, defaultSpeed, isPlaying) {
+          sim.wingFlapBoost = Math.max(0, (sim.wingFlapBoost || 0) - dt * 2.5);
+          const wingSpeed = isPlaying ? (sim.alive ? (12 + sim.wingFlapBoost * 18) : 0) : 11;
+          sim.wingPhase = (sim.wingPhase || 0) + dt * wingSpeed;
+
+          if (!isPlaying) {
+            sim.renderY = CONFIG.birdStartY + Math.sin(this.elapsedTime * 3.6) * 0.4;
+            sim.renderRotZ = Math.cos(this.elapsedTime * 3.6) * 0.08;
+            sim.renderPipes = this.getDefaultSpectatorPipes();
+            return;
+          }
+
+          if (!sim.alive) {
+            if (typeof sim.renderY !== 'number') sim.renderY = sim.y || CONFIG.birdStartY;
+            if (sim.renderY > CONFIG.groundY + CONFIG.birdRadius) {
+              sim.vy = Math.max(CONFIG.maxFallSpeed, (sim.vy || 0) + CONFIG.gravity * 1.2 * dt);
+              sim.renderY = Math.max(CONFIG.groundY + CONFIG.birdRadius, sim.renderY + sim.vy * dt);
+            }
+            sim.renderRotZ = THREE.MathUtils.lerp(sim.renderRotZ || 0, -Math.PI * 0.42, Math.min(1, dt * 10));
+            if (!Array.isArray(sim.renderPipes) || sim.renderPipes.length === 0) {
+              sim.renderPipes = (Array.isArray(sim.pipes) && sim.pipes.length > 0) ? sim.pipes : this.getDefaultSpectatorPipes();
+            }
+            return;
+          }
+
+          const snaps = Array.isArray(sim.snapshots) ? sim.snapshots : [];
+          if (snaps.length === 0) {
+            sim.renderY = typeof sim.y === 'number' ? sim.y : CONFIG.birdStartY;
+            sim.renderRotZ = typeof sim.rotZ === 'number' ? sim.rotZ : 0;
+            sim.renderPipes = (Array.isArray(sim.pipes) && sim.pipes.length > 0) ? sim.pipes : this.getDefaultSpectatorPipes();
+            return;
+          }
+
+          // Prune stale snapshots older than renderServerTime - 700 while keeping at least the newest 2
+          while (snaps.length > 2 && snaps[1].ts < renderServerTime - 700) {
+            snaps.shift();
+          }
+
+          const first = snaps[0];
+          const last = snaps[snaps.length - 1];
+
+          if (renderServerTime <= first.ts || snaps.length === 1) {
+            if (renderServerTime <= last.ts) {
+              sim.renderY = first.y;
+              sim.renderRotZ = first.rotZ;
+              sim.renderPipes = first.pipes.length > 0 ? first.pipes : this.getDefaultSpectatorPipes();
+              return;
+            }
+          }
+
+          if (renderServerTime >= last.ts) {
+            const overSec = Math.min(0.28, Math.max(0, (renderServerTime - last.ts) / 1000));
+            const spd = (last.speed && last.speed > 0) ? last.speed : ((sim.speed && sim.speed > 0) ? sim.speed : defaultSpeed);
+            const speedRatio = Math.min(2.0, spd / CONFIG.baseSpeed);
+            const highSpeedFactor = Math.max(0, Math.min(1, (speedRatio - 1.15) / 0.70));
+            const fallSlowdown = 1.0 - 0.20 * highSpeedFactor;
+            const simGravity = CONFIG.gravity * speedRatio * speedRatio * fallSlowdown;
+
+            const extrapVy = Math.max(CONFIG.maxFallSpeed * speedRatio * fallSlowdown, last.vy + simGravity * overSec);
+            const avgVy = 0.5 * (last.vy + extrapVy);
+            sim.renderY = Math.max(CONFIG.groundY + CONFIG.birdRadius, Math.min(CONFIG.ceilingY, last.y + avgVy * overSec));
+            sim.renderRotZ = THREE.MathUtils.clamp((extrapVy / speedRatio) * 0.065, -Math.PI * 0.42, Math.PI * 0.24);
+            const srcPipes = last.pipes.length > 0 ? last.pipes : this.getDefaultSpectatorPipes();
+            sim.renderPipes = srcPipes.map(pp => ({ ...pp, x: pp.x - spd * overSec }));
+            return;
+          }
+
+          // Interpolate monotonically between bracketing snapshots [snapA, snapB]
+          let snapA = first;
+          let snapB = last;
+          for (let i = 0; i < snaps.length - 1; i++) {
+            if (snaps[i].ts <= renderServerTime && snaps[i + 1].ts >= renderServerTime) {
+              snapA = snaps[i];
+              snapB = snaps[i + 1];
+              break;
+            }
+          }
+
+          const spanMs = Math.max(1, snapB.ts - snapA.ts);
+          const spanSec = spanMs / 1000;
+          const t = THREE.MathUtils.clamp((renderServerTime - snapA.ts) / spanMs, 0, 1);
+
+          // Bounded Hermite cubic Y interpolation (smooth gravity curves, zero overshoot on flaps)
+          if (snapB.vy <= snapA.vy + 1.5 && spanSec <= 0.3) {
+            const t2 = t * t;
+            const t3 = t2 * t;
+            const h00 = 2 * t3 - 3 * t2 + 1;
+            const h10 = t3 - 2 * t2 + t;
+            const h01 = -2 * t3 + 3 * t2;
+            const h11 = t3 - t2;
+            const yHermite = h00 * snapA.y + h10 * (snapA.vy * spanSec) + h01 * snapB.y + h11 * (snapB.vy * spanSec);
+            const yMin = Math.min(snapA.y, snapB.y) - 0.35;
+            const yMax = Math.max(snapA.y, snapB.y) + 0.35;
+            sim.renderY = Math.max(CONFIG.groundY + CONFIG.birdRadius, Math.min(CONFIG.ceilingY, Math.max(yMin, Math.min(yMax, yHermite))));
+          } else {
+            sim.renderY = THREE.MathUtils.lerp(snapA.y, snapB.y, t);
+          }
+
+          sim.renderRotZ = THREE.MathUtils.lerp(snapA.rotZ, snapB.rotZ, t);
+
+          const spd = (snapB.speed && snapB.speed > 0) ? snapB.speed : ((snapA.speed && snapA.speed > 0) ? snapA.speed : defaultSpeed);
+          const pipesA = snapA.pipes || [];
+          const pipesB = snapB.pipes || [];
+          if (pipesB.length > 0) {
+            sim.renderPipes = pipesB.map(bp => {
+              const matchA = pipesA.find(ap =>
+                Math.abs((ap.gapCenterY || 0) - (bp.gapCenterY || 0)) < 0.08 &&
+                Math.abs((ap.gapSize || 0) - (bp.gapSize || 0)) < 0.08 &&
+                ap.x >= bp.x - 0.15 &&
+                (ap.x - bp.x) < 4.5
+              );
+              const xInterp = matchA
+                ? THREE.MathUtils.lerp(matchA.x, bp.x, t)
+                : (bp.x + spd * spanSec * (1 - t));
+              return { ...bp, x: xInterp };
+            });
+          } else if (pipesA.length > 0) {
+            sim.renderPipes = pipesA.map(ap => ({ ...ap, x: ap.x - spd * spanSec * t }));
+          } else {
+            sim.renderPipes = this.getDefaultSpectatorPipes();
+          }
+        }
+
         async startSpectatingDuel(lobbyId) {
           if (!lobbyId) return;
+          this.exitSoloOpponentSpectate();
           this.duelSpectatingLobbyId = lobbyId;
           this._lastSpecAppliedSkinId = null;
+          this._lastSpecRoundKey = null;
+          this._lastSpecStatus = null;
+          this._lastRenderServerTime = 0;
           this.clearSpectatorPipePools();
           this.duelSpecSim = {
-            p1: { y: CONFIG.birdStartY, vy: 0, prevVy: 0, rotZ: 0, alive: true, speed: 0, birdOffsetY: 0, pipeOffsetX: 0, lastLiveUpdatedAt: 0, selectedSkin: 'classic', selectedPipeSkin: 'classic_pipe', wingPhase: 0, wingFlapBoost: 0, pipes: this.getDefaultSpectatorPipes() },
-            p2: { y: CONFIG.birdStartY, vy: 0, prevVy: 0, rotZ: 0, alive: true, speed: 0, birdOffsetY: 0, pipeOffsetX: 0, lastLiveUpdatedAt: 0, selectedSkin: 'classic', selectedPipeSkin: 'classic_pipe', wingPhase: 0, wingFlapBoost: 0, pipes: this.getDefaultSpectatorPipes() }
+            p1: this.createEmptySpecSim(),
+            p2: this.createEmptySpecSim(),
+            opp: this.createEmptySpecSim()
           };
           if (Array.isArray(this.pipes)) {
             this.pipes.forEach(p => { if (p && p.group) p.group.visible = false; });
           }
+          if (this.birdGroup) this.birdGroup.rotation.set(0, 0, 0);
+          if (this.birdMeshGroup) this.birdMeshGroup.rotation.set(0, 0, 0);
           const startScr = document.getElementById('start-screen');
           if (startScr) startScr.classList.remove('active');
           const goScr = document.getElementById('gameover-screen');
@@ -2911,10 +3294,10 @@
 
         clearSpectatorPipePools() {
           if (!this.duelSpecPipePools) {
-            this.duelSpecPipePools = { p1: [], p2: [] };
+            this.duelSpecPipePools = { p1: [], p2: [], opp: [] };
             return;
           }
-          ['p1', 'p2'].forEach(side => {
+          ['p1', 'p2', 'opp'].forEach(side => {
             const pool = this.duelSpecPipePools[side];
             if (Array.isArray(pool)) {
               while (pool.length > 0) {
@@ -2931,11 +3314,18 @@
           this.duelSpectatingLobbyId = null;
           this.duelSpectatingLobby = null;
           this._lastSpecAppliedSkinId = null;
+          this._lastSpecRoundKey = null;
+          this._lastSpecStatus = null;
+          this._lastRenderServerTime = 0;
           this.clearSpectatorPipePools();
           if (Array.isArray(this.pipes)) {
             this.pipes.forEach(p => { if (p && p.group) p.group.visible = true; });
           }
+          if (this.birdGroup) this.birdGroup.rotation.set(0, 0, 0);
+          if (this.birdMeshGroup) this.birdMeshGroup.rotation.set(0, 0, 0);
           this.hideAllDuelOverlays();
+          if (this.birdGroup) this.birdGroup.rotation.set(0, 0, 0);
+          if (this.birdMeshGroup) this.birdMeshGroup.rotation.set(0, 0, 0);
           // Restore spectator's own equipped Bird Skin & Pipe Skin before returning to lobby
           this.applySkin(this.selectedSkinId || 'classic', false, true, true);
           this.applyPipeSkin(this.selectedPipeSkinId || 'classic_pipe', false, true, true);
@@ -2948,10 +3338,88 @@
           this.fetchDuelsState();
         }
 
+        enterSoloOpponentSpectate(lobby, me, opp) {
+          if (!lobby || !opp) return;
+          if (!this.duelSoloSpectatingOpp) {
+            this.duelSoloSpectatingOpp = true;
+            this._lastSpecAppliedSkinId = null;
+            this._lastRenderServerTime = 0;
+            if (this.state === GAME_STATE.CRASHING || this.state === GAME_STATE.PLAYING) {
+              this.state = GAME_STATE.START;
+            }
+            if (this.birdGroup) this.birdGroup.rotation.set(0, 0, 0);
+            if (this.birdMeshGroup) this.birdMeshGroup.rotation.set(0, 0, 0);
+            if (Array.isArray(this.pipes)) {
+              this.pipes.forEach(p => { if (p && p.group) p.group.visible = false; });
+            }
+          }
+
+          const backdrop = document.getElementById('duel-overlay-backdrop');
+          if (backdrop) backdrop.style.display = 'none';
+
+          const soloOverlay = document.getElementById('duel-solo-spectate-overlay');
+          if (soloOverlay) soloOverlay.style.display = 'block';
+
+          const rKey = lobby.currentRound || 'easy';
+          const mult = lobby.currentMultiplier || 1;
+          const myRound = me && me.rounds && me.rounds[rKey] ? me.rounds[rKey] : { rawScore: 0, weightedScore: 0 };
+          const oppRound = opp.rounds && opp.rounds[rKey] ? opp.rounds[rKey] : { rawScore: 0, weightedScore: 0 };
+          const oppRaw = (opp.live && typeof opp.live.score === 'number') ? opp.live.score : oppRound.rawScore;
+          const oppPts = oppRaw * mult;
+
+          const nameEl = document.getElementById('duel-solo-opp-name');
+          if (nameEl) nameEl.textContent = opp.username || 'Opponent';
+          const eloEl = document.getElementById('duel-solo-opp-elo');
+          if (eloEl) eloEl.textContent = `${opp.elo || 1000} ELO`;
+          const scoreEl = document.getElementById('duel-solo-opp-score');
+          if (scoreEl) scoreEl.textContent = `${oppRaw} (${oppPts} pts)`;
+          const myScoreEl = document.getElementById('duel-solo-my-score');
+          if (myScoreEl) myScoreEl.textContent = `You: ${myRound.rawScore} (${myRound.weightedScore} pts)`;
+        }
+
+        exitSoloOpponentSpectate() {
+          const soloOverlay = document.getElementById('duel-solo-spectate-overlay');
+          if (soloOverlay) soloOverlay.style.display = 'none';
+          if (!this.duelSoloSpectatingOpp) return;
+
+          this.duelSoloSpectatingOpp = false;
+          this._lastSpecAppliedSkinId = null;
+          this._lastRenderServerTime = 0;
+
+          if (this.duelSpecPipePools && Array.isArray(this.duelSpecPipePools.opp)) {
+            while (this.duelSpecPipePools.opp.length > 0) {
+              const rem = this.duelSpecPipePools.opp.pop();
+              if (rem && rem.group && this.scene) this.scene.remove(rem.group);
+            }
+          }
+          if (this.duelSpecSim && this.duelSpecSim.opp) {
+            this.duelSpecSim.opp = this.createEmptySpecSim();
+          }
+          if (Array.isArray(this.pipes)) {
+            this.pipes.forEach(p => { if (p && p.group) p.group.visible = true; });
+          }
+          if (this.birdGroup) this.birdGroup.rotation.set(0, 0, 0);
+          if (this.birdMeshGroup) this.birdMeshGroup.rotation.set(0, 0, 0);
+
+          this.applySkin(this.selectedSkinId || 'classic', false, true, true);
+          this.applyPipeSkin(this.selectedPipeSkinId || 'classic_pipe', false, true, true);
+        }
+
         syncSpectatorLobbyState(lobby) {
           if (!lobby) return;
           const specOverlay = document.getElementById('duel-spectator-overlay');
           if (specOverlay) specOverlay.style.display = 'block';
+
+          const rKey = lobby.currentRound || 'easy';
+          const roundChanged = this._lastSpecRoundKey !== null && this._lastSpecRoundKey !== rKey;
+          const enteredCountdown = lobby.status === 'countdown' && this._lastSpecStatus !== 'countdown';
+          if (roundChanged || enteredCountdown) {
+            this._lastRenderServerTime = 0;
+            this.duelSpecSim.p1 = this.createEmptySpecSim();
+            this.duelSpecSim.p2 = this.createEmptySpecSim();
+          }
+          this._lastSpecRoundKey = rKey;
+          this._lastSpecStatus = lobby.status;
 
           const lobbyNameEl = document.getElementById('duel-spec-lobby-name');
           if (lobbyNameEl) lobbyNameEl.textContent = lobby.name || 'Duel Match';
@@ -2969,7 +3437,6 @@
 
           const p1 = lobby.players && lobby.players[0] ? lobby.players[0] : null;
           const p2 = lobby.players && lobby.players[1] ? lobby.players[1] : null;
-          const rKey = lobby.currentRound || 'easy';
           const mult = lobby.currentMultiplier || 1;
 
           const updateSpecCard = (prefix, p, simTarget) => {
@@ -2978,15 +3445,16 @@
             const rScoreEl = document.getElementById(`duel-spec-${prefix}-round-score`);
             const totEl = document.getElementById(`duel-spec-${prefix}-total-pts`);
             const statEl = document.getElementById(`duel-spec-${prefix}-status`);
-            const roundsEl = document.getElementById(`duel-spec-${prefix}-rounds`);
 
             if (!p) {
-              if (nameEl) nameEl.textContent = 'Waiting for Player...';
-              if (eloEl) eloEl.textContent = '🏆 — ELO';
+              if (nameEl) nameEl.textContent = 'Waiting...';
+              if (eloEl) eloEl.textContent = '🏆 —';
               if (rScoreEl) rScoreEl.textContent = '0';
               if (totEl) totEl.textContent = '0 PTS';
-              if (statEl) statEl.textContent = '⏳ Waiting';
-              if (roundsEl) roundsEl.textContent = 'Easy (1x): 0 • Med (2x): 0 • Hard (3x): 0';
+              if (statEl) {
+                statEl.textContent = '⏳ Waiting';
+                statEl.dataset.state = 'waiting';
+              }
               return;
             }
 
@@ -2995,82 +3463,29 @@
             const ptsScore = rawScore * mult;
 
             if (nameEl) nameEl.textContent = p.username;
-            if (eloEl) eloEl.textContent = `🏆 ${p.elo || 1000} ELO`;
-            if (rScoreEl) rScoreEl.textContent = `${rawScore} (${ptsScore} pts)`;
+            if (eloEl) eloEl.textContent = `🏆 ${p.elo || 1000}`;
+            if (rScoreEl) rScoreEl.textContent = `${rawScore} (${ptsScore})`;
             if (totEl) totEl.textContent = `${p.totalPoints || 0} PTS`;
 
             if (statEl) {
-              if (lobby.status === 'waiting') statEl.textContent = '⏳ Ready in Lobby';
-              else if (rObj.finished || (p.live && !p.live.alive)) statEl.textContent = '💥 Crashed';
-              else statEl.textContent = '🟢 Flying';
-            }
-
-            if (roundsEl && p.rounds) {
-              const ePts = p.rounds.easy ? p.rounds.easy.weightedScore : 0;
-              const mPts = p.rounds.medium ? p.rounds.medium.weightedScore : 0;
-              const hPts = p.rounds.hard ? p.rounds.hard.weightedScore : 0;
-              roundsEl.textContent = `Easy (1x): ${ePts} • Med (2x): ${mPts} • Hard (3x): ${hPts}`;
-            }
-
-            if (simTarget) {
-              simTarget.selectedSkin = p.selectedSkin || 'classic';
-              simTarget.selectedPipeSkin = p.selectedPipeSkin || 'classic_pipe';
-            }
-
-            if (p.live && simTarget) {
-              const liveTs = Number(p.live.updatedAt) || 0;
-              if (liveTs !== (simTarget.lastLiveUpdatedAt || 0) || !Array.isArray(simTarget.pipes) || simTarget.pipes.length === 0) {
-                simTarget.lastLiveUpdatedAt = liveTs;
-                const newVy = typeof p.live.birdVelocityY === 'number' ? p.live.birdVelocityY : 0;
-                if (newVy > 2.2 && newVy > (simTarget.prevVy || 0) + 1.5) {
-                  simTarget.wingFlapBoost = 1.0;
-                }
-                simTarget.prevVy = newVy;
-
-                const newY = typeof p.live.birdY === 'number' ? p.live.birdY : CONFIG.birdStartY;
-                const renderedY = (typeof simTarget.y === 'number' ? simTarget.y : newY) + (simTarget.birdOffsetY || 0);
-                const yDiff = renderedY - newY;
-                simTarget.birdOffsetY = (Math.abs(yDiff) < 3.5 && lobby.status === 'playing') ? yDiff : 0;
-                simTarget.y = newY;
-                simTarget.vy = newVy;
-                simTarget.rotZ = typeof p.live.rotZ === 'number' ? p.live.rotZ : 0;
-                simTarget.alive = Boolean(p.live.alive && !rObj.finished);
-                if (typeof p.live.speed === 'number' && p.live.speed > 0) {
-                  simTarget.speed = p.live.speed;
-                }
-
-                if (Array.isArray(p.live.pipes) && p.live.pipes.length > 0) {
-                  const newPipes = p.live.pipes.map(pp => ({ ...pp }));
-                  if (lobby.status === 'playing' && Array.isArray(simTarget.pipes) && simTarget.pipes.length > 0) {
-                    let matchedDx = null;
-                    for (const op of simTarget.pipes) {
-                      const opRenderX = op.x + (simTarget.pipeOffsetX || 0);
-                      const matchingNew = newPipes.find(np =>
-                        Math.abs((op.gapCenterY || 0) - (np.gapCenterY || 0)) < 0.15 &&
-                        Math.abs(opRenderX - np.x) < 3.5
-                      );
-                      if (matchingNew) {
-                        matchedDx = opRenderX - matchingNew.x;
-                        break;
-                      }
-                    }
-                    simTarget.pipeOffsetX = matchedDx !== null ? Math.max(-2.5, Math.min(2.5, matchedDx)) : 0;
-                  } else {
-                    simTarget.pipeOffsetX = 0;
-                  }
-                  simTarget.pipes = newPipes;
-                } else if (lobby.status !== 'playing' || !Array.isArray(simTarget.pipes) || simTarget.pipes.length === 0) {
-                  simTarget.pipeOffsetX = 0;
-                  simTarget.pipes = this.getDefaultSpectatorPipes();
-                }
+              if (lobby.status === 'waiting') {
+                statEl.textContent = '⏳ Ready';
+                statEl.dataset.state = 'waiting';
+              } else if (rObj.finished || (p.live && !p.live.alive)) {
+                statEl.textContent = '💥 Crashed';
+                statEl.dataset.state = 'crashed';
+              } else {
+                statEl.textContent = '🟢 Flying';
+                statEl.dataset.state = 'flying';
               }
             }
+
+            this.pushSpectatorSnapshot(simTarget, p, lobby.status, rObj.finished);
           };
 
           updateSpecCard('p1', p1, this.duelSpecSim.p1);
           updateSpecCard('p2', p2, this.duelSpecSim.p2);
 
-          // Also display 70% dark backdrop overlays for spectators during Countdown, Round Summary, or Final Results!
           if (lobby.status === 'countdown') {
             this.duelCountdownTargetMs = Date.now() + (lobby.countdownRemainingMs || 1500);
             const matchupEl = document.getElementById('duel-countdown-matchup');
@@ -3094,22 +3509,37 @@
           }
         }
 
-        applySpectatorPipesToScene(sideKey, pipesData, pipeSkinId = 'classic_pipe', pipeOffsetX = 0) {
+        applySpectatorPipesToScene(sideKey, pipesData, pipeSkinId = 'classic_pipe') {
           if (!this.duelSpecPipePools) {
-            this.duelSpecPipePools = { p1: [], p2: [] };
+            this.duelSpecPipePools = { p1: [], p2: [], opp: [] };
           }
-          const otherKey = sideKey === 'p1' ? 'p2' : 'p1';
-          const otherPool = this.duelSpecPipePools[otherKey];
-          if (Array.isArray(otherPool)) {
-            for (let i = 0; i < otherPool.length; i++) {
-              if (otherPool[i] && otherPool[i].group) otherPool[i].group.visible = false;
+          ['p1', 'p2', 'opp'].forEach(k => {
+            if (k !== sideKey && Array.isArray(this.duelSpecPipePools[k])) {
+              for (let i = 0; i < this.duelSpecPipePools[k].length; i++) {
+                if (this.duelSpecPipePools[k][i] && this.duelSpecPipePools[k][i].group) {
+                  this.duelSpecPipePools[k][i].group.visible = false;
+                }
+              }
             }
-          }
+          });
 
+          if (!this.duelSpecPipePools[sideKey]) this.duelSpecPipePools[sideKey] = [];
           const pool = this.duelSpecPipePools[sideKey];
           const safePipes = (Array.isArray(pipesData) && pipesData.length > 0)
             ? pipesData
             : this.getDefaultSpectatorPipes();
+
+          while (
+            pool.length > 1 &&
+            safePipes.length > 0 &&
+            Math.abs((pool[1].bottomTopY || 0) - safePipes[0].bottomTopY) < 0.05 &&
+            Math.abs((pool[1].topBottomY || 0) - safePipes[0].topBottomY) < 0.05 &&
+            (Math.abs((pool[0].bottomTopY || 0) - safePipes[0].bottomTopY) > 0.05 ||
+             Math.abs((pool[0].topBottomY || 0) - safePipes[0].topBottomY) > 0.05)
+          ) {
+            const recycled = pool.shift();
+            pool.push(recycled);
+          }
 
           while (pool.length > safePipes.length) {
             const rem = pool.pop();
@@ -3117,7 +3547,7 @@
           }
           for (let i = 0; i < safePipes.length; i++) {
             const pd = safePipes[i];
-            const renderX = pd.x + pipeOffsetX;
+            const renderX = pd.x;
             if (!pool[i]) {
               const grp = new THREE.Group();
               this.scene.add(grp);
@@ -3155,45 +3585,72 @@
           }
         }
 
+        renderSpectatorSimHalf(sideKey, sim, dt, isPlaying, vx, vw, h) {
+          const skinObj = (typeof BIRD_SKINS !== 'undefined' && BIRD_SKINS.find(s => s.id === (sim.selectedSkin || 'classic'))) || BIRD_SKINS[0];
+          const pipeSkinObj = (typeof PIPE_SKINS !== 'undefined' && PIPE_SKINS.find(p => p.id === (sim.selectedPipeSkin || 'classic_pipe'))) || PIPE_SKINS[0];
+
+          if (this._lastSpecAppliedSkinId !== skinObj.id) {
+            this.applySkinVisualsOnly(skinObj, true, true);
+            this._lastSpecAppliedSkinId = skinObj.id;
+          }
+          this.activePipeAssets = this.getOrCreatePipeSkinAssets(pipeSkinObj);
+
+          const displayY = Math.max(CONFIG.groundY + CONFIG.birdRadius, Math.min(CONFIG.ceilingY, (typeof sim.renderY === 'number' ? sim.renderY : CONFIG.birdStartY)));
+          if (this.birdGroup) {
+            this.birdGroup.position.set(CONFIG.birdX, displayY, 0);
+            this.birdGroup.rotation.set(0, 0, sim.renderRotZ || 0);
+          }
+          if (this.birdMeshGroup) {
+            this.birdMeshGroup.rotation.set(0, isPlaying ? 0 : Math.sin(this.elapsedTime * 1.4) * 0.32, 0);
+          }
+          this.wingFlapBoost = sim.wingFlapBoost || 0;
+          const flapAmp = isPlaying ? (sim.alive ? (0.55 + this.wingFlapBoost * 0.4) : 0.06) : 0.65;
+          const flapAngle = Math.sin(sim.wingPhase || 0) * flapAmp;
+          if (this.leftWingPivot) this.leftWingPivot.rotation.x = flapAngle;
+          if (this.rightWingPivot) this.rightWingPivot.rotation.x = -flapAngle;
+
+          this.updateAnimatedSkinEffects(dt);
+          this.applySpectatorPipesToScene(sideKey, sim.renderPipes || sim.pipes, pipeSkinObj.id);
+
+          this.renderer.setViewport(vx, 0, vw, h);
+          this.renderer.setScissor(vx, 0, vw, h);
+          this.renderer.render(this.scene, this.camera);
+        }
+
+        renderSoloOpponentSpectate(dt) {
+          const w = Math.max(2, window.innerWidth);
+          const h = Math.max(1, window.innerHeight);
+          const lobby = this.activeDuelLobby;
+          const isPlaying = Boolean(lobby && lobby.status === 'playing');
+          const roundKey = (lobby && lobby.currentRound) || 'easy';
+          const diffCfg = CONFIG.difficulties[roundKey] || CONFIG.difficulties.easy;
+          const defaultSpeed = diffCfg.startSpeed || CONFIG.baseSpeed;
+          const renderServerTime = this.getSpectatorRenderServerTime();
+
+          this.evaluateSpectatorSimAt(this.duelSpecSim.opp, renderServerTime, dt, defaultSpeed, isPlaying);
+
+          this.renderer.setScissorTest(false);
+          const fullAspect = w / h;
+          this.camera.aspect = fullAspect;
+          this.camera.updateProjectionMatrix();
+          this.adjustCameraForAspect(fullAspect);
+
+          this.renderSpectatorSimHalf('opp', this.duelSpecSim.opp, dt, isPlaying, 0, w, h);
+        }
+
         renderDuelSpectatorSplitScreen(dt) {
           const w = Math.max(2, window.innerWidth);
           const h = Math.max(1, window.innerHeight);
           const halfW = Math.floor(w / 2);
           const lobby = this.duelSpectatingLobby;
-          const isPlaying = lobby && lobby.status === 'playing';
+          const isPlaying = Boolean(lobby && lobby.status === 'playing');
           const roundKey = (lobby && lobby.currentRound) || 'easy';
           const diffCfg = CONFIG.difficulties[roundKey] || CONFIG.difficulties.easy;
           const defaultSpeed = diffCfg.startSpeed || CONFIG.baseSpeed;
-          const decayFactor = Math.exp(-13 * dt);
+          const renderServerTime = this.getSpectatorRenderServerTime();
 
-          // Smoothly extrapolate P1 and P2 bird positions, wing flaps, and pipes between network updates
-          [this.duelSpecSim.p1, this.duelSpecSim.p2].forEach(sim => {
-            sim.wingFlapBoost = Math.max(0, (sim.wingFlapBoost || 0) - dt * 2.5);
-            const wingSpeed = isPlaying ? (12 + sim.wingFlapBoost * 18) : 11;
-            sim.wingPhase = (sim.wingPhase || 0) + dt * wingSpeed;
-            sim.birdOffsetY = (sim.birdOffsetY || 0) * decayFactor;
-            sim.pipeOffsetX = (sim.pipeOffsetX || 0) * decayFactor;
-
-            const scrollSpeed = (sim.speed && sim.speed > 0) ? sim.speed : defaultSpeed;
-            const speedRatio = Math.min(2.0, scrollSpeed / CONFIG.baseSpeed);
-            const simGravity = CONFIG.gravity * speedRatio * speedRatio;
-
-            if (isPlaying && sim.alive) {
-              sim.vy = Math.max(CONFIG.maxFallSpeed * speedRatio, (sim.vy || 0) + simGravity * dt);
-              sim.y = Math.max(CONFIG.groundY + CONFIG.birdRadius, Math.min(CONFIG.ceilingY, (sim.y || CONFIG.birdStartY) + sim.vy * dt));
-              sim.rotZ = THREE.MathUtils.clamp((sim.vy / speedRatio) * 0.065, -Math.PI * 0.42, Math.PI * 0.24);
-              if (Array.isArray(sim.pipes)) {
-                for (const pp of sim.pipes) {
-                  pp.x -= scrollSpeed * dt;
-                }
-              }
-            } else if (!isPlaying) {
-              sim.birdOffsetY = 0;
-              sim.pipeOffsetX = 0;
-              sim.y = CONFIG.birdStartY + Math.sin(this.elapsedTime * 3.6) * 0.4;
-              sim.rotZ = Math.cos(this.elapsedTime * 3.6) * 0.08;
-            }
-          });
+          this.evaluateSpectatorSimAt(this.duelSpecSim.p1, renderServerTime, dt, defaultSpeed, isPlaying);
+          this.evaluateSpectatorSimAt(this.duelSpecSim.p2, renderServerTime, dt, defaultSpeed, isPlaying);
 
           const subAspect = halfW / h;
           this.camera.aspect = subAspect;
@@ -3202,49 +3659,19 @@
 
           this.renderer.setScissorTest(true);
 
-          const renderHalf = (sideKey, sim, vx, vw) => {
-            const skinObj = (typeof BIRD_SKINS !== 'undefined' && BIRD_SKINS.find(s => s.id === (sim.selectedSkin || 'classic'))) || BIRD_SKINS[0];
-            const pipeSkinObj = (typeof PIPE_SKINS !== 'undefined' && PIPE_SKINS.find(p => p.id === (sim.selectedPipeSkin || 'classic_pipe'))) || PIPE_SKINS[0];
+          try {
+            // 1. Render Left Half (Player 1)
+            this.renderSpectatorSimHalf('p1', this.duelSpecSim.p1, dt, isPlaying, 0, halfW, h);
 
-            if (this._lastSpecAppliedSkinId !== skinObj.id) {
-              this.applySkinVisualsOnly(skinObj, true, true);
-              this._lastSpecAppliedSkinId = skinObj.id;
-            }
-            this.activePipeAssets = this.getOrCreatePipeSkinAssets(pipeSkinObj);
-
-            const displayY = Math.max(CONFIG.groundY + CONFIG.birdRadius, Math.min(CONFIG.ceilingY, (sim.y || CONFIG.birdStartY) + (sim.birdOffsetY || 0)));
-            if (this.birdGroup) {
-              this.birdGroup.position.set(CONFIG.birdX, displayY, 0);
-              this.birdGroup.rotation.z = sim.rotZ || 0;
-            }
-            if (this.birdMeshGroup) {
-              this.birdMeshGroup.rotation.y = isPlaying ? 0 : Math.sin(this.elapsedTime * 1.4) * 0.32;
-            }
-            this.wingFlapBoost = sim.wingFlapBoost || 0;
-            const flapAmp = isPlaying ? (0.55 + this.wingFlapBoost * 0.4) : 0.65;
-            const flapAngle = Math.sin(sim.wingPhase || 0) * flapAmp;
-            if (this.leftWingPivot) this.leftWingPivot.rotation.x = flapAngle;
-            if (this.rightWingPivot) this.rightWingPivot.rotation.x = -flapAngle;
-
-            this.updateAnimatedSkinEffects(dt);
-            this.applySpectatorPipesToScene(sideKey, sim.pipes, pipeSkinObj.id, sim.pipeOffsetX || 0);
-
-            this.renderer.setViewport(vx, 0, vw, h);
-            this.renderer.setScissor(vx, 0, vw, h);
-            this.renderer.render(this.scene, this.camera);
-          };
-
-          // 1. Render Left Half (Player 1)
-          renderHalf('p1', this.duelSpecSim.p1, 0, halfW);
-
-          // 2. Render Right Half (Player 2)
-          renderHalf('p2', this.duelSpecSim.p2, halfW, w - halfW);
-
-          this.renderer.setScissorTest(false);
-          const fullAspect = w / h;
-          this.camera.aspect = fullAspect;
-          this.camera.updateProjectionMatrix();
-          this.adjustCameraForAspect(fullAspect);
+            // 2. Render Right Half (Player 2)
+            this.renderSpectatorSimHalf('p2', this.duelSpecSim.p2, dt, isPlaying, halfW, w - halfW, h);
+          } finally {
+            this.renderer.setScissorTest(false);
+            const fullAspect = w / h;
+            this.camera.aspect = fullAspect;
+            this.camera.updateProjectionMatrix();
+            this.adjustCameraForAspect(fullAspect);
+          }
         }
       }
 

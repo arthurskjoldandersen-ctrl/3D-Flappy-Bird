@@ -447,10 +447,18 @@
               <!-- Panel 3: Ranked Leaderboard -->
               <div class="duels-tab-panel" id="duel-panel-ranked" role="tabpanel" aria-labelledby="tab-btn-duel-ranked" style="display: none;">
                 <div class="duels-ranked-layout">
+                  <div class="duels-ranked-mode-tabs" role="tablist">
+                    <button type="button" class="duel-ranked-mode-btn active" data-duel-ranked-mode="elo" aria-selected="true">
+                      🏆 Ranked Elo
+                    </button>
+                    <button type="button" class="duel-ranked-mode-btn" data-duel-ranked-mode="points" aria-selected="false">
+                      🔥 Most Points (1 Game)
+                    </button>
+                  </div>
                   <div class="duels-ranked-header">
                     <div>
-                      <h3 class="duels-ranked-title">🏆 Ranked Elo Leaderboard</h3>
-                      <p class="duels-ranked-sub">1 placement per player • Beat higher Elo opponents to gain more rating!</p>
+                      <h3 class="duels-ranked-title" id="duel-ranked-title">🏆 Ranked Elo Leaderboard</h3>
+                      <p class="duels-ranked-sub" id="duel-ranked-sub">1 placement per player • Beat higher Elo opponents to gain more rating!</p>
                     </div>
                     <div class="duels-ranked-my-pill" id="duel-ranked-my-pill">
                       Rank #— • 1000 ELO
@@ -1100,47 +1108,51 @@
       <!-- Left Half HUD: Player 1 -->
       <div class="duel-spec-player-card duel-spec-left-card">
         <div class="duel-spec-player-top">
-          <span class="duel-spec-side-tag">PLAYER 1 (LEFT)</span>
-          <span class="duel-spec-elo-badge" id="duel-spec-p1-elo">🏆 1000 ELO</span>
+          <div class="duel-spec-player-name" id="duel-spec-p1-name">Player 1</div>
+          <span class="duel-spec-elo-badge" id="duel-spec-p1-elo">🏆 1000</span>
         </div>
-        <div class="duel-spec-player-name" id="duel-spec-p1-name">Player 1</div>
         <div class="duel-spec-scores-row">
           <div class="duel-spec-score-pill">
-            <span>Round Score</span>
+            <span>Rnd</span>
             <strong id="duel-spec-p1-round-score">0</strong>
           </div>
           <div class="duel-spec-score-pill highlight">
-            <span>Total Points</span>
+            <span>Tot</span>
             <strong id="duel-spec-p1-total-pts">0 PTS</strong>
           </div>
           <div class="duel-spec-status-pill" id="duel-spec-p1-status">🟢 Flying</div>
         </div>
-        <div class="duel-spec-mini-rounds" id="duel-spec-p1-rounds">
-          Easy: 0 • Med (2x): 0 • Hard (3x): 0
-        </div>
+        <div class="duel-spec-mini-rounds" id="duel-spec-p1-rounds"></div>
       </div>
 
       <!-- Right Half HUD: Player 2 -->
       <div class="duel-spec-player-card duel-spec-right-card">
         <div class="duel-spec-player-top">
-          <span class="duel-spec-side-tag">PLAYER 2 (RIGHT)</span>
-          <span class="duel-spec-elo-badge" id="duel-spec-p2-elo">🏆 — ELO</span>
+          <div class="duel-spec-player-name" id="duel-spec-p2-name">Waiting...</div>
+          <span class="duel-spec-elo-badge" id="duel-spec-p2-elo">🏆 —</span>
         </div>
-        <div class="duel-spec-player-name" id="duel-spec-p2-name">Waiting for Player 2...</div>
         <div class="duel-spec-scores-row">
           <div class="duel-spec-score-pill">
-            <span>Round Score</span>
+            <span>Rnd</span>
             <strong id="duel-spec-p2-round-score">0</strong>
           </div>
           <div class="duel-spec-score-pill highlight">
-            <span>Total Points</span>
+            <span>Tot</span>
             <strong id="duel-spec-p2-total-pts">0 PTS</strong>
           </div>
           <div class="duel-spec-status-pill" id="duel-spec-p2-status">⏳ Waiting</div>
         </div>
-        <div class="duel-spec-mini-rounds" id="duel-spec-p2-rounds">
-          Easy: 0 • Med (2x): 0 • Hard (3x): 0
-        </div>
+        <div class="duel-spec-mini-rounds" id="duel-spec-p2-rounds"></div>
+      </div>
+    </div>
+
+    <!-- 2b. Solo Opponent Spectate Banner (shown full-screen when you die first in a duel round) -->
+    <div id="duel-solo-spectate-overlay" class="duel-solo-spectate-overlay" style="display: none;">
+      <div class="duel-solo-spectate-pill">
+        <span class="duel-spec-live-dot"></span>
+        <span>Spectating <strong id="duel-solo-opp-name">Opponent</strong> (<span id="duel-solo-opp-elo">1000 ELO</span>)</span>
+        <span class="duel-spec-round-pill" id="duel-solo-opp-score">0 (0 pts)</span>
+        <span class="duel-solo-my-score" id="duel-solo-my-score">You: 0</span>
       </div>
     </div>
 
