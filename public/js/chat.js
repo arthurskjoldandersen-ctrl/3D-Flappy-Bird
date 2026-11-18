@@ -406,7 +406,10 @@ class ChatManager {
     this.clearReply();
 
     try {
-      const headers = { 'Content-Type': 'application/json' };
+      const sigHeaders = (this.game && typeof this.game.getClientSignalHeaders === 'function')
+        ? this.game.getClientSignalHeaders()
+        : {};
+      const headers = { 'Content-Type': 'application/json', ...sigHeaders };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch('/api/chat/send', {
@@ -456,7 +459,10 @@ class ChatManager {
     try {
       const since = this.lastFetchedTimestamp;
       const token = localStorage.getItem('flappy3d_token') || (this.game && this.game.authToken);
-      const headers = {};
+      const sigHeaders = (this.game && typeof this.game.getClientSignalHeaders === 'function')
+        ? this.game.getClientSignalHeaders()
+        : {};
+      const headers = { ...sigHeaders };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch(`/api/chat?since=${since}&limit=60`, { headers });

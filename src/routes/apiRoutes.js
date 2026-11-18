@@ -37,6 +37,7 @@ const {
   addChatMessage,
   calculateDuelEloUpdate,
   recordDuelMatchResult,
+  getPlayerRankedDuelHistory,
   buildDuelRankedLeaderboard,
   buildDuelHighScoreLeaderboard,
   trackUserClientSignals,
@@ -44,13 +45,75 @@ const {
   deletePlayerAccountAdmin
 } = require('../services/database');
 
+function parseCookies(req) {
+  const cookies = {};
+  const rawCookie = (req && req.headers && req.headers.cookie) ? String(req.headers.cookie) : '';
+  if (!rawCookie) return cookies;
+  rawCookie.split(';').forEach(pair => {
+    const eqIdx = pair.indexOf('=');
+    if (eqIdx <= 0) return;
+    const k = pair.slice(0, eqIdx).trim();
+    const v = pair.slice(eqIdx + 1).trim();
+    if (!k) return;
+    try {
+      cookies[k] = decodeURIComponent(v);
+    } catch (_) {
+      cookies[k] = v;
+    }
+  });
+  return cookies;
+}
+
+function buildUserAccountSetCookies(req, usernameKey = null, bodyKnown = null, forceIssueUid = false) {
+  const cookies = parseCookies(req);
+  const hdrs = (req && req.headers) ? req.headers : {};
+  const hasConsent = forceIssueUid || cookies.f3d_consent === '1' || cookies.flappy3d_cookie_consent === '1' || hdrs['x-cookie-consent'] === '1';
+  const out = [];
+
+  if (hasConsent) {
+    let uid = (cookies.f3d_uid && cookies.f3d_uid.length >= 6) ? cookies.f3d_uid.slice(0, 80) : '';
+    if (!uid) {
+      const hdrDev = String(hdrs['x-device-id'] || '').trim().slice(0, 80);
+      uid = hdrDev.length >= 6 ? hdrDev : ('ck_' + crypto.randomBytes(12).toString('hex'));
+    }
+    out.push(`f3d_uid=${encodeURIComponent(uid)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
+    out.push('f3d_consent=1; Path=/; Max-Age=31536000; SameSite=Lax');
+
+    const acctSet = [];
+    const pushAcct = (n) => {
+      const clean = String(n || '').trim().toLowerCase().slice(0, 24);
+      if (clean && !acctSet.includes(clean)) acctSet.push(clean);
+    };
+    if (usernameKey) pushAcct(usernameKey);
+    if (cookies.f3d_accts) cookies.f3d_accts.split(',').forEach(pushAcct);
+    if (hdrs['x-known-accounts']) String(hdrs['x-known-accounts']).split(',').forEach(pushAcct);
+    if (Array.isArray(bodyKnown)) bodyKnown.forEach(pushAcct);
+    if (acctSet.length > 0) {
+      out.push(`f3d_accts=${encodeURIComponent(acctSet.slice(0, 20).join(','))}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`);
+    }
+  }
+  return out;
+}
+
 function extractClientInfo(req) {
-  const rawFwd = req && req.headers ? (req.headers['x-forwarded-for'] || '') : '';
-  const sockIp = req && req.socket ? (req.socket.remoteAddress || '') : '';
-  const ip = String(rawFwd || sockIp || '').split(',')[0].trim();
-  const deviceId = req && req.headers ? String(req.headers['x-device-id'] || '').trim() : '';
-  const fingerprint = req && req.headers ? String(req.headers['x-device-fingerprint'] || '').trim() : '';
-  return { ip, deviceId, fingerprint };
+  const hdrs = (req && req.headers) ? req.headers : {};
+  const cookies = parseCookies(req);
+  const rawIp = hdrs['cf-connecting-ip'] || hdrs['x-real-ip'] || hdrs['x-forwarded-for'] || (req && req.socket ? (req.socket.remoteAddress || '') : '');
+  const ip = String(Array.isArray(rawIp) ? rawIp[0] : (rawIp || '')).split(',')[0].trim();
+  const cookieId = String(cookies.f3d_uid || '').trim().slice(0, 80);
+  const cookieAccepted = cookies.f3d_consent === '1' || cookies.flappy3d_cookie_consent === '1' || hdrs['x-cookie-consent'] === '1';
+  const hdrDeviceId = String(hdrs['x-device-id'] || '').trim();
+  const deviceId = hdrDeviceId || cookieId;
+  const fingerprint = String(hdrs['x-device-fingerprint'] || '').trim();
+  const knownSet = new Set();
+  const addKnown = (val) => {
+    const clean = String(val || '').trim();
+    if (clean) knownSet.add(clean);
+  };
+  if (hdrs['x-known-accounts']) String(hdrs['x-known-accounts']).split(',').forEach(addKnown);
+  if (cookies.f3d_accts) String(cookies.f3d_accts).split(',').forEach(addKnown);
+  const knownAccounts = Array.from(knownSet).slice(0, 20);
+  return { ip, deviceId, cookieId, cookieAccepted, fingerprint, knownAccounts };
 }
 
 let BIRD_SKINS_LIST = [];
@@ -164,7 +227,18 @@ function finalizeDuelLobbyMatch(lobby) {
   recomputeDuelPlayerPoints(p2);
 
   let eloRes;
-  if (p1.usernameKey !== p2.usernameKey) {
+  if (lobby.isFriendly) {
+    eloRes = {
+      oldEloA: p1.elo || 1000,
+      newEloA: p1.elo || 1000,
+      deltaA: 0,
+      coinsEarnedA: 0,
+      oldEloB: p2.elo || 1000,
+      newEloB: p2.elo || 1000,
+      deltaB: 0,
+      coinsEarnedB: 0
+    };
+  } else if (p1.usernameKey !== p2.usernameKey) {
     eloRes = recordDuelMatchResult(p1.username, p2.username, p1.totalPoints, p2.totalPoints, {
       roundsA: p1.rounds,
       roundsB: p2.rounds
@@ -202,6 +276,7 @@ function finalizeDuelLobbyMatch(lobby) {
     winnerSlotId,
     winnerUsername,
     isDraw,
+    isFriendly: Boolean(lobby.isFriendly),
     finishedAt: now,
     p1: {
       slotId: p1.slotId,
@@ -523,6 +598,8 @@ function serializeDuelLobby(lobby, includeLivePipes = false) {
   return {
     id: lobby.id,
     name: lobby.name,
+    isFriendly: Boolean(lobby.isFriendly),
+    hasPassword: Boolean(lobby.isFriendly && lobby.password),
     status: lobby.status,
     createdAt: lobby.createdAt,
     currentRound: lobby.currentRound || 'easy',
@@ -637,12 +714,16 @@ setInterval(() => {
   }
 }, 250).unref();
 
-function sendJSON(res, statusCode, payload) {
+function sendJSON(res, statusCode, payload, setCookies = null) {
   const body = JSON.stringify(payload);
-  res.writeHead(statusCode, {
+  const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store'
-  });
+  };
+  if (Array.isArray(setCookies) && setCookies.length > 0) {
+    headers['Set-Cookie'] = setCookies;
+  }
+  res.writeHead(statusCode, headers);
   res.end(body);
 }
 
@@ -1026,8 +1107,39 @@ async function handleApiRequest(req, res, pathname, port) {
       port,
       lanAddresses: getLocalAddresses(),
       difficulties: SIM_CONFIG.difficulties,
-      databaseStatus: db.databaseStatus
+      databaseStatus: db.databaseStatus,
+      adminSettings: {
+        blockDuelEloGapOver150: Boolean(db.adminSettings && db.adminSettings.blockDuelEloGapOver150)
+      }
     });
+  }
+
+  // 1b. Persistent Identification Cookie Acceptance Gate (helps accurately verify player accounts)
+  if (req.method === 'POST' && pathname === '/api/cookies/accept') {
+    const body = await readJsonBody(req).catch(() => ({}));
+    const auth = getAuthenticatedUser(req);
+    const setCookies = buildUserAccountSetCookies(
+      req,
+      auth ? auth.usernameKey : null,
+      body && Array.isArray(body.knownAccounts) ? body.knownAccounts : null,
+      true
+    );
+    const parsedUid = (() => {
+      const m = setCookies.find(c => c.startsWith('f3d_uid='));
+      if (!m) return '';
+      try {
+        return decodeURIComponent(m.slice(8).split(';')[0]);
+      } catch (_) {
+        return '';
+      }
+    })();
+    if (auth && auth.user) {
+      const info = extractClientInfo(req);
+      info.cookieAccepted = true;
+      if (parsedUid) info.cookieId = parsedUid;
+      trackUserClientSignals(auth.user, info, true);
+    }
+    return sendJSON(res, 200, { ok: true, cookieAccepted: true, cookieId: parsedUid }, setCookies);
   }
 
   // 2. Register Account
@@ -1104,6 +1216,7 @@ async function handleApiRequest(req, res, pathname, port) {
     );
     saveDatabase();
 
+    const regSetCookies = buildUserAccountSetCookies(req, usernameKey);
     return sendJSON(res, 201, {
       token,
       user: {
@@ -1126,7 +1239,7 @@ async function handleApiRequest(req, res, pathname, port) {
         daily: buildLeaderboards(100, 'daily')
       },
       resetBoundaries: getLeaderboardResetBoundaries()
-    });
+    }, regSetCookies);
   }
 
   // 3. Password Login
@@ -1157,6 +1270,7 @@ async function handleApiRequest(req, res, pathname, port) {
     trackUserClientSignals(user, extractClientInfo(req), false);
     recordUserLogin(user, 'password');
 
+    const loginSetCookies = buildUserAccountSetCookies(req, usernameKey);
     return sendJSON(res, 200, {
       token,
       user: {
@@ -1179,7 +1293,7 @@ async function handleApiRequest(req, res, pathname, port) {
         daily: buildLeaderboards(100, 'daily')
       },
       resetBoundaries: getLeaderboardResetBoundaries()
-    });
+    }, loginSetCookies);
   }
 
   // 5. Logout
@@ -1319,7 +1433,16 @@ async function handleApiRequest(req, res, pathname, port) {
         avatarSkinId: user.avatarSkinId || user.selectedSkin || 'classic',
         createdAt: user.createdAt || Date.now(),
         totalRuns,
-        ranks
+        ranks,
+        duelStats: {
+          duelElo: typeof user.duelElo === 'number' ? user.duelElo : 1000,
+          duelWins: user.duelWins || 0,
+          duelLosses: user.duelLosses || 0,
+          duelDraws: user.duelDraws || 0,
+          duelMatches: user.duelMatches || 0,
+          duelBestMatchPoints: Number(user.duelBestMatchPoints) || 0
+        },
+        rankedDuelHistory: getPlayerRankedDuelHistory(user.username, 30)
       }
     });
   }
@@ -1655,7 +1778,10 @@ async function handleApiRequest(req, res, pathname, port) {
           duelBestMatchPoints: myHighEntry ? myHighEntry.points : (caller.duelBestMatchPoints || 0),
           highScoreRank: myHighEntry ? myHighEntry.rank : null
         },
-        serverTime: Date.now()
+        serverTime: Date.now(),
+        adminSettings: {
+          blockDuelEloGapOver150: Boolean(db.adminSettings && db.adminSettings.blockDuelEloGapOver150)
+        }
       });
     }
 
@@ -1678,10 +1804,18 @@ async function handleApiRequest(req, res, pathname, port) {
         rawLobbyName = `${caller.username}'s Duel`;
       }
 
+      const isFriendly = Boolean(body.isFriendly);
+      const rawPassword = typeof body.password === 'string' ? body.password.trim().slice(0, 24) : '';
+      if (!isFriendly && rawPassword.length > 0) {
+        return sendJSON(res, 400, { error: 'Passwords can only be set on Friendly Duels, not Ranked Duels!' });
+      }
+
       const lobbyId = crypto.randomBytes(8).toString('hex');
       const newLobby = {
         id: lobbyId,
         name: rawLobbyName,
+        isFriendly,
+        password: isFriendly ? rawPassword : '',
         status: 'waiting',
         createdAt: Date.now(),
         currentRoundIndex: 0,
@@ -1723,6 +1857,31 @@ async function handleApiRequest(req, res, pathname, port) {
         });
       }
 
+      // If MeDonut's 150-ELO battle cap toggle is ON, prevent joining Ranked lobbies over 150 ELO apart
+      const blockOver150 = Boolean(db.adminSettings && db.adminSettings.blockDuelEloGapOver150);
+      if (blockOver150 && !lobby.isFriendly && lobby.players[0]) {
+        const hostElo = typeof lobby.players[0].elo === 'number' ? lobby.players[0].elo : 1000;
+        const callerElo = typeof caller.duelElo === 'number' ? caller.duelElo : 1000;
+        const eloDiff = Math.abs(hostElo - callerElo);
+        if (eloDiff > 150) {
+          return sendJSON(res, 403, {
+            error: `Blocked by ELO Limit: ${lobby.players[0].username} (${hostElo} ELO) is ${eloDiff} points away from you (${callerElo} ELO). Max allowed difference is 150 ELO.`,
+            eloBlocked: true
+          });
+        }
+      }
+
+      // If this Friendly Duel requires a password, verify it before allowing join
+      if (lobby.isFriendly && lobby.password) {
+        const suppliedPassword = typeof body.password === 'string' ? body.password.trim() : '';
+        if (!suppliedPassword) {
+          return sendJSON(res, 403, { error: 'This Friendly Duel requires a password.', requiresPassword: true });
+        }
+        if (suppliedPassword !== lobby.password) {
+          return sendJSON(res, 403, { error: 'Incorrect password for this Friendly Duel lobby.', requiresPassword: true });
+        }
+      }
+
       // Clean up any other waiting lobby hosted by this caller
       for (const [oldId, oldLobby] of duelLobbies.entries()) {
         if (oldId !== targetId && oldLobby.status === 'waiting' && oldLobby.players.some(p => p.slotId === caller.clientId)) {
@@ -1744,59 +1903,83 @@ async function handleApiRequest(req, res, pathname, port) {
       });
     }
 
-    // POST /api/duels/quick-match
+    // POST /api/duels/quick-match (Ranked open duels ONLY, prioritizing closest ELO opponents)
     if (req.method === 'POST' && pathname === '/api/duels/quick-match') {
-      // Find the oldest joinable waiting lobby where caller is not already the host
+      const callerElo = typeof caller.duelElo === 'number' ? caller.duelElo : 1000;
+      const blockOver150 = Boolean(db.adminSettings && db.adminSettings.blockDuelEloGapOver150);
       const joinable = [];
       for (const lobby of duelLobbies.values()) {
         advanceDuelLobbyClock(lobby);
-        if (lobby.status === 'waiting' && lobby.players.length === 1 && lobby.players[0].slotId !== caller.clientId) {
+        if (
+          lobby.status === 'waiting' &&
+          !lobby.isFriendly &&
+          !lobby.password &&
+          lobby.players.length === 1 &&
+          lobby.players[0].slotId !== caller.clientId
+        ) {
+          const hostElo = typeof lobby.players[0].elo === 'number' ? lobby.players[0].elo : 1000;
+          if (blockOver150 && Math.abs(hostElo - callerElo) > 150) {
+            continue;
+          }
           joinable.push(lobby);
         }
       }
-      joinable.sort((a, b) => a.createdAt - b.createdAt); // Oldest joinable lobby first!
+      joinable.sort((a, b) => {
+        const eloA = (a.players[0] && typeof a.players[0].elo === 'number') ? a.players[0].elo : 1000;
+        const eloB = (b.players[0] && typeof b.players[0].elo === 'number') ? b.players[0].elo : 1000;
+        const diffA = Math.abs(eloA - callerElo);
+        const diffB = Math.abs(eloB - callerElo);
+        if (diffA !== diffB) return diffA - diffB;
+        return a.createdAt - b.createdAt;
+      });
 
       if (joinable.length > 0) {
-        const oldestLobby = joinable[0];
+        const bestMatchLobby = joinable[0];
         // Clean up any waiting lobby caller was hosting
         for (const [oldId, oldLobby] of duelLobbies.entries()) {
-          if (oldId !== oldestLobby.id && oldLobby.status === 'waiting' && oldLobby.players.some(p => p.slotId === caller.clientId)) {
+          if (oldId !== bestMatchLobby.id && oldLobby.status === 'waiting' && oldLobby.players.some(p => p.slotId === caller.clientId)) {
             duelLobbies.delete(oldId);
           }
         }
 
         const p2Caller = { ...caller };
-        if (oldestLobby.players[0] && oldestLobby.players[0].username.toLowerCase() === p2Caller.username.toLowerCase()) {
+        if (bestMatchLobby.players[0] && bestMatchLobby.players[0].username.toLowerCase() === p2Caller.username.toLowerCase()) {
           p2Caller.username = `${p2Caller.username} (2)`;
         }
 
-        oldestLobby.players.push(createDuelPlayerSlot(p2Caller, caller.clientId));
-        startDuelCountdownForRound(oldestLobby, 0);
+        bestMatchLobby.players.push(createDuelPlayerSlot(p2Caller, caller.clientId));
+        startDuelCountdownForRound(bestMatchLobby, 0);
 
         return sendJSON(res, 200, {
           action: 'joined',
-          lobby: serializeDuelLobby(oldestLobby, true),
+          lobby: serializeDuelLobby(bestMatchLobby, true),
           lobbies: getPublicDuelLobbiesList()
         });
       }
 
-      // Check if caller is already waiting in their own lobby
-      for (const lobby of duelLobbies.values()) {
+      // Check if caller is already waiting in their own Ranked open lobby
+      for (const [oldId, lobby] of duelLobbies.entries()) {
         if (lobby.status === 'waiting' && lobby.players.length === 1 && lobby.players[0].slotId === caller.clientId) {
-          lobby.players[0].lastHeartbeat = Date.now();
-          return sendJSON(res, 200, {
-            action: 'waiting',
-            lobby: serializeDuelLobby(lobby, true),
-            lobbies: getPublicDuelLobbiesList()
-          });
+          if (!lobby.isFriendly && !lobby.password) {
+            lobby.players[0].lastHeartbeat = Date.now();
+            return sendJSON(res, 200, {
+              action: 'waiting',
+              lobby: serializeDuelLobby(lobby, true),
+              lobbies: getPublicDuelLobbiesList()
+            });
+          }
+          // Replace caller's waiting Friendly/passworded lobby when clicking Quick Ranked Match
+          duelLobbies.delete(oldId);
         }
       }
 
-      // No joinable lobby exists -> automatically create a new lobby!
+      // No joinable Ranked lobby exists -> automatically create a new Ranked lobby!
       const lobbyId = crypto.randomBytes(8).toString('hex');
       const newLobby = {
         id: lobbyId,
         name: `${caller.username}'s Duel`,
+        isFriendly: false,
+        password: '',
         status: 'waiting',
         createdAt: Date.now(),
         currentRoundIndex: 0,
@@ -1817,7 +2000,7 @@ async function handleApiRequest(req, res, pathname, port) {
       });
     }
 
-    // POST /api/duels/leave
+    // POST /api/duels/leave (only allowed while waiting in lobby before a ranked match begins)
     if (req.method === 'POST' && pathname === '/api/duels/leave') {
       const targetId = String(body.lobbyId || '');
       const idsToCheck = targetId ? [targetId] : Array.from(duelLobbies.keys());
@@ -1827,18 +2010,8 @@ async function handleApiRequest(req, res, pathname, port) {
         const leaver = lobby.players.find(p => p.slotId === caller.clientId || p.usernameKey === caller.usernameKey);
         if (!leaver) continue;
 
-        leaver.leftMatch = true;
         if (lobby.status === 'waiting') {
           duelLobbies.delete(lid);
-        } else {
-          ['easy', 'medium', 'hard'].forEach(r => { leaver.rounds[r].finished = true; });
-          leaver.live.alive = false;
-          const remainingActiveHumans = lobby.players.some(p => p !== leaver && !p.isBot && !p.leftMatch);
-          if (!remainingActiveHumans) {
-            duelLobbies.delete(lid);
-          } else if (lobby.status !== 'finished') {
-            finalizeDuelLobbyMatch(lobby);
-          }
         }
       }
       return sendJSON(res, 200, {
@@ -1861,34 +2034,43 @@ async function handleApiRequest(req, res, pathname, port) {
       if (player) {
         const now = Date.now();
         player.lastHeartbeat = now;
-        if (typeof body.birdY === 'number' && Number.isFinite(body.birdY)) {
-          player.live.birdY = body.birdY;
-        }
-        if (typeof body.birdVelocityY === 'number' && Number.isFinite(body.birdVelocityY)) {
-          player.live.birdVelocityY = body.birdVelocityY;
-        }
-        if (typeof body.rotZ === 'number' && Number.isFinite(body.rotZ)) {
-          player.live.rotZ = body.rotZ;
-        }
-        if (typeof body.alive === 'boolean') {
-          player.live.alive = body.alive;
-        }
-        if (typeof body.speed === 'number' && Number.isFinite(body.speed) && body.speed > 0) {
-          player.live.speed = body.speed;
-        }
-        if (Array.isArray(body.pipes)) {
-          player.live.pipes = body.pipes.slice(0, 4).map(pp => ({
-            x: Number(pp.x) || 0,
-            bottomTopY: Number(pp.bottomTopY) || 3,
-            topBottomY: Number(pp.topBottomY) || 8,
-            gapCenterY: Number(pp.gapCenterY) || 5.5,
-            gapSize: Number(pp.gapSize) || 5
-          }));
-        }
-        player.live.updatedAt = now;
 
-        const rKey = body.round || lobby.currentRound || 'easy';
-        if (DUEL_ROUNDS.includes(rKey) && !player.rounds[rKey].finished) {
+        const rKey = lobby.currentRound || 'easy';
+        const isCurrentPlayingRound = (
+          lobby.status === 'playing' &&
+          (!body.round || body.round === rKey) &&
+          player.rounds &&
+          player.rounds[rKey] &&
+          !player.rounds[rKey].finished
+        );
+
+        if (isCurrentPlayingRound) {
+          if (typeof body.birdY === 'number' && Number.isFinite(body.birdY)) {
+            player.live.birdY = body.birdY;
+          }
+          if (typeof body.birdVelocityY === 'number' && Number.isFinite(body.birdVelocityY)) {
+            player.live.birdVelocityY = body.birdVelocityY;
+          }
+          if (typeof body.rotZ === 'number' && Number.isFinite(body.rotZ)) {
+            player.live.rotZ = body.rotZ;
+          }
+          if (typeof body.alive === 'boolean') {
+            player.live.alive = body.alive;
+          }
+          if (typeof body.speed === 'number' && Number.isFinite(body.speed) && body.speed > 0) {
+            player.live.speed = body.speed;
+          }
+          if (Array.isArray(body.pipes)) {
+            player.live.pipes = body.pipes.slice(0, 4).map(pp => ({
+              x: Number(pp.x) || 0,
+              bottomTopY: Number(pp.bottomTopY) || 3,
+              topBottomY: Number(pp.topBottomY) || 8,
+              gapCenterY: Number(pp.gapCenterY) || 5.5,
+              gapSize: Number(pp.gapSize) || 5
+            }));
+          }
+          player.live.updatedAt = now;
+
           const cleanScore = Math.max(0, Math.floor(Number(body.score) || 0));
           player.live.score = cleanScore;
           if (cleanScore > player.rounds[rKey].rawScore) {
@@ -2116,6 +2298,7 @@ async function handleApiRequest(req, res, pathname, port) {
       dbFilePath: DB_FILE,
       databaseStatus: db.databaseStatus,
       playerRecordsOverview: db.playerRecordsOverview,
+      adminSettings: db.adminSettings || {},
       activityFeed: (db.activityFeed || []).slice(0, 100),
       leaderboards: buildLeaderboards(),
       allRuns: getAllRunsAdmin(),
@@ -2132,7 +2315,8 @@ async function handleApiRequest(req, res, pathname, port) {
       adminSettings: db.adminSettings || {},
       users: db.users,
       runs: db.runs,
-      duelMatchHighScores: db.duelMatchHighScores || []
+      duelMatchHighScores: db.duelMatchHighScores || [],
+      duelMatchHistory: db.duelMatchHistory || []
     };
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -2304,7 +2488,57 @@ async function handleApiRequest(req, res, pathname, port) {
     }
   }
 
-  // 14. Admin Permanent Player Account Deletion
+  // 13b. Admin Player Ranked Duel History (Opponent, Easy/Med/Hard scores, Total, ELO change)
+  if (req.method === 'GET' && pathname === '/api/database/duel-history') {
+    const username = parsedUrl.query && parsedUrl.query.username ? String(parsedUrl.query.username).trim() : '';
+    if (!username) {
+      return sendJSON(res, 400, { error: 'Username query parameter is required.' });
+    }
+    const uKey = username.toLowerCase();
+    const user = db.users && db.users[uKey];
+    if (!user) {
+      return sendJSON(res, 404, { error: `Player "${username}" not found in database.` });
+    }
+    const history = getPlayerRankedDuelHistory(user.username, 100);
+    return sendJSON(res, 200, {
+      ok: true,
+      username: user.username,
+      duelElo: typeof user.duelElo === 'number' ? user.duelElo : 1000,
+      duelWins: user.duelWins || 0,
+      duelLosses: user.duelLosses || 0,
+      duelDraws: user.duelDraws || 0,
+      duelMatches: user.duelMatches || 0,
+      duelBestMatchPoints: Number(user.duelBestMatchPoints) || 0,
+      history
+    });
+  }
+
+  // 13c. Admin Global Settings Toggle (e.g. Block Ranked Duels Over 150 ELO Gap)
+  if (req.method === 'POST' && pathname === '/api/database/admin-settings') {
+    const body = await readJsonBody(req).catch(() => ({}));
+    if (!db.adminSettings || typeof db.adminSettings !== 'object') {
+      db.adminSettings = {};
+    }
+    if (typeof body.blockDuelEloGapOver150 === 'boolean') {
+      db.adminSettings.blockDuelEloGapOver150 = body.blockDuelEloGapOver150;
+      const stateLabel = body.blockDuelEloGapOver150 ? 'ENABLED (blocked >150 ELO difference)' : 'DISABLED (reverted to >150/200/300 ELO scaling)';
+      logDatabaseEvent(
+        'SETTINGS_UPDATE',
+        'MeDonut',
+        `⚖️ MeDonut ${stateLabel} for Ranked Duels matchmaking`,
+        { blockDuelEloGapOver150: db.adminSettings.blockDuelEloGapOver150 }
+      );
+      saveDatabase(false);
+    }
+    return sendJSON(res, 200, {
+      ok: true,
+      adminSettings: db.adminSettings,
+      databaseStatus: db.databaseStatus,
+      activityFeed: (db.activityFeed || []).slice(0, 100)
+    });
+  }
+
+  // 14. Admin Permanent Player Account Deletion (lean fast response!)
   if (req.method === 'POST' && pathname === '/api/database/delete-account') {
     const { username } = await readJsonBody(req);
     if (!username) {
@@ -2318,11 +2552,7 @@ async function handleApiRequest(req, res, pathname, port) {
         message: `Permanently deleted account "${result.deletedUsername}".`,
         ...result,
         databaseStatus: db.databaseStatus,
-        playerRecordsOverview: db.playerRecordsOverview,
-        activityFeed: (db.activityFeed || []).slice(0, 100),
-        leaderboards: buildLeaderboards(),
-        allRuns: getAllRunsAdmin(),
-        loginHistory: (db.loginHistory || []).slice(0, 300)
+        latestActivityEvent: (db.activityFeed && db.activityFeed[0]) || null
       });
     } catch (err) {
       return sendJSON(res, 400, { error: err.message });

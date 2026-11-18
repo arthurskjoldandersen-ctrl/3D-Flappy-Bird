@@ -353,7 +353,7 @@
                       <span class="qm-icon">⚡</span>
                       <div class="qm-text">
                         <strong>Quick Match</strong>
-                        <span>Join oldest lobby or auto-create</span>
+                        <span>Ranked ELO only • Matches closest rating</span>
                       </div>
                     </button>
                   </div>
@@ -420,9 +420,9 @@
                 <div class="duels-create-card-inner">
                   <div class="duels-create-header">
                     <div class="duels-create-icon">⚡</div>
-                    <h3 class="duels-create-title">Create Ranked Duel Lobby</h3>
+                    <h3 class="duels-create-title">Create Duel Lobby</h3>
                     <p class="duels-create-desc">
-                      Host a 3-Round Ranked Duel: <strong>Round 1 Easy (1x)</strong> → <strong>Round 2 Medium (2x)</strong> → <strong>Round 3 Hard (3x)</strong>. All points are counted together!
+                      Host a 3-Round Ranked or Friendly Duel: <strong>Round 1 Easy (1x)</strong> → <strong>Round 2 Medium (2x)</strong> → <strong>Round 3 Hard (3x)</strong>. All points are counted together!
                     </p>
                   </div>
 
@@ -436,6 +436,29 @@
                       placeholder="Enter a name for your lobby..."
                       autocomplete="off"
                     />
+                    <label class="duels-form-label">Match Mode</label>
+                    <div class="duels-type-toggle" id="duel-create-type-toggle">
+                      <button type="button" class="duels-type-btn active" id="btn-duel-type-ranked" data-type="ranked">
+                        🏆 Ranked Duel
+                        <span>Gain / Lose ELO • No Password</span>
+                      </button>
+                      <button type="button" class="duels-type-btn" id="btn-duel-type-friendly" data-type="friendly">
+                        🤝 Friendly Duel
+                        <span>0 ELO Change • Optional Password</span>
+                      </button>
+                    </div>
+                    <div class="duels-create-password-wrap" id="duel-create-password-wrap" style="display: none;">
+                      <label class="duels-form-label" for="duel-create-password-input">Friendly Password (Optional)</label>
+                      <input
+                        type="text"
+                        id="duel-create-password-input"
+                        class="duels-name-input"
+                        maxlength="24"
+                        placeholder="Optional password for friends..."
+                        autocomplete="off"
+                      />
+                      <div class="duels-password-hint">🔒 Share this password with someone to play privately. Ranked duels cannot have passwords.</div>
+                    </div>
                     <div class="duels-create-msg" id="duel-create-msg"></div>
                     <button type="button" class="btn-duel-create-submit" id="btn-duel-create-submit">
                       ⚔️ Create Lobby
@@ -1153,7 +1176,6 @@
         <span>Spectating <strong id="duel-solo-opp-name">Opponent</strong> (<span id="duel-solo-opp-elo">1000 ELO</span>)</span>
         <span class="duel-spec-round-pill" id="duel-solo-opp-score">0 (0 pts)</span>
         <span class="duel-solo-my-score" id="duel-solo-my-score">You: 0</span>
-        <button type="button" class="btn-duel-exit-battle-mini" id="btn-duel-exit-solo-battle" title="Leave this Duel Match">🚪 Exit Battle</button>
       </div>
     </div>
 
@@ -1171,7 +1193,6 @@
         <div class="duel-countdown-sub" id="duel-countdown-sub">
           Get ready to fly! Points count 1x in Easy, 2x in Medium, 3x in Hard!
         </div>
-        <button type="button" class="btn-duel-exit-battle" id="btn-duel-exit-countdown">🚪 Leave Match</button>
       </div>
 
       <!-- State B: Waiting for Other Player to Die in Current Round -->
@@ -1194,7 +1215,6 @@
             <span class="duel-compare-status" id="duel-wait-p2-status">🟢 Still Flying...</span>
           </div>
         </div>
-        <button type="button" class="btn-duel-exit-battle" id="btn-duel-exit-waiting-opp">🚪 Leave Match</button>
       </div>
 
       <!-- State C: Between-Round Summary (Shown when BOTH players have died in the round) -->
@@ -1222,7 +1242,6 @@
         <div class="duel-summary-next-hint" id="duel-summary-next-hint">
           Next Round starting shortly...
         </div>
-        <button type="button" class="btn-duel-exit-battle" id="btn-duel-exit-round-summary">🚪 Leave Match</button>
       </div>
 
       <!-- State D: Final Duel Match Results (All 3 Rounds Counted Together + Ranked Elo Changes) -->
@@ -1290,6 +1309,51 @@
         <button type="button" class="btn-duel-finish-back" id="btn-duel-finish-back">
           ⚔️ Back to Duels Arena
         </button>
+      </div>
+    </div>
+
+    <!-- Mandatory Cookie Acceptance Modal (Fair Play & Anti-Cheat) -->
+    <div id="cookie-consent-modal" class="guest-modal-overlay cookie-consent-overlay" style="display: none;">
+      <div class="card guest-modal-card cookie-consent-card">
+        <div class="guest-modal-badge">🍪 COOKIES REQUIRED FOR FAIR PLAY</div>
+        <h2 class="guest-modal-title">Accept Required Game Cookies</h2>
+        <p class="guest-modal-subtitle">
+          We use essential cookies to keep your account signed in, sync your skins &amp; scores, prevent cheating, and keep everything fair for everyone.
+        </p>
+        <div style="background:rgba(15,23,42,0.55); border:1px solid rgba(56,189,248,0.3); border-radius:12px; padding:10px 12px; font-size:0.78rem; color:#bae6fd; text-align:left; line-height:1.45; margin-top:8px;">
+          • <strong>Session &amp; Records:</strong> Keeps you logged in across visits.<br>
+          • <strong>Fair Play &amp; Anti-Cheat:</strong> Makes sure no one is cheating and keeps Ranked Duels &amp; Leaderboards fair.
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 14px;">
+          <button type="button" class="btn-duel-create-submit" id="btn-accept-cookies" style="flex: 1;">
+            🍪 Accept Cookies &amp; Enter Game
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Password Prompt Modal for Private Friendly Duels -->
+    <div id="duel-password-modal" class="guest-modal-overlay" style="display: none;">
+      <div class="card guest-modal-card duel-password-modal-card">
+        <button type="button" class="guest-modal-close" id="duel-password-modal-close" title="Cancel">✕</button>
+        <div class="guest-modal-badge">🔒 PRIVATE FRIENDLY DUEL</div>
+        <h2 class="guest-modal-title" id="duel-password-modal-title">Enter Lobby Password</h2>
+        <p class="guest-modal-subtitle" id="duel-password-modal-sub">
+          Enter the host's password to join this Friendly Duel (no ELO gained or lost).
+        </p>
+        <div class="auth-field" style="margin-top: 10px;">
+          <label for="duel-join-password-input" class="auth-label">Lobby Password</label>
+          <div class="auth-input-wrap">
+            <span class="auth-input-icon">🔑</span>
+            <input type="text" id="duel-join-password-input" class="account-input" placeholder="Enter lobby password..." maxlength="24" autocomplete="off" />
+          </div>
+        </div>
+        <div id="duel-password-modal-error" class="duels-create-msg error" style="margin-top: 8px; min-height: 18px;"></div>
+        <div style="display: flex; gap: 10px; margin-top: 14px;">
+          <button type="button" class="btn-duel-create-submit" id="btn-duel-password-submit" style="flex: 1;">
+            ⚔️ Join Friendly Duel
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1410,6 +1474,13 @@
             <span class="public-stat-label">Active Leaderboard Ranks</span>
             <strong class="public-stat-val" id="public-stat-top100">3 Modes</strong>
           </div>
+        </div>
+
+        <!-- Ranked Duels Match History -->
+        <div class="public-section-title" style="margin-top: 14px;">⚔️ Ranked Duels History (3-Round Matches)</div>
+        <div class="public-duel-summary" id="public-duel-summary"></div>
+        <div class="public-duel-history-list" id="public-duel-history-list">
+          <div class="public-duel-meta" style="padding: 8px 0;">Loading ranked match history...</div>
         </div>
       </div>
 

@@ -59,7 +59,10 @@
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
           this.lastFlapTick = 0;
-          this.lastQueueFlapTime = 0;
+          this.lastQueueFlapTime = -1000;
+          this.lastKbdQueueTime = -1000;
+          this.lastPtrQueueTime = -1000;
+          this.lastQueueSource = '';
           this.physicsAccumulator = 0;
 
           // Authoritative 60Hz coordinates + Previous tick coordinates for 120Hz/144Hz interpolation
@@ -133,8 +136,9 @@
             if (document.hidden) return;
             if (!this.currentUser || !this.authToken) return;
             try {
+              const sigHeaders = typeof this.getClientSignalHeaders === 'function' ? this.getClientSignalHeaders() : {};
               const res = await fetch('/api/chat?limit=1', {
-                headers: { 'Authorization': `Bearer ${this.authToken}` }
+                headers: { ...sigHeaders, 'Authorization': `Bearer ${this.authToken}` }
               });
               if (!res.ok) return;
               const data = await res.json();
@@ -162,6 +166,14 @@
             if (pModal && (pModal.classList.contains('active') || (pModal.style.display && pModal.style.display !== 'none'))) {
               return true;
             }
+            const duelPwModal = document.getElementById('duel-password-modal');
+            if (duelPwModal && (duelPwModal.classList.contains('active') || duelPwModal.classList.contains('visible') || (duelPwModal.style.display && duelPwModal.style.display !== 'none'))) {
+              return true;
+            }
+            const cookieModal = document.getElementById('cookie-consent-modal');
+            if (cookieModal && (cookieModal.classList.contains('active') || cookieModal.classList.contains('visible') || (cookieModal.style.display && cookieModal.style.display !== 'none'))) {
+              return true;
+            }
             return false;
           };
 
@@ -178,10 +190,14 @@
           window.addEventListener('keydown', (e) => {
             const activeEl = document.activeElement;
             const tag = activeEl && activeEl.tagName;
-            const isJumpKey = (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W');
+            const isJumpKey = (
+              e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' ||
+              e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' ||
+              e.keyCode === 32 || e.keyCode === 38 || e.keyCode === 87
+            );
 
             if (this.state === GAME_STATE.PLAYING && isJumpKey) {
-              // Never let lingering input focus, chat drawer, or modals swallow a jump during active flight!
+              // Capture phase: never let lingering input focus, chat drawer, or child stopPropagation swallow a jump!
               if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') {
                 if (activeEl && typeof activeEl.blur === 'function') activeEl.blur();
               }
@@ -189,8 +205,9 @@
                 this.chat.onRoundStart();
               }
               e.preventDefault();
+              e.stopPropagation();
               if (e.repeat) return;
-              this.queueFlap();
+              this.queueFlap('kbd');
               return;
             }
 
@@ -203,6 +220,8 @@
                     this.handleGuestModalAuth('smart');
                   } else if (activeEl && (activeEl.id === 'auth-username' || activeEl.id === 'auth-password')) {
                     this.handleAuth('smart');
+                  } else if (activeEl && activeEl.id === 'duel-join-password-input') {
+                    this.submitDuelPasswordModal();
                   }
                 }
                 return;
@@ -211,6 +230,10 @@
 
             if (isModalActive()) {
               if (e.code === 'Escape') {
+                const duelPwModal = document.getElementById('duel-password-modal');
+                if (duelPwModal && duelPwModal.style.display !== 'none') {
+                  this.closeDuelPasswordModal();
+                }
                 const guestModal = document.getElementById('guest-login-modal');
                 if (guestModal && (guestModal.classList.contains('active') || guestModal.classList.contains('visible'))) {
                   this.toggleGuestLoginModal(false);
@@ -249,7 +272,7 @@
                 this.switchView('lobby');
               }
             }
-          });
+          }, { capture: true });
 
           let lastPointerActionTime = 0;
 
@@ -276,13 +299,13 @@
 
           const handlePointerFlapAction = (e) => {
             if (e.type === 'pointerdown') {
-              if (e.isPrimary === false) return;
               if (e.pointerType === 'mouse' && typeof e.button === 'number' && e.button !== 0) return;
+              if (this.state !== GAME_STATE.PLAYING && e.isPrimary === false) return;
             }
 
             const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-            // Deduplicate companion or contact-bounce events
-            if (now - lastPointerActionTime < 22) {
+            // Deduplicate synthetic / hardware bounce only (<14ms), allowing fast intentional double-taps
+            if (now - lastPointerActionTime < 14) {
               return;
             }
             lastPointerActionTime = now;
@@ -291,14 +314,14 @@
 
             // During active gameplay, tapping anywhere (except interactive chat/buttons) triggers an instant jump!
             if (this.state === GAME_STATE.PLAYING) {
-              if (target && target.closest && target.closest('button, a, input, textarea, select, option, label, header, #top-app-bar, #game-chat-panel, #btn-chat-toggle, .floating-chat-btn')) {
+              if (target && target.closest && target.closest('button, a, input, textarea, select, option, #top-app-bar, #game-chat-panel, #btn-chat-toggle, .floating-chat-btn')) {
                 return;
               }
               if (document.activeElement && typeof document.activeElement.blur === 'function') {
                 document.activeElement.blur();
               }
               if (e.cancelable) e.preventDefault();
-              this.queueFlap();
+              this.queueFlap('ptr');
               return;
             }
 
@@ -318,12 +341,12 @@
           };
 
           if (window.PointerEvent) {
-            window.addEventListener('pointerdown', handlePointerFlapAction, { passive: false });
+            window.addEventListener('pointerdown', handlePointerFlapAction, { capture: true, passive: false });
           } else {
-            window.addEventListener('touchstart', handlePointerFlapAction, { passive: false });
+            window.addEventListener('touchstart', handlePointerFlapAction, { capture: true, passive: false });
             window.addEventListener('mousedown', (e) => {
               if (e.button === 0) handlePointerFlapAction(e);
-            }, { passive: false });
+            }, { capture: true, passive: false });
           }
 
           window.addEventListener('keyup', (e) => {
@@ -470,6 +493,37 @@
             });
           }
 
+          this.duelCreateIsFriendly = false;
+          this._pendingPasswordLobbyId = null;
+
+          const setCreateMode = (isFriendly) => {
+            this.duelCreateIsFriendly = Boolean(isFriendly);
+            const rankedBtn = document.getElementById('btn-duel-type-ranked');
+            const friendlyBtn = document.getElementById('btn-duel-type-friendly');
+            const pwWrap = document.getElementById('duel-create-password-wrap');
+            const pwInput = document.getElementById('duel-create-password-input');
+            if (rankedBtn) rankedBtn.classList.toggle('active', !this.duelCreateIsFriendly);
+            if (friendlyBtn) friendlyBtn.classList.toggle('active', this.duelCreateIsFriendly);
+            if (pwWrap) pwWrap.style.display = this.duelCreateIsFriendly ? 'block' : 'none';
+            if (!this.duelCreateIsFriendly && pwInput) pwInput.value = '';
+          };
+
+          const rankedTypeBtn = document.getElementById('btn-duel-type-ranked');
+          if (rankedTypeBtn) {
+            rankedTypeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              setCreateMode(false);
+            });
+          }
+
+          const friendlyTypeBtn = document.getElementById('btn-duel-type-friendly');
+          if (friendlyTypeBtn) {
+            friendlyTypeBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              setCreateMode(true);
+            });
+          }
+
           const createSubmitBtn = document.getElementById('btn-duel-create-submit');
           if (createSubmitBtn) {
             createSubmitBtn.addEventListener('click', (e) => {
@@ -489,6 +543,48 @@
             });
           }
 
+          const createPwInput = document.getElementById('duel-create-password-input');
+          if (createPwInput) {
+            createPwInput.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                this.handleDuelCreateLobby();
+              }
+            });
+          }
+
+          const pwModalEl = document.getElementById('duel-password-modal');
+          const pwModalClose = document.getElementById('duel-password-modal-close');
+          const pwModalSubmit = document.getElementById('btn-duel-password-submit');
+          const pwJoinInput = document.getElementById('duel-join-password-input');
+          if (pwModalClose) {
+            pwModalClose.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.closeDuelPasswordModal();
+            });
+          }
+          if (pwModalEl) {
+            pwModalEl.addEventListener('click', (e) => {
+              if (e.target === pwModalEl) this.closeDuelPasswordModal();
+            });
+          }
+          if (pwModalSubmit) {
+            pwModalSubmit.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.submitDuelPasswordModal();
+            });
+          }
+          if (pwJoinInput) {
+            pwJoinInput.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                this.submitDuelPasswordModal();
+              }
+            });
+          }
+
           const leaveWaitBtn = document.getElementById('btn-duel-leave-waiting');
           if (leaveWaitBtn) {
             leaveWaitBtn.addEventListener('click', (e) => {
@@ -496,23 +592,6 @@
               this.handleDuelLeaveLobby();
             });
           }
-
-          [
-            'btn-duel-exit-solo-battle',
-            'btn-duel-exit-countdown',
-            'btn-duel-exit-waiting-opp',
-            'btn-duel-exit-round-summary'
-          ].forEach(btnId => {
-            const btnEl = document.getElementById(btnId);
-            if (!btnEl) return;
-            btnEl.addEventListener('mousedown', (e) => e.stopPropagation());
-            btnEl.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-            btnEl.addEventListener('click', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              this.handleDuelLeaveLobby();
-            });
-          });
 
           const finishBackBtn = document.getElementById('btn-duel-finish-back');
           if (finishBackBtn) {
@@ -1304,7 +1383,10 @@
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
           this.lastFlapTick = 0;
-          this.lastQueueFlapTime = 0;
+          this.lastQueueFlapTime = -1000;
+          this.lastKbdQueueTime = -1000;
+          this.lastPtrQueueTime = -1000;
+          this.lastQueueSource = '';
           this.physicsAccumulator = 0;
           this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
@@ -1341,20 +1423,39 @@
           this.pendingFlap = false;
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
-          this.lastQueueFlapTime = 0;
+          this.lastQueueFlapTime = -1000;
+          this.lastKbdQueueTime = -1000;
+          this.lastPtrQueueTime = -1000;
+          this.lastQueueSource = '';
+          if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+          }
           this.sound.playFlap();
         }
 
-        queueFlap() {
+        queueFlap(source = 'auto') {
           if (this.state !== GAME_STATE.PLAYING) return;
           const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-          // Debounce hardware bounce or overlapping Space+Click (<45ms) so 1 tap never double-jumps!
-          if (now - (this.lastQueueFlapTime || 0) < 45) {
+          const lastAny = this.lastQueueFlapTime || 0;
+          const isSameSource = source !== 'auto' && this.lastQueueSource === source;
+          const lastChanTime = source === 'kbd' ? (this.lastKbdQueueTime || 0) : (source === 'ptr' ? (this.lastPtrQueueTime || 0) : lastAny);
+
+          // Prevent switch bounce (<18ms same channel) or accidental simultaneous Space+Click overlap (<24ms cross-channel),
+          // while never dropping real fast double-taps (>=24ms) once the buffer slot is free.
+          if (isSameSource && (now - lastChanTime < 18)) {
             return;
           }
+          if (!isSameSource && (now - lastAny < 24)) {
+            return;
+          }
+
           this.lastQueueFlapTime = now;
+          this.lastQueueSource = source;
+          if (source === 'kbd') this.lastKbdQueueTime = now;
+          else if (source === 'ptr') this.lastPtrQueueTime = now;
+
           this.pendingFlap = true;
-          // Queue at most 1 pending jump so rapid taps execute sequentially without stacking into a double jump
+          // Cap buffer at 1 unexecuted jump so a double-event can never stack into 2 automatic jumps
           this.queuedFlaps = 1;
           this.flapBufferTicks = 12;
           this.wingFlapBoost = 1.0;
@@ -1507,6 +1608,9 @@
           }
 
           setTimeout(() => {
+            if (this.activeDuelLobbyId && this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting') {
+              return;
+            }
             this.state = GAME_STATE.GAMEOVER;
             document.body.classList.remove('in-game');
             if (this.chat && typeof this.chat.onRoundEnd === 'function') {
@@ -1699,11 +1803,18 @@
           const isSpectatingDuel = Boolean(activeSpecLobby);
           const specRoundKey = (activeSpecLobby && activeSpecLobby.currentRound) || this.selectedDifficulty || 'medium';
           const specDiffCfg = CONFIG.difficulties[specRoundKey] || CONFIG.difficulties.medium;
+          const activeSpecSimSpeed = (this.duelSoloSpectatingOpp && this.duelSpecSim && this.duelSpecSim.opp && this.duelSpecSim.opp.speed > 0)
+            ? this.duelSpecSim.opp.speed
+            : ((this.duelSpecSim && this.duelSpecSim.p1 && this.duelSpecSim.p1.speed > 0)
+              ? this.duelSpecSim.p1.speed
+              : ((this.duelSpecSim && this.duelSpecSim.p2 && this.duelSpecSim.p2.speed > 0)
+                ? this.duelSpecSim.p2.speed
+                : (specDiffCfg.startSpeed || CONFIG.baseSpeed)));
           const diff = this.getDifficultyParams();
           const visualScrollSpeed = (this.state === GAME_STATE.PLAYING)
             ? diff.speed
             : (isSpectatingDuel && activeSpecLobby.status === 'playing'
-              ? (specDiffCfg.maxSpeed ? (CONFIG.baseSpeed + specDiffCfg.maxSpeed) * 0.5 : CONFIG.baseSpeed)
+              ? activeSpecSimSpeed
               : (this.state === GAME_STATE.START ? 3.2 : 0));
 
           if (visualScrollSpeed > 0) {
@@ -1952,6 +2063,8 @@
           this.duelSpectatingLobbyId = null;
           this.duelRoundPlaying = null;
           this.duelRoundFinishedLocal = false;
+          this.pendingDuelRoundFinish = null;
+          this._submittingDuelRoundFinish = false;
           this.lastDuelTelemetrySentAt = 0;
           this.lastDuelPollAt = 0;
           this.duelCountdownTargetMs = 0;
@@ -1959,6 +2072,7 @@
           this.duelSoloSpectatingOpp = false;
           this.duelSoloSpectateDelayUntil = 0;
           this._specServerClockOffset = null;
+          this.duelEloGapBlockedOver150 = false;
 
           this.duelSpecSim = {
             p1: this.createEmptySpecSim(),
@@ -1971,6 +2085,14 @@
           this.hideAllDuelOverlays();
 
           if (this._duelPollTimer) clearInterval(this._duelPollTimer);
+          if (!this._duelVisibilityHandlerAdded) {
+            this._duelVisibilityHandlerAdded = true;
+            document.addEventListener('visibilitychange', () => {
+              if (!document.hidden && (this.activeDuelLobbyId || this.duelSpectatingLobbyId)) {
+                this.fetchDuelsState();
+              }
+            });
+          }
           this._duelPollTimer = setInterval(() => {
             if (document.hidden) return;
             const now = Date.now();
@@ -1985,7 +2107,7 @@
               (this.duelCountdownTargetMs - now < 500)
             );
             const isFastPoll = Boolean(this.activeDuelLobbyId || this.duelSpectatingLobbyId);
-            const intervalMs = (isLiveSpectating || isNearCountdownEnd) ? 95 : (isFastPoll ? 200 : 1200);
+            const intervalMs = (isLiveSpectating || isNearCountdownEnd) ? 75 : (isFastPoll ? 200 : 1200);
             if (!isFastPoll && this.currentAppView !== 'duels') return;
             if (now - this.lastDuelPollAt >= intervalMs) {
               this.lastDuelPollAt = now;
@@ -2094,8 +2216,11 @@
                 this._specServerClockOffset = sampleOffset;
               } else {
                 const diff = sampleOffset - this._specServerClockOffset;
-                this._specServerClockOffset += Math.abs(diff) > 350 ? diff * 0.5 : diff * 0.12;
+                this._specServerClockOffset += Math.abs(diff) > 350 ? diff * 0.35 : diff * 0.06;
               }
+            }
+            if (data.adminSettings && typeof data.adminSettings.blockDuelEloGapOver150 === 'boolean') {
+              this.duelEloGapBlockedOver150 = data.adminSettings.blockDuelEloGapOver150;
             }
 
             if (Array.isArray(data.lobbies)) {
@@ -2134,7 +2259,7 @@
               this.activeDuelLobby = data.activeLobby;
               this.activeDuelLobbyId = data.activeLobby.id;
               this.syncDuelMatchState(data.activeLobby);
-            } else if (this.activeDuelLobbyId) {
+            } else if (this.activeDuelLobbyId && (!this.activeDuelLobby || this.activeDuelLobby.status !== 'finished')) {
               const wasInMatchView = Boolean(
                 this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting'
               ) || document.body.classList.contains('in-game');
@@ -2171,18 +2296,24 @@
 
         async handleDuelCreateLobby() {
           const nameInput = document.getElementById('duel-create-name-input');
+          const pwInput = document.getElementById('duel-create-password-input');
           const msgEl = document.getElementById('duel-create-msg');
           const customName = nameInput ? nameInput.value.trim() : '';
+          const isFriendly = Boolean(this.duelCreateIsFriendly);
+          const customPassword = (isFriendly && pwInput) ? pwInput.value.trim() : '';
           try {
             if (msgEl) msgEl.textContent = 'Creating lobby...';
             const res = await this.apiRequest('/api/duels/create', 'POST', {
               name: customName || `${this.getDuelDisplayUsername()}'s Duel`,
+              isFriendly,
+              password: customPassword,
               clientId: this.duelClientId,
               guestUsername: this.getDuelDisplayUsername(),
               selectedSkin: this.selectedSkinId || 'classic',
               selectedPipeSkin: this.selectedPipeSkinId || 'classic_pipe'
             });
             if (nameInput) nameInput.value = '';
+            if (pwInput) pwInput.value = '';
             if (msgEl) msgEl.textContent = '';
             if (res && res.lobby) {
               this.activeDuelLobby = res.lobby;
@@ -2200,16 +2331,74 @@
           }
         }
 
-        async handleDuelJoinLobby(lobbyId) {
+        openDuelPasswordModal(lobbyId, lobbyName = 'Friendly Duel', errorMsg = '') {
+          this._pendingPasswordLobbyId = lobbyId;
+          const modal = document.getElementById('duel-password-modal');
+          const titleEl = document.getElementById('duel-password-modal-title');
+          const errEl = document.getElementById('duel-password-modal-error');
+          const inputEl = document.getElementById('duel-join-password-input');
+          if (titleEl) titleEl.textContent = `Join "${lobbyName}"`;
+          if (errEl) errEl.textContent = errorMsg || '';
+          if (inputEl) {
+            if (!errorMsg) inputEl.value = '';
+          }
+          if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+          }
+          if (inputEl) {
+            setTimeout(() => { inputEl.focus(); }, 30);
+          }
+        }
+
+        closeDuelPasswordModal() {
+          this._pendingPasswordLobbyId = null;
+          const modal = document.getElementById('duel-password-modal');
+          const errEl = document.getElementById('duel-password-modal-error');
+          if (errEl) errEl.textContent = '';
+          if (modal) {
+            modal.classList.remove('active', 'visible');
+            modal.style.display = 'none';
+          }
+        }
+
+        submitDuelPasswordModal() {
+          const lobbyId = this._pendingPasswordLobbyId;
+          const inputEl = document.getElementById('duel-join-password-input');
+          const errEl = document.getElementById('duel-password-modal-error');
+          if (!lobbyId) {
+            this.closeDuelPasswordModal();
+            return;
+          }
+          const entered = inputEl ? inputEl.value.trim() : '';
+          if (!entered) {
+            if (errEl) errEl.textContent = 'Please enter the lobby password.';
+            if (inputEl) inputEl.focus();
+            return;
+          }
+          this.handleDuelJoinLobby(lobbyId, entered);
+        }
+
+        async handleDuelJoinLobby(lobbyId, password = null) {
           if (!lobbyId) return;
+          const targetLobby = (this.duelLobbies || []).find(l => l && l.id === lobbyId);
+          if (targetLobby && targetLobby.hasPassword && password === null) {
+            this.openDuelPasswordModal(lobbyId, targetLobby.name || 'Friendly Duel');
+            return;
+          }
           try {
-            const res = await this.apiRequest('/api/duels/join', 'POST', {
+            const payload = {
               lobbyId,
               clientId: this.duelClientId,
               guestUsername: this.getDuelDisplayUsername(),
               selectedSkin: this.selectedSkinId || 'classic',
               selectedPipeSkin: this.selectedPipeSkinId || 'classic_pipe'
-            });
+            };
+            if (typeof password === 'string' && password.length > 0) {
+              payload.password = password;
+            }
+            const res = await this.apiRequest('/api/duels/join', 'POST', payload);
+            this.closeDuelPasswordModal();
             if (res && res.lobby) {
               this.activeDuelLobby = res.lobby;
               this.activeDuelLobbyId = res.lobby.id;
@@ -2218,6 +2407,20 @@
               this.syncDuelMatchState(res.lobby);
             }
           } catch (err) {
+            const msg = (err && err.message) ? err.message : '';
+            if (password !== null || (/password/i.test(msg) && !/elo/i.test(msg))) {
+              const lobbyTitle = (targetLobby && targetLobby.name) || 'Friendly Duel';
+              this.openDuelPasswordModal(lobbyId, lobbyTitle, msg || 'Incorrect password.');
+              return;
+            }
+            if (msg) {
+              const msgEl = document.getElementById('duel-create-msg');
+              if (msgEl) msgEl.textContent = msg;
+              const waitSub = document.getElementById('duel-lobby-count');
+              if (typeof alert === 'function' && /elo/i.test(msg)) {
+                alert(msg);
+              }
+            }
             this.fetchDuelsState();
           }
         }
@@ -2227,6 +2430,8 @@
           this.activeDuelLobbyId = null;
           this.duelRoundPlaying = null;
           this.duelRoundFinishedLocal = false;
+          this.pendingDuelRoundFinish = null;
+          this._submittingDuelRoundFinish = false;
           if (this.state === GAME_STATE.PLAYING) {
             this.state = GAME_STATE.START;
           }
@@ -2243,16 +2448,14 @@
 
         async handleDuelLeaveLobby() {
           const targetId = this.activeDuelLobbyId;
-          const prevStatus = this.activeDuelLobby ? this.activeDuelLobby.status : '';
-          const shouldReturnToHub = Boolean(
-            (prevStatus && prevStatus !== 'waiting') ||
-            document.body.classList.contains('in-game') ||
-            this.duelSoloSpectatingOpp
-          );
-          this.releaseStuckDuelState(shouldReturnToHub);
+          if (!targetId) return;
+          if (this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting') {
+            return;
+          }
+          this.releaseStuckDuelState(false);
           try {
             const res = await this.apiRequest('/api/duels/leave', 'POST', {
-              lobbyId: targetId || '',
+              lobbyId: targetId,
               clientId: this.duelClientId,
               guestUsername: this.getDuelDisplayUsername()
             });
@@ -2355,6 +2558,7 @@
           if (lobby.status === 'countdown') {
             this.duelRoundPlaying = null;
             this.duelRoundFinishedLocal = false;
+            this.pendingDuelRoundFinish = null;
             this.exitSoloOpponentSpectate();
             if (this.duelSpecSim && this.duelSpecSim.opp) {
               this.duelSpecSim.opp = this.createEmptySpecSim();
@@ -2379,7 +2583,8 @@
             }
             const roundTagEl = document.getElementById('duel-countdown-round-tag');
             if (roundTagEl) {
-              roundTagEl.textContent = `ROUND ${lobby.currentRoundNumber} OF 3 — ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} MODE (${lobby.currentMultiplier}x POINTS)`;
+              const modePrefix = lobby.isFriendly ? '🤝 FRIENDLY (0 ELO) • ' : '🏆 RANKED • ';
+              roundTagEl.textContent = `${modePrefix}ROUND ${lobby.currentRoundNumber} OF 3 — ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} MODE (${lobby.currentMultiplier}x POINTS)`;
             }
             const numEl = document.getElementById('duel-countdown-number');
             if (numEl) numEl.textContent = String(sec);
@@ -2398,6 +2603,15 @@
             const myRound = me && me.rounds && me.rounds[rKey] ? me.rounds[rKey] : { rawScore: 0, weightedScore: 0, finished: false };
             const oppRound = opp && opp.rounds && opp.rounds[rKey] ? opp.rounds[rKey] : { rawScore: 0, weightedScore: 0, finished: false };
 
+            // If we missed summary/countdown (e.g. tab hidden or network lag), clear stale local finish flags from earlier rounds
+            if (this.duelRoundPlaying !== rKey && (!this.pendingDuelRoundFinish || this.pendingDuelRoundFinish.round !== rKey)) {
+              this.duelRoundFinishedLocal = false;
+              this.pendingDuelRoundFinish = null;
+            }
+            if (myRound.finished && this.pendingDuelRoundFinish && this.pendingDuelRoundFinish.round === rKey) {
+              this.pendingDuelRoundFinish = null;
+            }
+
             if (!myRound.finished && !this.duelRoundFinishedLocal) {
               this.exitSoloOpponentSpectate();
               // Start flying this round if not already started
@@ -2410,6 +2624,19 @@
               if (liveHud) liveHud.style.display = 'flex';
               this.updateDuelLiveHUD();
             } else {
+              // If local crash submission failed earlier on this round, automatically retry so the match never deadlocks
+              if (
+                !myRound.finished &&
+                this.duelRoundFinishedLocal &&
+                this.pendingDuelRoundFinish &&
+                this.pendingDuelRoundFinish.lobbyId === lobby.id &&
+                this.pendingDuelRoundFinish.round === rKey &&
+                !this._submittingDuelRoundFinish &&
+                (Date.now() - (this.pendingDuelRoundFinish.lastAttemptAt || 0) >= 800)
+              ) {
+                this.submitPendingDuelRoundFinish();
+              }
+
               // I have already crashed in this round — spectate opponent full-screen until they die!
               const liveHud = document.getElementById('duel-live-hud');
               if (liveHud) liveHud.style.display = 'none';
@@ -2461,6 +2688,7 @@
           if (lobby.status === 'round_summary') {
             this.duelRoundPlaying = null;
             this.duelRoundFinishedLocal = false;
+            this.pendingDuelRoundFinish = null;
             this.exitSoloOpponentSpectate();
             if (this.state === GAME_STATE.PLAYING) {
               this.state = GAME_STATE.START;
@@ -2477,6 +2705,7 @@
           if (lobby.status === 'finished') {
             this.duelRoundPlaying = null;
             this.duelRoundFinishedLocal = false;
+            this.pendingDuelRoundFinish = null;
             this.exitSoloOpponentSpectate();
             if (this.state === GAME_STATE.PLAYING) {
               this.state = GAME_STATE.START;
@@ -2536,14 +2765,23 @@
           const p1 = (lobby.result && lobby.result.p1) || lobby.players[0] || { username: 'Player 1', oldElo: 1000, newElo: 1000, eloDelta: 0, totalPoints: 0, rounds: { easy: {}, medium: {}, hard: {} } };
           const p2 = (lobby.result && lobby.result.p2) || lobby.players[1] || { username: 'Player 2', oldElo: 1000, newElo: 1000, eloDelta: 0, totalPoints: 0, rounds: { easy: {}, medium: {}, hard: {} } };
 
+          const isFriendlyMatch = Boolean(lobby.isFriendly || (lobby.result && lobby.result.isFriendly));
+
           const winTitle = document.getElementById('duel-final-winner-title');
           if (winTitle) {
             if (lobby.result && lobby.result.isDraw) {
-              winTitle.textContent = `🤝 Draw Match! (${p1.totalPoints} - ${p2.totalPoints} PTS)`;
+              winTitle.textContent = isFriendlyMatch
+                ? `🤝 Friendly Draw! (${p1.totalPoints} - ${p2.totalPoints} PTS)`
+                : `🤝 Draw Match! (${p1.totalPoints} - ${p2.totalPoints} PTS)`;
             } else if (lobby.result && lobby.result.winnerUsername) {
-              winTitle.textContent = `🏆 ${lobby.result.winnerUsername} Wins the Duel!`;
+              winTitle.textContent = isFriendlyMatch
+                ? `🤝 ${lobby.result.winnerUsername} Wins the Friendly Duel!`
+                : `🏆 ${lobby.result.winnerUsername} Wins the Duel!`;
             } else {
-              winTitle.textContent = p1.totalPoints >= p2.totalPoints ? `🏆 ${p1.username} Wins!` : `🏆 ${p2.username} Wins!`;
+              const winnerName = p1.totalPoints >= p2.totalPoints ? p1.username : p2.username;
+              winTitle.textContent = isFriendlyMatch
+                ? `🤝 ${winnerName} Wins (Friendly)!`
+                : `🏆 ${winnerName} Wins!`;
             }
           }
 
@@ -2562,10 +2800,15 @@
 
             if (nameEl) nameEl.textContent = p.username;
             if (eloEl) {
-              const d = Number(p.eloDelta) || 0;
-              const sign = d >= 0 ? `+${d}` : `${d}`;
-              eloEl.textContent = `🏆 ${p.oldElo || 1000} → ${p.newElo || p.elo || 1000} (${sign} ELO)`;
-              eloEl.className = 'duel-final-elo-change ' + (d > 0 ? 'positive' : (d < 0 ? 'negative' : ''));
+              if (isFriendlyMatch) {
+                eloEl.textContent = `🤝 Friendly Match (${p.oldElo || 1000} ELO • ±0 ELO)`;
+                eloEl.className = 'duel-final-elo-change';
+              } else {
+                const d = Number(p.eloDelta) || 0;
+                const sign = d >= 0 ? `+${d}` : `${d}`;
+                eloEl.textContent = `🏆 ${p.oldElo || 1000} → ${p.newElo || p.elo || 1000} (${sign} ELO)`;
+                eloEl.className = 'duel-final-elo-change ' + (d > 0 ? 'positive' : (d < 0 ? 'negative' : ''));
+              }
             }
             const rE = (p.rounds && p.rounds.easy) || { rawScore: 0, weightedScore: 0 };
             const rM = (p.rounds && p.rounds.medium) || { rawScore: 0, weightedScore: 0 };
@@ -2583,6 +2826,7 @@
         startDuelRoundGameplay(roundDiff, roundSeed) {
           this.duelRoundPlaying = roundDiff;
           this.duelRoundFinishedLocal = false;
+          this.pendingDuelRoundFinish = null;
           this.selectedDifficulty = roundDiff;
           this.exitSoloOpponentSpectate();
           this.hideAllDuelOverlays();
@@ -2634,7 +2878,10 @@
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
           this.lastFlapTick = 0;
-          this.lastQueueFlapTime = 0;
+          this.lastQueueFlapTime = -1000;
+          this.lastKbdQueueTime = -1000;
+          this.lastPtrQueueTime = -1000;
+          this.lastQueueSource = '';
           this.physicsAccumulator = 0;
           this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
@@ -2699,16 +2946,39 @@
             }
           }, 320);
 
+          this.pendingDuelRoundFinish = {
+            lobbyId: this.activeDuelLobbyId,
+            round: crashedRound,
+            rawScore: achievedScore,
+            flapTicks: recordedFlaps,
+            totalTicks: finalTicks,
+            lastAttemptAt: 0
+          };
+          await this.submitPendingDuelRoundFinish();
+        }
+
+        async submitPendingDuelRoundFinish() {
+          const payload = this.pendingDuelRoundFinish;
+          if (!payload || !payload.lobbyId || this._submittingDuelRoundFinish) return;
+          if (!this.activeDuelLobbyId || payload.lobbyId !== this.activeDuelLobbyId) {
+            this.pendingDuelRoundFinish = null;
+            return;
+          }
+          this._submittingDuelRoundFinish = true;
+          payload.lastAttemptAt = Date.now();
           try {
             const res = await this.apiRequest('/api/duels/round-finish', 'POST', {
-              lobbyId: this.activeDuelLobbyId,
+              lobbyId: payload.lobbyId,
               clientId: this.duelClientId,
               guestUsername: this.getDuelDisplayUsername(),
-              round: crashedRound,
-              rawScore: achievedScore,
-              flapTicks: recordedFlaps,
-              totalTicks: finalTicks
+              round: payload.round,
+              rawScore: payload.rawScore,
+              flapTicks: payload.flapTicks,
+              totalTicks: payload.totalTicks
             });
+            if (this.pendingDuelRoundFinish === payload) {
+              this.pendingDuelRoundFinish = null;
+            }
             if (res && res.runResult) {
               const rr = res.runResult;
               if (this.currentUser && rr.records) {
@@ -2734,37 +3004,43 @@
             }
           } catch (_) {
             this.fetchDuelsState();
+          } finally {
+            this._submittingDuelRoundFinish = false;
           }
         }
 
         sendDuelLiveTelemetryIfNeeded(now) {
-          if (!this.activeDuelLobbyId || !this.duelRoundPlaying) return;
-          if (now - this.lastDuelTelemetrySentAt < 60) return;
+          if (!this.activeDuelLobbyId || !this.duelRoundPlaying || this.duelRoundFinishedLocal) return;
+          if (now - this.lastDuelTelemetrySentAt < 45) return;
           this.lastDuelTelemetrySentAt = now;
 
+          const sentRound = this.duelRoundPlaying;
           const diff = this.getDifficultyParams();
-          const pipeData = this.pipes.slice(0, 4).map(p => ({
-            x: Number(p.x.toFixed(2)),
-            bottomTopY: Number(p.bottomTopY.toFixed(2)),
-            topBottomY: Number(p.topBottomY.toFixed(2)),
-            gapCenterY: Number(p.gapCenterY.toFixed(2)),
-            gapSize: Number(p.gapSize.toFixed(2))
+          const pipeData = this.pipes.slice(0, 5).map(p => ({
+            x: Number(p.x.toFixed(4)),
+            bottomTopY: Number(p.bottomTopY.toFixed(4)),
+            topBottomY: Number(p.topBottomY.toFixed(4)),
+            gapCenterY: Number(p.gapCenterY.toFixed(4)),
+            gapSize: Number(p.gapSize.toFixed(4))
           }));
 
           this.apiRequest('/api/duels/live-update', 'POST', {
             lobbyId: this.activeDuelLobbyId,
             clientId: this.duelClientId,
             guestUsername: this.getDuelDisplayUsername(),
-            round: this.duelRoundPlaying,
+            round: sentRound,
             score: this.score,
-            birdY: Number(this.simBirdY.toFixed(2)),
-            birdVelocityY: Number(this.birdVelocityY.toFixed(2)),
-            rotZ: Number((this.birdGroup ? this.birdGroup.rotation.z : 0).toFixed(2)),
+            birdY: Number(this.simBirdY.toFixed(4)),
+            birdVelocityY: Number(this.birdVelocityY.toFixed(4)),
+            rotZ: Number((this.birdGroup ? this.birdGroup.rotation.z : 0).toFixed(4)),
             alive: this.state === GAME_STATE.PLAYING,
-            speed: Number((diff.speed || CONFIG.baseSpeed).toFixed(2)),
+            speed: Number((diff.speed || CONFIG.baseSpeed).toFixed(4)),
             pipes: pipeData
           }).then(res => {
             if (res && res.lobby) {
+              if (this.duelRoundFinishedLocal && res.lobby.status === 'playing' && res.lobby.currentRound === sentRound) {
+                return;
+              }
               this.activeDuelLobby = res.lobby;
               if (res.lobby.status !== 'playing') {
                 this.syncDuelMatchState(res.lobby);
@@ -2784,7 +3060,8 @@
 
           const badgeEl = document.getElementById('duel-hud-round-badge');
           if (badgeEl) {
-            badgeEl.textContent = `ROUND ${lobby.currentRoundNumber}/3 • ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} (${mult}x)`;
+            const modeTag = lobby.isFriendly ? '🤝 FRIENDLY • ' : '🏆 RANKED • ';
+            badgeEl.textContent = `${modeTag}ROUND ${lobby.currentRoundNumber}/3 • ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} (${mult}x)`;
           }
 
           const myRaw = this.state === GAME_STATE.PLAYING ? this.score : (me && me.rounds && me.rounds[rKey] ? me.rounds[rKey].rawScore : 0);
@@ -2858,7 +3135,9 @@
               waitingBanner.style.display = 'flex';
               const wTitle = document.getElementById('duel-waiting-room-title');
               if (wTitle) {
-                wTitle.textContent = `Lobby "${this.activeDuelLobby.name}" — Waiting for Opponent...`;
+                const modeLabel = this.activeDuelLobby.isFriendly ? '🤝 Friendly (0 ELO)' : '🏆 Ranked (ELO)';
+                const lockLabel = this.activeDuelLobby.hasPassword ? ' • 🔒 Password' : '';
+                wTitle.textContent = `[${modeLabel}${lockLabel}] Lobby "${this.activeDuelLobby.name}" — Waiting for Opponent...`;
               }
             } else {
               waitingBanner.style.display = 'none';
@@ -2911,11 +3190,42 @@
             nameSpan.className = 'duel-lobby-name';
             nameSpan.textContent = lobby.name || 'Duel Lobby';
 
+            const modeSpan = document.createElement('span');
+            modeSpan.className = 'duel-mode-tag ' + (lobby.isFriendly ? 'friendly' : 'ranked');
+            modeSpan.textContent = lobby.isFriendly ? '🤝 Friendly (No ELO)' : '🏆 Ranked (ELO)';
+
+            topLine.append(nameSpan, modeSpan);
+
+            if (lobby.hasPassword) {
+              const lockSpan = document.createElement('span');
+              lockSpan.className = 'duel-lock-tag';
+              lockSpan.textContent = '🔒 Password';
+              topLine.appendChild(lockSpan);
+            }
+
+            const myCurrentElo = Number(this.myDuelStats && typeof this.myDuelStats.duelElo === 'number'
+              ? this.myDuelStats.duelElo
+              : (this.currentUser && typeof this.currentUser.duelElo === 'number' ? this.currentUser.duelElo : 1000));
+            const hostElo = p1 && typeof p1.elo === 'number' ? p1.elo : 1000;
+            const isEloGapBlocked = Boolean(
+              isWaiting &&
+              !lobby.isFriendly &&
+              this.duelEloGapBlockedOver150 &&
+              p1 &&
+              Math.abs(hostElo - myCurrentElo) > 150
+            );
+            if (isEloGapBlocked) {
+              const eloLockSpan = document.createElement('span');
+              eloLockSpan.className = 'duel-elo-lock-tag';
+              eloLockSpan.textContent = `⛔ >150 ELO Gap (${Math.abs(hostElo - myCurrentElo)})`;
+              topLine.appendChild(eloLockSpan);
+            }
+
             const statusSpan = document.createElement('span');
             statusSpan.className = 'duel-lobby-status-tag ' + (isWaiting ? 'waiting' : 'ongoing');
             statusSpan.textContent = statusText;
 
-            topLine.append(nameSpan, statusSpan);
+            topLine.appendChild(statusSpan);
 
             const playersLine = document.createElement('div');
             playersLine.className = 'duel-lobby-players-line';
@@ -2948,8 +3258,13 @@
             if (isWaiting && (!lobby.players || lobby.players.length < 2) && !isMyWaitingLobby) {
               const joinBtn = document.createElement('button');
               joinBtn.type = 'button';
-              joinBtn.className = 'btn-duel-join-lobby';
-              joinBtn.textContent = '⚔️ Join';
+              joinBtn.className = 'btn-duel-join-lobby' + (isEloGapBlocked ? ' elo-blocked' : '');
+              if (isEloGapBlocked) {
+                joinBtn.textContent = '⛔ >150 ELO Gap';
+                joinBtn.title = `MeDonut enabled the 150 ELO limit. Diff: ${Math.abs(hostElo - myCurrentElo)} ELO.`;
+              } else {
+                joinBtn.textContent = lobby.hasPassword ? '🔑 Unlock & Join' : '⚔️ Join';
+              }
               joinBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.handleDuelJoinLobby(lobby.id);
@@ -3188,16 +3503,19 @@
           };
         }
 
-        getSpectatorRenderServerTime() {
+        getSpectatorRenderServerTime(dt = 0.016) {
           const localNow = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           const estServerNow = (this._specServerClockOffset !== null)
             ? (localNow + this._specServerClockOffset)
             : Date.now();
-          const targetRenderTs = estServerNow - 220;
-          if (!this._lastRenderServerTime || Math.abs(targetRenderTs - this._lastRenderServerTime) > 1500) {
+          const targetRenderTs = estServerNow - 240;
+          if (!this._lastRenderServerTime || Math.abs(targetRenderTs - this._lastRenderServerTime) > 1100) {
             this._lastRenderServerTime = targetRenderTs;
           } else {
-            this._lastRenderServerTime = Math.max(this._lastRenderServerTime, targetRenderTs);
+            // Smooth frame-dt servo: advances continuously every frame (60Hz/120Hz/144Hz) without micro-freezes or snaps
+            const errMs = targetRenderTs - this._lastRenderServerTime;
+            const rate = THREE.MathUtils.clamp(1 + errMs * 0.0018, 0.90, 1.12);
+            this._lastRenderServerTime += Math.min(0.05, Math.max(0.001, dt)) * 1000 * rate;
           }
           return this._lastRenderServerTime;
         }
@@ -3215,9 +3533,7 @@
           if (!Array.isArray(simTarget.snapshots)) simTarget.snapshots = [];
           if (liveTs > (simTarget.lastLiveUpdatedAt || 0) || simTarget.snapshots.length === 0) {
             const newVy = typeof p.live.birdVelocityY === 'number' ? p.live.birdVelocityY : 0;
-            if (newVy > 2.2 && newVy > (simTarget.prevVy || 0) + 1.5) {
-              simTarget.wingFlapBoost = 1.0;
-            }
+            const isFlapTick = Boolean(newVy > 2.0 && newVy > (simTarget.prevVy || 0) + 1.2);
             simTarget.prevVy = newVy;
 
             const newY = typeof p.live.birdY === 'number' ? p.live.birdY : CONFIG.birdStartY;
@@ -3242,11 +3558,12 @@
               rotZ: newRotZ,
               speed: newSpeed,
               alive: isAliveNow,
+              isFlapTick,
               pipes: snapPipes
             });
             simTarget.snapshots.sort((a, b) => a.ts - b.ts);
-            if (simTarget.snapshots.length > 20) {
-              simTarget.snapshots.splice(0, simTarget.snapshots.length - 20);
+            if (simTarget.snapshots.length > 24) {
+              simTarget.snapshots.splice(0, simTarget.snapshots.length - 24);
             }
           }
         }
@@ -3312,13 +3629,18 @@
             const extrapVy = Math.max(CONFIG.maxFallSpeed * speedRatio * fallSlowdown, last.vy + simGravity * overSec);
             const avgVy = 0.5 * (last.vy + extrapVy);
             sim.renderY = Math.max(CONFIG.groundY + CONFIG.birdRadius, Math.min(CONFIG.ceilingY, last.y + avgVy * overSec));
-            sim.renderRotZ = THREE.MathUtils.clamp((extrapVy / speedRatio) * 0.065, -Math.PI * 0.42, Math.PI * 0.24);
+            const targetPitch = THREE.MathUtils.clamp((extrapVy / speedRatio) * 0.065, -Math.PI * 0.42, Math.PI * 0.24);
+            sim.renderRotZ = THREE.MathUtils.lerp(
+              typeof sim.renderRotZ === 'number' ? sim.renderRotZ : targetPitch,
+              targetPitch,
+              Math.min(1, dt * 16)
+            );
             const srcPipes = last.pipes.length > 0 ? last.pipes : this.getDefaultSpectatorPipes();
             sim.renderPipes = srcPipes.map(pp => ({ ...pp, x: pp.x - spd * overSec }));
             return;
           }
 
-          // Interpolate monotonically between bracketing snapshots [snapA, snapB]
+          // Interpolate between bracketing snapshots [snapA, snapB] using ballistic Flappy Bird gravity kinematics
           let snapA = first;
           let snapB = last;
           for (let i = 0; i < snaps.length - 1; i++) {
@@ -3332,26 +3654,54 @@
           const spanMs = Math.max(1, snapB.ts - snapA.ts);
           const spanSec = spanMs / 1000;
           const t = THREE.MathUtils.clamp((renderServerTime - snapA.ts) / spanMs, 0, 1);
+          const spd = (snapB.speed && snapB.speed > 0) ? snapB.speed : ((snapA.speed && snapA.speed > 0) ? snapA.speed : defaultSpeed);
+          const speedRatio = Math.max(0.5, Math.min(2.0, spd / CONFIG.baseSpeed));
+          const highSpeedFactor = Math.max(0, Math.min(1, (speedRatio - 1.15) / 0.70));
+          const fallSlowdown = 1.0 - 0.20 * highSpeedFactor;
+          const simGravity = CONFIG.gravity * speedRatio * speedRatio * fallSlowdown;
 
-          // Bounded Hermite cubic Y interpolation (smooth gravity curves, zero overshoot on flaps)
-          if (snapB.vy <= snapA.vy + 1.5 && spanSec <= 0.3) {
-            const t2 = t * t;
-            const t3 = t2 * t;
-            const h00 = 2 * t3 - 3 * t2 + 1;
-            const h10 = t3 - 2 * t2 + t;
-            const h01 = -2 * t3 + 3 * t2;
-            const h11 = t3 - t2;
-            const yHermite = h00 * snapA.y + h10 * (snapA.vy * spanSec) + h01 * snapB.y + h11 * (snapB.vy * spanSec);
-            const yMin = Math.min(snapA.y, snapB.y) - 0.35;
-            const yMax = Math.max(snapA.y, snapB.y) + 0.35;
-            sim.renderY = Math.max(CONFIG.groundY + CONFIG.birdRadius, Math.min(CONFIG.ceilingY, Math.max(yMin, Math.min(yMax, yHermite))));
+          let nextY;
+          let curVy;
+          if (!snapB.isFlapTick && snapB.vy <= snapA.vy + 1.2 && spanSec <= 0.35) {
+            // Pure ballistic fall/glide parabola blended forward from A and backward from B for seamless C1 continuity
+            const dtFwd = spanSec * t;
+            const dtBwd = spanSec * (1 - t);
+            const yFwd = snapA.y + snapA.vy * dtFwd + 0.5 * simGravity * dtFwd * dtFwd;
+            const yBwd = snapB.y - snapB.vy * dtBwd + 0.5 * simGravity * dtBwd * dtBwd;
+            nextY = THREE.MathUtils.lerp(yFwd, yBwd, t);
+            curVy = THREE.MathUtils.lerp(snapA.vy, snapB.vy, t);
+          } else if (snapB.isFlapTick || snapB.vy > snapA.vy + 1.2) {
+            // Reconstruct exact two-segment parabola around the flap instant
+            const dtSinceFlap = Math.max(0, Math.min(spanSec, (snapB.vy - CONFIG.flapImpulse * speedRatio) / simGravity));
+            const uJump = THREE.MathUtils.clamp(1 - (dtSinceFlap / spanSec), 0.05, 0.92);
+            if (t >= uJump && (sim.lastTriggeredFlapTs || 0) < snapB.ts) {
+              sim.wingFlapBoost = 1.0;
+              sim.lastTriggeredFlapTs = snapB.ts;
+            }
+            if (t < uJump) {
+              const dt1 = spanSec * t;
+              nextY = snapA.y + snapA.vy * dt1 + 0.5 * simGravity * dt1 * dt1;
+              curVy = snapA.vy + simGravity * dt1;
+            } else {
+              const dtBack = spanSec * (1 - t);
+              nextY = snapB.y - snapB.vy * dtBack + 0.5 * simGravity * dtBack * dtBack;
+              curVy = snapB.vy - simGravity * dtBack;
+            }
           } else {
-            sim.renderY = THREE.MathUtils.lerp(snapA.y, snapB.y, t);
+            nextY = THREE.MathUtils.lerp(snapA.y, snapB.y, t);
+            curVy = THREE.MathUtils.lerp(snapA.vy, snapB.vy, t);
           }
 
-          sim.renderRotZ = THREE.MathUtils.lerp(snapA.rotZ, snapB.rotZ, t);
+          const safeY = Number.isFinite(nextY) ? nextY : (Number.isFinite(sim.renderY) ? sim.renderY : snapA.y);
+          const safeVy = Number.isFinite(curVy) ? curVy : 0;
+          sim.renderY = Math.max(CONFIG.groundY + CONFIG.birdRadius, Math.min(CONFIG.ceilingY, safeY));
+          const targetPitch = THREE.MathUtils.clamp((safeVy / speedRatio) * 0.065, -Math.PI * 0.42, Math.PI * 0.24);
+          sim.renderRotZ = THREE.MathUtils.lerp(
+            (typeof sim.renderRotZ === 'number' && Number.isFinite(sim.renderRotZ)) ? sim.renderRotZ : targetPitch,
+            targetPitch,
+            Math.min(1, dt * 16)
+          );
 
-          const spd = (snapB.speed && snapB.speed > 0) ? snapB.speed : ((snapA.speed && snapA.speed > 0) ? snapA.speed : defaultSpeed);
           const pipesA = snapA.pipes || [];
           const pipesB = snapB.pipes || [];
           if (pipesB.length > 0) {
@@ -3359,8 +3709,8 @@
               const matchA = pipesA.find(ap =>
                 Math.abs((ap.gapCenterY || 0) - (bp.gapCenterY || 0)) < 0.08 &&
                 Math.abs((ap.gapSize || 0) - (bp.gapSize || 0)) < 0.08 &&
-                ap.x >= bp.x - 0.15 &&
-                (ap.x - bp.x) < 4.5
+                ap.x >= bp.x - 0.2 &&
+                (ap.x - bp.x) < 5.5
               );
               const xInterp = matchA
                 ? THREE.MathUtils.lerp(matchA.x, bp.x, t)
@@ -3743,7 +4093,7 @@
           const roundKey = (lobby && lobby.currentRound) || 'easy';
           const diffCfg = CONFIG.difficulties[roundKey] || CONFIG.difficulties.easy;
           const defaultSpeed = diffCfg.startSpeed || CONFIG.baseSpeed;
-          const renderServerTime = this.getSpectatorRenderServerTime();
+          const renderServerTime = this.getSpectatorRenderServerTime(dt);
 
           this.evaluateSpectatorSimAt(this.duelSpecSim.opp, renderServerTime, dt, defaultSpeed, isPlaying);
 
@@ -3765,7 +4115,7 @@
           const roundKey = (lobby && lobby.currentRound) || 'easy';
           const diffCfg = CONFIG.difficulties[roundKey] || CONFIG.difficulties.easy;
           const defaultSpeed = diffCfg.startSpeed || CONFIG.baseSpeed;
-          const renderServerTime = this.getSpectatorRenderServerTime();
+          const renderServerTime = this.getSpectatorRenderServerTime(dt);
 
           this.evaluateSpectatorSimAt(this.duelSpecSim.p1, renderServerTime, dt, defaultSpeed, isPlaying);
           this.evaluateSpectatorSimAt(this.duelSpecSim.p2, renderServerTime, dt, defaultSpeed, isPlaying);

@@ -994,6 +994,7 @@ function loadDatabase(fromWatcher = false) {
         users: parsed.users || {},
         runs: parsed.runs || { easy: [], medium: [], hard: [] },
         duelMatchHighScores: Array.isArray(parsed.duelMatchHighScores) ? parsed.duelMatchHighScores : [],
+        duelMatchHistory: Array.isArray(parsed.duelMatchHistory) ? parsed.duelMatchHistory : [],
         sessions: parsed.sessions || {},
         chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : []
       };
@@ -1007,6 +1008,7 @@ function loadDatabase(fromWatcher = false) {
       if (!Array.isArray(db.runs[diff])) db.runs[diff] = [];
     });
     if (!Array.isArray(db.duelMatchHighScores)) db.duelMatchHighScores = [];
+    if (!Array.isArray(db.duelMatchHistory)) db.duelMatchHistory = [];
 
     if (db.activityFeed.length === 0) {
       logDatabaseEvent(
@@ -1041,6 +1043,7 @@ function writeOrderedDbToDisk(forceBackup = false) {
       users: db.users,
       runs: db.runs,
       duelMatchHighScores: db.duelMatchHighScores || [],
+      duelMatchHistory: db.duelMatchHistory || [],
       sessions: db.sessions,
       chatMessages: db.chatMessages || []
     };
@@ -1785,6 +1788,37 @@ function calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB) {
     else deltaB = -deltaA;
   }
 
+  // Enforce strict ELO gap scaling limits based on |rA - rB|
+  const eloDiff = Math.abs(rA - rB);
+  if (eloDiff > 300) {
+    deltaA = 0;
+    deltaB = 0;
+  } else if (eloDiff > 200) {
+    // Over 200 difference: strictly less than 3 ELO gained or lost (max +/- 2)
+    if (actualA === 1) {
+      deltaA = Math.min(2, Math.max(1, deltaA));
+      deltaB = -Math.min(2, Math.max(1, deltaA > 1 ? deltaA - 1 : 1));
+    } else if (actualB === 1) {
+      deltaB = Math.min(2, Math.max(1, deltaB));
+      deltaA = -Math.min(2, Math.max(1, deltaB > 1 ? deltaB - 1 : 1));
+    } else {
+      deltaA = Math.max(-2, Math.min(2, deltaA));
+      deltaB = Math.max(-2, Math.min(2, deltaB));
+    }
+  } else if (eloDiff > 150) {
+    // Over 150 difference: cannot gain or lose more than 10 ELO
+    if (actualA === 1) {
+      deltaA = Math.min(10, Math.max(4, deltaA));
+      deltaB = -Math.min(10, Math.max(2, deltaA - 1));
+    } else if (actualB === 1) {
+      deltaB = Math.min(10, Math.max(4, deltaB));
+      deltaA = -Math.min(10, Math.max(2, deltaB - 1));
+    } else {
+      deltaA = Math.max(-10, Math.min(10, deltaA));
+      deltaB = Math.max(-10, Math.min(10, deltaB));
+    }
+  }
+
   const newEloA = Math.max(100, rA + deltaA);
   const newEloB = Math.max(100, rB + deltaB);
 
@@ -1886,6 +1920,55 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
     .sort((a, b) => (b.points - a.points) || ((a.createdAt || 0) - (b.createdAt || 0)))
     .slice(0, 200);
 
+  if (!Array.isArray(db.duelMatchHistory)) db.duelMatchHistory = [];
+  if (keyA !== keyB && (userA || userB)) {
+    const normRounds = (roundsObj) => {
+      const rE = (roundsObj && roundsObj.easy) || {};
+      const rM = (roundsObj && roundsObj.medium) || {};
+      const rH = (roundsObj && roundsObj.hard) || {};
+      const eRaw = Math.max(0, Math.floor(Number(rE.rawScore) || 0));
+      const mRaw = Math.max(0, Math.floor(Number(rM.rawScore) || 0));
+      const hRaw = Math.max(0, Math.floor(Number(rH.rawScore) || 0));
+      return {
+        easy: { raw: eRaw, pts: Number(rE.weightedScore) || eRaw },
+        medium: { raw: mRaw, pts: Number(rM.weightedScore) || (mRaw * 2) },
+        hard: { raw: hRaw, pts: Number(rH.weightedScore) || (hRaw * 3) }
+      };
+    };
+    const dispA = userA ? userA.username : String(usernameA || 'Player 1');
+    const dispB = userB ? userB.username : String(usernameB || 'Player 2');
+    const isDrawMatch = safePointsA === safePointsB;
+    const winnerName = isDrawMatch ? null : (safePointsA > safePointsB ? dispA : dispB);
+    db.duelMatchHistory.unshift({
+      id: 'dm_' + crypto.randomBytes(6).toString('hex'),
+      createdAt: now,
+      readableAt: formatReadableTimestamp(now),
+      isDraw: isDrawMatch,
+      winnerUsername: winnerName,
+      playerA: {
+        username: dispA,
+        oldElo: eloRes.oldEloA,
+        newElo: eloRes.newEloA,
+        eloDelta: eloRes.deltaA,
+        coinsEarned: coinsA,
+        totalPoints: safePointsA,
+        rounds: normRounds(details.roundsA)
+      },
+      playerB: {
+        username: dispB,
+        oldElo: eloRes.oldEloB,
+        newElo: eloRes.newEloB,
+        eloDelta: eloRes.deltaB,
+        coinsEarned: coinsB,
+        totalPoints: safePointsB,
+        rounds: normRounds(details.roundsB)
+      }
+    });
+    if (db.duelMatchHistory.length > 500) {
+      db.duelMatchHistory = db.duelMatchHistory.slice(0, 500);
+    }
+  }
+
   saveDatabase(false);
   return {
     ...eloRes,
@@ -1894,6 +1977,119 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
     newCoinsA: userA ? Math.round(userA.duelCoins || 0) : coinsA,
     newCoinsB: userB ? Math.round(userB.duelCoins || 0) : coinsB
   };
+}
+
+/**
+ * Returns full Ranked Duel match history for a player (recorded matches + historical pairs
+ * reconstructed from `duelMatchHighScores` so past games also display Easy/Med/Hard & opponents).
+ */
+function getPlayerRankedDuelHistory(username, limit = 60) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const targetKey = cleanName.toLowerCase();
+  if (!targetKey) return [];
+
+  const history = [];
+  const recorded = Array.isArray(db.duelMatchHistory) ? db.duelMatchHistory : [];
+
+  for (const m of recorded) {
+    if (!m || !m.playerA || !m.playerB) continue;
+    const aKey = String(m.playerA.username || '').toLowerCase();
+    const bKey = String(m.playerB.username || '').toLowerCase();
+    if (aKey !== targetKey && bKey !== targetKey) continue;
+
+    const amA = aKey === targetKey;
+    const me = amA ? m.playerA : m.playerB;
+    const opp = amA ? m.playerB : m.playerA;
+    const myTotal = Number(me.totalPoints) || 0;
+    const oppTotal = Number(opp.totalPoints) || 0;
+    const outcome = m.isDraw ? 'draw' : (myTotal > oppTotal ? 'win' : (oppTotal > myTotal ? 'loss' : 'draw'));
+
+    history.push({
+      id: m.id,
+      createdAt: Number(m.createdAt) || 0,
+      readableAt: m.readableAt || formatReadableTimestamp(m.createdAt),
+      outcome,
+      opponent: opp.username || 'Opponent',
+      myTotal,
+      oppTotal,
+      myRounds: me.rounds || { easy: { raw: 0, pts: 0 }, medium: { raw: 0, pts: 0 }, hard: { raw: 0, pts: 0 } },
+      oppRounds: opp.rounds || { easy: { raw: 0, pts: 0 }, medium: { raw: 0, pts: 0 }, hard: { raw: 0, pts: 0 } },
+      oldElo: me.oldElo ?? null,
+      newElo: me.newElo ?? null,
+      eloDelta: typeof me.eloDelta === 'number' ? me.eloDelta : null,
+      oppOldElo: opp.oldElo ?? null,
+      oppNewElo: opp.newElo ?? null,
+      coinsEarned: Number(me.coinsEarned) || 0,
+      eloRecorded: true
+    });
+  }
+
+  // Reconstruct older ranked matches from `duelMatchHighScores` that happened before `duelMatchHistory` existed
+  const hs = Array.isArray(db.duelMatchHighScores) ? db.duelMatchHighScores : [];
+  for (let i = 0; i < hs.length; i++) {
+    const e = hs[i];
+    if (!e || !e.username || String(e.username).toLowerCase() !== targetKey) continue;
+    const eTime = Number(e.createdAt) || 0;
+    const eOpp = String(e.opponent || '').trim();
+    const eOppKey = eOpp.toLowerCase();
+
+    const alreadyRecorded = history.some(h =>
+      Math.abs((h.createdAt || 0) - eTime) <= 3000 &&
+      String(h.opponent || '').toLowerCase() === eOppKey
+    );
+    if (alreadyRecorded) continue;
+
+    // Look for reciprocal opponent entry at the exact same match finish timestamp
+    const oppEntry = hs.find((o, j) =>
+      j !== i &&
+      o && o.username && String(o.username).toLowerCase() === eOppKey &&
+      String(o.opponent || '').toLowerCase() === targetKey &&
+      Math.abs((Number(o.createdAt) || 0) - eTime) <= 2000
+    ) || null;
+
+    const myTotal = Math.max(0, Math.round(Number(e.points) || 0));
+    const oppTotal = oppEntry ? Math.max(0, Math.round(Number(oppEntry.points) || 0)) : null;
+    const outcome = oppEntry
+      ? (myTotal > oppTotal ? 'win' : (oppTotal > myTotal ? 'loss' : 'draw'))
+      : 'recorded';
+
+    const myE = Number(e.easyRaw) || 0;
+    const myM = Number(e.mediumRaw) || 0;
+    const myH = Number(e.hardRaw) || 0;
+    const opE = oppEntry ? (Number(oppEntry.easyRaw) || 0) : null;
+    const opM = oppEntry ? (Number(oppEntry.mediumRaw) || 0) : null;
+    const opH = oppEntry ? (Number(oppEntry.hardRaw) || 0) : null;
+
+    history.push({
+      id: 'hs_' + (e.id || `${i}_${eTime}`),
+      createdAt: eTime,
+      readableAt: formatReadableTimestamp(eTime),
+      outcome,
+      opponent: (oppEntry && oppEntry.username) || eOpp || 'Opponent',
+      myTotal,
+      oppTotal,
+      myRounds: {
+        easy: { raw: myE, pts: Number(e.easyPts) || myE },
+        medium: { raw: myM, pts: Number(e.mediumPts) || (myM * 2) },
+        hard: { raw: myH, pts: Number(e.hardPts) || (myH * 3) }
+      },
+      oppRounds: oppEntry ? {
+        easy: { raw: opE, pts: Number(oppEntry.easyPts) || opE },
+        medium: { raw: opM, pts: Number(oppEntry.mediumPts) || (opM * 2) },
+        hard: { raw: opH, pts: Number(oppEntry.hardPts) || (opH * 3) }
+      } : null,
+      oldElo: null,
+      newElo: null,
+      eloDelta: null,
+      oppOldElo: null,
+      oppNewElo: null,
+      coinsEarned: null,
+      eloRecorded: false
+    });
+  }
+
+  history.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return limit > 0 ? history.slice(0, limit) : history;
 }
 
 /**
@@ -2072,8 +2268,9 @@ function appendUniqueLimited(arr, val, maxLen = 15) {
 }
 
 /**
- * Records client network/device signals (IP, persistent Browser Device ID, Hardware Fingerprint)
- * onto a user account so alt accounts can be detected reliably beyond IP alone.
+ * Records client network/device signals (IP, persistent Browser Device ID, Hardware Fingerprint,
+ * and Browser Known Accounts) onto a user account so alt accounts can be detected reliably
+ * beyond IP alone and across older accounts when returning.
  */
 function trackUserClientSignals(user, clientInfo = {}, persistIfNew = true) {
   if (!user || typeof user !== 'object') return false;
@@ -2081,7 +2278,25 @@ function trackUserClientSignals(user, clientInfo = {}, persistIfNew = true) {
 
   const ip = normalizeClientIp(clientInfo.ip || '');
   const deviceId = typeof clientInfo.deviceId === 'string' ? clientInfo.deviceId.trim().slice(0, 80) : '';
+  const cookieId = typeof clientInfo.cookieId === 'string' ? clientInfo.cookieId.trim().slice(0, 80) : '';
+  const cookieAccepted = Boolean(clientInfo.cookieAccepted);
   const fingerprint = typeof clientInfo.fingerprint === 'string' ? clientInfo.fingerprint.trim().slice(0, 80) : '';
+  const knownAccounts = Array.isArray(clientInfo.knownAccounts) ? clientInfo.knownAccounts : [];
+
+  if (cookieAccepted && !user.cookieAccepted) {
+    user.cookieAccepted = true;
+    dirty = true;
+  }
+
+  if (cookieId && cookieId.length >= 6) {
+    const res = appendUniqueLimited(user.cookieIds, cookieId, 15);
+    user.cookieIds = res.list;
+    if (user.lastCookieId !== cookieId) {
+      user.lastCookieId = cookieId;
+      dirty = true;
+    }
+    if (res.changed) dirty = true;
+  }
 
   if (ip && ip !== 'unknown') {
     const res = appendUniqueLimited(user.ips, ip, 15);
@@ -2113,6 +2328,22 @@ function trackUserClientSignals(user, clientInfo = {}, persistIfNew = true) {
     if (res.changed) dirty = true;
   }
 
+  const selfKey = String(user.username || '').toLowerCase();
+  for (const rawName of knownAccounts) {
+    const k = String(rawName || '').trim().toLowerCase();
+    if (!k || k === selfKey || !db.users || !db.users[k]) continue;
+    const res = appendUniqueLimited(user.linkedAccounts, k, 20);
+    user.linkedAccounts = res.list;
+    if (res.changed) dirty = true;
+
+    const otherUser = db.users[k];
+    if (selfKey && otherUser && typeof otherUser === 'object') {
+      const otherRes = appendUniqueLimited(otherUser.linkedAccounts, selfKey, 20);
+      otherUser.linkedAccounts = otherRes.list;
+      if (otherRes.changed) dirty = true;
+    }
+  }
+
   if (dirty) {
     user.lastSignalAt = Date.now();
     if (persistIfNew) {
@@ -2122,76 +2353,191 @@ function trackUserClientSignals(user, clientInfo = {}, persistIfNew = true) {
   return dirty;
 }
 
-function computeAltAccountMatches(targetUser, allUsersObj) {
-  if (!targetUser || !allUsersObj || typeof allUsersObj !== 'object') return [];
+const MIN_ALT_CONFIDENCE = 80;
+
+/**
+ * Builds clean server-side alt detection context using ONLY accepted browser cookies,
+ * persistent browser device IDs, and same-browser account history chains.
+ * Strictly excludes login/logout timing guesses, usernames, Wi-Fi/IPs, and PC hardware specs.
+ */
+function buildAltForensicContext(allUsersObj = null) {
+  const usersMap = allUsersObj || (db && db.users) || {};
+
+  // Build transitive browser/cookie/device cluster graph (A <-> B <-> C across linkedAccounts + cookieIds + deviceIds)
+  const adj = new Map();
+  const devOwners = new Map();
+  const cookieOwners = new Map();
+  const linkNodes = (k1, k2) => {
+    if (!k1 || !k2 || k1 === k2) return;
+    if (!adj.has(k1)) adj.set(k1, new Set());
+    if (!adj.has(k2)) adj.set(k2, new Set());
+    adj.get(k1).add(k2);
+    adj.get(k2).add(k1);
+  };
+  for (const [k, u] of Object.entries(usersMap)) {
+    if (!u || !u.username) continue;
+    const uk = String(u.username || k).toLowerCase();
+    if (Array.isArray(u.linkedAccounts)) {
+      for (const lk of u.linkedAccounts) {
+        const lkl = String(lk || '').toLowerCase();
+        if (lkl && usersMap[lkl]) linkNodes(uk, lkl);
+      }
+    }
+    const devs = Array.isArray(u.deviceIds) ? u.deviceIds : (u.lastDeviceId ? [u.lastDeviceId] : []);
+    for (const d of devs) {
+      if (!d) continue;
+      if (!devOwners.has(d)) devOwners.set(d, []);
+      devOwners.get(d).push(uk);
+    }
+    const cookies = Array.isArray(u.cookieIds) ? u.cookieIds : (u.lastCookieId ? [u.lastCookieId] : []);
+    for (const c of cookies) {
+      if (!c) continue;
+      if (!cookieOwners.has(c)) cookieOwners.set(c, []);
+      cookieOwners.get(c).push(uk);
+    }
+  }
+  for (const owners of devOwners.values()) {
+    for (let i = 1; i < owners.length; i++) {
+      linkNodes(owners[0], owners[i]);
+    }
+  }
+  for (const owners of cookieOwners.values()) {
+    for (let i = 1; i < owners.length; i++) {
+      linkNodes(owners[0], owners[i]);
+    }
+  }
+
+  const browserClusterId = new Map();
+  let nextClusterId = 1;
+  for (const uk of adj.keys()) {
+    if (browserClusterId.has(uk)) continue;
+    const cid = nextClusterId++;
+    const stack = [uk];
+    while (stack.length > 0) {
+      const cur = stack.pop();
+      if (browserClusterId.has(cur)) continue;
+      browserClusterId.set(cur, cid);
+      const neighbors = adj.get(cur);
+      if (neighbors) {
+        for (const nb of neighbors) {
+          if (!browserClusterId.has(nb)) stack.push(nb);
+        }
+      }
+    }
+  }
+
+  const getClusterHopDistance = (kA, kB) => {
+    const cA = browserClusterId.get(kA);
+    const cB = browserClusterId.get(kB);
+    if (!cA || !cB || cA !== cB) return Infinity;
+    const visited = new Set([kA]);
+    const queue = [[kA, 0]];
+    while (queue.length > 0) {
+      const [cur, dist] = queue.shift();
+      if (cur === kB) return dist;
+      const nbs = adj.get(cur);
+      if (!nbs) continue;
+      for (const nb of nbs) {
+        if (!visited.has(nb)) {
+          visited.add(nb);
+          queue.push([nb, dist + 1]);
+        }
+      }
+    }
+    return Infinity;
+  };
+
+  return {
+    browserClusterId,
+    getClusterHopDistance
+  };
+}
+
+function computeAltAccountMatches(targetUser, allUsersObj, forensicCtx = null) {
+  if (!targetUser || !allUsersObj || typeof allUsersObj !== 'object') {
+    return { matches: [], sameNetworkUsers: [] };
+  }
+  const ctx = forensicCtx || buildAltForensicContext(allUsersObj);
   const targetKey = String(targetUser.username || '').toLowerCase();
+  const tCookies = new Set(Array.isArray(targetUser.cookieIds) ? targetUser.cookieIds : (targetUser.lastCookieId ? [targetUser.lastCookieId] : []));
   const tDevices = new Set(Array.isArray(targetUser.deviceIds) ? targetUser.deviceIds : (targetUser.lastDeviceId ? [targetUser.lastDeviceId] : []));
-  const tPrints = new Set(Array.isArray(targetUser.fingerprints) ? targetUser.fingerprints : (targetUser.lastFingerprint ? [targetUser.lastFingerprint] : []));
-  const tIps = new Set(Array.isArray(targetUser.ips) ? targetUser.ips : (targetUser.lastIp ? [targetUser.lastIp] : []));
+  const tLinked = new Set(Array.isArray(targetUser.linkedAccounts) ? targetUser.linkedAccounts : []);
+  const tCluster = ctx.browserClusterId ? ctx.browserClusterId.get(targetKey) : null;
 
   const matches = [];
+
   for (const [uKey, other] of Object.entries(allUsersObj)) {
     if (!other || !other.username) continue;
     const oKey = String(other.username || uKey).toLowerCase();
     if (oKey === targetKey) continue;
 
+    const oCookies = Array.isArray(other.cookieIds) ? other.cookieIds : (other.lastCookieId ? [other.lastCookieId] : []);
     const oDevices = Array.isArray(other.deviceIds) ? other.deviceIds : (other.lastDeviceId ? [other.lastDeviceId] : []);
-    const oPrints = Array.isArray(other.fingerprints) ? other.fingerprints : (other.lastFingerprint ? [other.lastFingerprint] : []);
-    const oIps = Array.isArray(other.ips) ? other.ips : (other.lastIp ? [other.lastIp] : []);
+    const oLinked = Array.isArray(other.linkedAccounts) ? other.linkedAccounts : [];
 
+    const sharedCookieIds = oCookies.filter(c => tCookies.has(c));
     const sharedDeviceIds = oDevices.filter(d => tDevices.has(d));
-    const sharedFingerprints = oPrints.filter(f => tPrints.has(f));
-    const sharedIps = oIps.filter(ip => tIps.has(ip));
+    const sameBrowserSwitch = tLinked.has(oKey) || oLinked.includes(targetKey);
+    const oCluster = ctx.browserClusterId ? ctx.browserClusterId.get(oKey) : null;
+    const transitiveBrowserLink = Boolean(tCluster && oCluster && tCluster === oCluster) && !sameBrowserSwitch && sharedCookieIds.length === 0 && sharedDeviceIds.length === 0;
 
-    if (sharedDeviceIds.length === 0 && sharedFingerprints.length === 0 && sharedIps.length === 0) {
-      continue;
+    // Strictly exclude timing/switch guesses, usernames, Wi-Fi/IPs, and PC hardware specs!
+    let score = 0;
+    const forensicReasons = [];
+    const labelParts = [];
+
+    if (sharedCookieIds.length > 0 || sameBrowserSwitch || sharedDeviceIds.length > 0) {
+      score = 100;
+      if (sharedCookieIds.length > 0) {
+        forensicReasons.push('Confirmed Same Accepted Browser Cookie ID (100%)');
+        labelParts.push('Accepted Cookie ID');
+      }
+      if (sameBrowserSwitch) {
+        forensicReasons.push('Confirmed Same-Browser Account History (both accounts used in same browser)');
+        labelParts.push('Same-Browser Account History');
+      }
+      if (sharedDeviceIds.length > 0) {
+        forensicReasons.push('Confirmed Same Persistent Browser Device ID');
+        labelParts.push('Device ID');
+      }
+    } else if (transitiveBrowserLink) {
+      const hops = ctx.getClusterHopDistance ? ctx.getClusterHopDistance(targetKey, oKey) : 2;
+      score = hops <= 2 ? 95 : 91;
+      forensicReasons.push(`Confirmed via Linked Cookie / Browser Device Chain (${hops}-hop)`);
+      labelParts.push('Linked Cookie/Device Chain');
     }
 
-    let confidenceScore = 0;
-    let confidenceLabel = 'Same IP Only (Shared Wi-Fi / School possible)';
-    let confidenceTier = 'low';
+    if (score < MIN_ALT_CONFIDENCE) continue;
 
-    if (sharedDeviceIds.length > 0 && sharedFingerprints.length > 0 && sharedIps.length > 0) {
-      confidenceScore = 100;
-      confidenceLabel = 'Confirmed Same Browser + Hardware + IP';
-      confidenceTier = 'certain';
-    } else if (sharedDeviceIds.length > 0) {
-      confidenceScore = 90;
-      confidenceLabel = 'Very High (Same Browser Device ID)';
-      confidenceTier = 'high';
-    } else if (sharedFingerprints.length > 0 && sharedIps.length > 0) {
-      confidenceScore = 82;
-      confidenceLabel = 'High (Same Hardware + IP — e.g. Incognito)';
-      confidenceTier = 'high';
-    } else if (sharedFingerprints.length > 0) {
-      confidenceScore = 65;
-      confidenceLabel = 'Medium-High (Same Hardware Fingerprint)';
-      confidenceTier = 'medium';
-    } else if (sharedIps.length > 0) {
-      confidenceScore = 40;
-      confidenceLabel = 'Same IP Only (Shared Wi-Fi / School possible)';
-      confidenceTier = 'low';
-    }
+    const confidenceTier = score === 100 ? 'certain' : 'high';
+    const oCreated = Number(other.createdAt) || 0;
+    const oLoginCount = Number(other.loginCount) || 0;
 
     matches.push({
       username: other.username,
       usernameKey: oKey,
-      confidenceScore,
+      confidenceScore: score,
       confidenceTier,
-      confidenceLabel,
+      confidenceLabel: score === 100
+        ? `Confirmed 100% (${labelParts.join(' + ')})`
+        : `High Confidence (${labelParts.join(' + ')})`,
+      differentPcConfirmed: false,
+      sameBrowserSwitch,
+      transitiveBrowserLink,
+      forensicReasons,
+      sharedCookieIds,
       sharedDeviceIds,
-      sharedFingerprints,
-      sharedIps,
-      lastIp: other.lastIp || oIps[0] || '',
-      ips: oIps,
+      sharedFingerprints: [],
+      sharedIps: [],
+      cookieAccepted: Boolean(other.cookieAccepted),
+      lastCookieId: other.lastCookieId || oCookies[0] || '',
+      cookieIds: oCookies,
       lastDeviceId: other.lastDeviceId || oDevices[0] || '',
       deviceIds: oDevices,
-      lastFingerprint: other.lastFingerprint || oPrints[0] || '',
-      fingerprints: oPrints,
-      createdAt: Number(other.createdAt) || 0,
+      createdAt: oCreated,
       lastLoginAt: Number(other.lastLoginAt) || 0,
       lastLoginReadable: other.lastLoginReadable || formatReadableTimestamp(other.lastLoginAt) || 'Unknown',
-      loginCount: Number(other.loginCount) || 0,
+      loginCount: oLoginCount,
       duelElo: typeof other.duelElo === 'number' ? other.duelElo : 1000,
       records: other.records || { easy: 0, medium: 0, hard: 0 },
       duelCoins: Math.round(Number(other.duelCoins) || 0)
@@ -2199,14 +2545,15 @@ function computeAltAccountMatches(targetUser, allUsersObj) {
   }
 
   matches.sort((a, b) => (b.confidenceScore - a.confidenceScore) || ((b.lastLoginAt || 0) - (a.lastLoginAt || 0)));
-  return matches;
+  return { matches, sameNetworkUsers: [] };
 }
 
 /**
- * Enriches `db.playerRecordsOverview` entries with IP / Device / Fingerprint & alt counts.
+ * Enriches `db.playerRecordsOverview` entries with browser/cookie & 80%+ alt counts.
  */
 function enrichOverviewWithClientSignals() {
   if (!db || !db.playerRecordsOverview || !db.users) return;
+  const forensicCtx = buildAltForensicContext(db.users);
   for (const [ovName, ovData] of Object.entries(db.playerRecordsOverview)) {
     if (!ovData || typeof ovData !== 'object') continue;
     const uKey = String(ovData.username || ovName).toLowerCase();
@@ -2214,23 +2561,31 @@ function enrichOverviewWithClientSignals() {
     if (!user) continue;
 
     const ips = Array.isArray(user.ips) ? user.ips : (user.lastIp ? [user.lastIp] : []);
+    const cookies = Array.isArray(user.cookieIds) ? user.cookieIds : (user.lastCookieId ? [user.lastCookieId] : []);
     const deviceIds = Array.isArray(user.deviceIds) ? user.deviceIds : (user.lastDeviceId ? [user.lastDeviceId] : []);
     const fingerprints = Array.isArray(user.fingerprints) ? user.fingerprints : (user.lastFingerprint ? [user.lastFingerprint] : []);
-    const matches = computeAltAccountMatches(user, db.users);
+    const { matches } = computeAltAccountMatches(user, db.users, forensicCtx);
 
+    ovData.cookieAccepted = Boolean(user.cookieAccepted);
+    ovData.lastCookieId = user.lastCookieId || cookies[0] || '';
+    ovData.cookieIds = cookies;
     ovData.lastIp = user.lastIp || ips[0] || '';
     ovData.ips = ips;
     ovData.lastDeviceId = user.lastDeviceId || deviceIds[0] || '';
     ovData.deviceIds = deviceIds;
     ovData.lastFingerprint = user.lastFingerprint || fingerprints[0] || '';
     ovData.fingerprints = fingerprints;
+    ovData.linkedAccounts = Array.isArray(user.linkedAccounts) ? user.linkedAccounts : [];
     ovData.altAccountCount = matches.length;
-    ovData.highConfidenceAltCount = matches.filter(m => m.confidenceTier === 'certain' || m.confidenceTier === 'high').length;
+    ovData.highConfidenceAltCount = matches.filter(m => m.confidenceScore >= MIN_ALT_CONFIDENCE).length;
+    ovData.sameNetworkCount = 0;
   }
 }
 
 /**
- * Finds all potential alt accounts for a target player using Device ID, Hardware Fingerprint, and IP.
+ * Finds all 80%+ confidence alt accounts for a target player using Accepted Cookies,
+ * Browser Device IDs, and Same-Browser Account History chains.
+ * Excludes login/logout timing guesses, usernames, Wi-Fi/IPs, and shared laptop hardware specs.
  */
 function findAltAccountsForUser(username) {
   const cleanName = typeof username === 'string' ? username.trim() : '';
@@ -2239,30 +2594,32 @@ function findAltAccountsForUser(username) {
   if (!user) {
     throw new Error(`Player "${cleanName}" not found in database.`);
   }
-  const matches = computeAltAccountMatches(user, db.users);
+  const { matches } = computeAltAccountMatches(user, db.users, buildAltForensicContext(db.users));
   return {
     target: {
       username: user.username,
       usernameKey: uKey,
-      lastIp: user.lastIp || '',
-      ips: Array.isArray(user.ips) ? user.ips : (user.lastIp ? [user.lastIp] : []),
-      lastDeviceId: user.lastDeviceId || '',
+      cookieAccepted: Boolean(user.cookieAccepted),
+      lastCookieId: user.lastCookieId || '',
+      cookieIds: Array.isArray(user.cookieIds) ? user.cookieIds : (user.lastCookieId ? [user.lastCookieId] : []),
       deviceIds: Array.isArray(user.deviceIds) ? user.deviceIds : (user.lastDeviceId ? [user.lastDeviceId] : []),
-      lastFingerprint: user.lastFingerprint || '',
-      fingerprints: Array.isArray(user.fingerprints) ? user.fingerprints : (user.lastFingerprint ? [user.lastFingerprint] : []),
+      lastDeviceId: user.lastDeviceId || '',
+      linkedAccounts: Array.isArray(user.linkedAccounts) ? user.linkedAccounts : [],
       createdAt: Number(user.createdAt) || 0,
       lastLoginAt: Number(user.lastLoginAt) || 0,
       lastLoginReadable: user.lastLoginReadable || formatReadableTimestamp(user.lastLoginAt) || 'Unknown',
       records: user.records || { easy: 0, medium: 0, hard: 0 },
-      duelElo: typeof user.duelElo === 'number' ? user.duelElo : 1000
+      duelElo: typeof user.duelElo === 'number' ? user.duelElo : 1000,
+      sameNetworkUsers: []
     },
-    matches
+    matches,
+    sameNetworkUsers: []
   };
 }
 
 /**
  * Permanently deletes a player account and purges their sessions, leaderboard runs, and duel high scores.
- * Protects the primary `MeDonut` admin account.
+ * Uses debounced single-file save (fast bulk deletion without redundant full backups per click).
  */
 function deletePlayerAccountAdmin(username) {
   const cleanName = typeof username === 'string' ? username.trim() : '';
@@ -2277,6 +2634,13 @@ function deletePlayerAccountAdmin(username) {
   const deletedUser = db.users[uKey];
   const displayName = deletedUser.username || cleanName;
   delete db.users[uKey];
+
+  for (const other of Object.values(db.users)) {
+    if (other && Array.isArray(other.linkedAccounts)) {
+      const idx = other.linkedAccounts.indexOf(uKey);
+      if (idx !== -1) other.linkedAccounts.splice(idx, 1);
+    }
+  }
 
   let removedSessions = 0;
   if (db.sessions && typeof db.sessions === 'object') {
@@ -2303,6 +2667,14 @@ function deletePlayerAccountAdmin(username) {
       e => !e || !e.username || e.username.toLowerCase() !== uKey
     );
   }
+  if (Array.isArray(db.duelMatchHistory)) {
+    db.duelMatchHistory = db.duelMatchHistory.filter(
+      m => !m || (
+        (!m.playerA || !m.playerA.username || m.playerA.username.toLowerCase() !== uKey) &&
+        (!m.playerB || !m.playerB.username || m.playerB.username.toLowerCase() !== uKey)
+      )
+    );
+  }
 
   if (db.playerRecordsOverview && typeof db.playerRecordsOverview === 'object') {
     for (const ovKey of Object.keys(db.playerRecordsOverview)) {
@@ -2319,7 +2691,7 @@ function deletePlayerAccountAdmin(username) {
     { deletedUsername: displayName, lastIp: deletedUser.lastIp || '', removedRuns, removedSessions }
   );
 
-  saveDatabase(true);
+  saveDatabase(false);
   return {
     deletedUsername: displayName,
     removedRuns,
@@ -2362,6 +2734,7 @@ module.exports = {
   addChatMessage,
   calculateDuelEloUpdate,
   recordDuelMatchResult,
+  getPlayerRankedDuelHistory,
   buildDuelRankedLeaderboard,
   buildDuelHighScoreLeaderboard,
   trackUserClientSignals,

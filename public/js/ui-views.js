@@ -530,15 +530,64 @@ class FlappyBirdUIAndProgression {
             const tz = (typeof Intl !== 'undefined' && Intl.DateTimeFormat)
               ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
               : '';
+            let webglSig = '';
+            let canvasSig = '';
+            if (typeof document !== 'undefined') {
+              try {
+                const glCanvas = document.createElement('canvas');
+                const gl = glCanvas.getContext('webgl') || glCanvas.getContext('experimental-webgl');
+                if (gl) {
+                  const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                  const vendor = dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+                  const renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+                  const extCount = (gl.getSupportedExtensions() || []).length;
+                  webglSig = `${vendor || ''}/${renderer || ''}/${extCount}`;
+                }
+              } catch (_) {}
+              try {
+                const c2d = document.createElement('canvas');
+                c2d.width = 180;
+                c2d.height = 36;
+                const ctx = c2d.getContext('2d');
+                if (ctx) {
+                  const grad = ctx.createLinearGradient(0, 0, 180, 0);
+                  grad.addColorStop(0, '#ff6b35');
+                  grad.addColorStop(1, '#2ec4b6');
+                  ctx.fillStyle = grad;
+                  ctx.fillRect(0, 0, 180, 36);
+                  ctx.textBaseline = 'top';
+                  ctx.font = '14px Arial, sans-serif';
+                  ctx.fillStyle = '#062033';
+                  ctx.fillText('Flappy3D-fp', 6, 4);
+                  ctx.font = '13px monospace';
+                  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                  ctx.fillText('9876543210', 10, 18);
+                  ctx.beginPath();
+                  ctx.arc(155, 18, 10, 0, Math.PI * 1.5);
+                  ctx.stroke();
+                  const dataUrl = c2d.toDataURL();
+                  let ch = 0x811c9dc5;
+                  for (let j = 0; j < dataUrl.length; j++) {
+                    ch ^= dataUrl.charCodeAt(j);
+                    ch = Math.imul(ch, 0x01000193);
+                  }
+                  canvasSig = (ch >>> 0).toString(16).padStart(8, '0');
+                }
+              } catch (_) {}
+            }
             const raw = [
               nav.userAgent || '',
               nav.platform || '',
               nav.language || '',
               String(nav.hardwareConcurrency || ''),
               String(nav.deviceMemory || ''),
+              String(nav.maxTouchPoints ?? ''),
               `${scr.width || 0}x${scr.height || 0}x${scr.colorDepth || 0}`,
+              `${scr.availWidth || 0}x${scr.availHeight || 0}`,
               String(typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1),
-              tz
+              tz,
+              webglSig,
+              canvasSig
             ].join('|');
             // Deterministic 64-bit FNV-1a twin hash so incognito mode still matches same machine
             let h1 = 0x811c9dc5;
@@ -556,11 +605,123 @@ class FlappyBirdUIAndProgression {
           return fp;
         }
 
+        getClientKnownAccounts() {
+          const list = [];
+          const pushName = (n) => {
+            const clean = typeof n === 'string' ? n.trim() : '';
+            if (clean && !list.some(x => x.toLowerCase() === clean.toLowerCase())) {
+              list.push(clean.slice(0, 24));
+            }
+          };
+          try {
+            const raw = localStorage.getItem('flappy3d_known_accounts');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) parsed.forEach(pushName);
+            }
+          } catch (_) {}
+          try {
+            if (typeof document !== 'undefined' && document.cookie) {
+              const m = document.cookie.match(/(?:^|;\s*)flappy3d_known_accounts=([^;]+)/);
+              if (m && m[1]) {
+                decodeURIComponent(m[1]).split(',').forEach(pushName);
+              }
+            }
+          } catch (_) {}
+          if (this.currentUser && this.currentUser.username) {
+            pushName(this.currentUser.username);
+          }
+          return list.slice(0, 15);
+        }
+
+        rememberClientAccount(username) {
+          const clean = typeof username === 'string' ? username.trim().slice(0, 24) : '';
+          if (!clean) return;
+          const existing = this.getClientKnownAccounts().filter(x => x.toLowerCase() !== clean.toLowerCase());
+          existing.unshift(clean);
+          if (existing.length > 15) existing.length = 15;
+          try { localStorage.setItem('flappy3d_known_accounts', JSON.stringify(existing)); } catch (_) {}
+          try {
+            if (typeof document !== 'undefined') {
+              document.cookie = `flappy3d_known_accounts=${encodeURIComponent(existing.join(','))}; path=/; max-age=31536000; SameSite=Lax`;
+            }
+          } catch (_) {}
+        }
+
+        hasAcceptedCookies() {
+          try {
+            if (localStorage.getItem('flappy3d_cookie_consent') === '1') return true;
+          } catch (_) {}
+          try {
+            if (typeof document !== 'undefined' && document.cookie) {
+              if (/(?:^|;\s*)(?:flappy3d_cookie_consent|f3d_consent)=1(?:;|$)/.test(document.cookie)) {
+                return true;
+              }
+            }
+          } catch (_) {}
+          return false;
+        }
+
+        showCookieConsentModal(show = true) {
+          const modal = document.getElementById('cookie-consent-modal');
+          if (!modal) return;
+          modal.style.display = show ? 'flex' : 'none';
+          modal.classList.toggle('active', Boolean(show));
+        }
+
+        async syncAcceptedCookiesWithServer() {
+          try {
+            const devId = this.getClientDeviceId();
+            const known = this.getClientKnownAccounts();
+            const headers = {
+              'Content-Type': 'application/json',
+              'X-Cookie-Consent': '1',
+              'X-Device-Id': devId,
+              'X-Device-Fingerprint': this.getClientHardwareFingerprint()
+            };
+            if (known.length > 0) headers['X-Known-Accounts'] = known.join(',');
+            if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
+            await fetch('/api/cookies/accept', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ deviceId: devId, knownAccounts: known })
+            });
+          } catch (_) {}
+        }
+
+        async acceptGameCookies() {
+          try { localStorage.setItem('flappy3d_cookie_consent', '1'); } catch (_) {}
+          try {
+            if (typeof document !== 'undefined') {
+              document.cookie = 'flappy3d_cookie_consent=1; path=/; max-age=31536000; SameSite=Lax';
+            }
+          } catch (_) {}
+          await this.syncAcceptedCookiesWithServer();
+          this.showCookieConsentModal(false);
+          if (!this.currentUser) {
+            this.toggleGuestLoginModal(true);
+          }
+        }
+
+        getClientSignalHeaders() {
+          const headers = {
+            'X-Device-Id': this.getClientDeviceId(),
+            'X-Device-Fingerprint': this.getClientHardwareFingerprint()
+          };
+          if (this.hasAcceptedCookies()) {
+            headers['X-Cookie-Consent'] = '1';
+          }
+          const known = this.getClientKnownAccounts();
+          if (known.length > 0) {
+            headers['X-Known-Accounts'] = known.join(',');
+          }
+          return headers;
+        }
+
         async apiRequest(path, method = 'GET', body = null, maxRetries = 2) {
           const headers = {
             'Content-Type': 'application/json',
-            'X-Device-Id': this.getClientDeviceId(),
-            'X-Device-Fingerprint': this.getClientHardwareFingerprint()
+            ...this.getClientSignalHeaders()
           };
           if (this.authToken) {
             headers['Authorization'] = `Bearer ${this.authToken}`;
@@ -635,6 +796,21 @@ class FlappyBirdUIAndProgression {
             if (dot) dot.classList.add('offline');
           }
 
+          const acceptCookieBtn = document.getElementById('btn-accept-cookies');
+          if (acceptCookieBtn && !acceptCookieBtn._boundCookieBtn) {
+            acceptCookieBtn._boundCookieBtn = true;
+            acceptCookieBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              this.acceptGameCookies();
+            });
+          }
+
+          if (this.hasAcceptedCookies()) {
+            this.syncAcceptedCookiesWithServer();
+          } else {
+            this.showCookieConsentModal(true);
+          }
+
           if (this.authToken) {
             try {
               const data = await this.apiRequest('/api/me');
@@ -667,8 +843,8 @@ class FlappyBirdUIAndProgression {
             }
           }
 
-          // When on a Guest account, automatically bring up the Login Prompt Screen asking the player to log in!
-          if (!this.currentUser) {
+          // When on a Guest account and cookies are accepted, bring up the Login Prompt Screen asking the player to log in!
+          if (!this.currentUser && this.hasAcceptedCookies()) {
             this.toggleGuestLoginModal(true);
           }
 
@@ -995,6 +1171,9 @@ class FlappyBirdUIAndProgression {
           this.currentUser = user;
           this.authToken = token;
           localStorage.setItem('flappy3d_token', token);
+          if (user && user.username) {
+            this.rememberClientAccount(user.username);
+          }
 
           const authBox = document.getElementById('auth-form-box');
           if (authBox) authBox.style.display = 'none';
@@ -1320,6 +1499,83 @@ class FlappyBirdUIAndProgression {
             if (profileData.ranks?.medium && profileData.ranks.medium.startsWith('#')) top100Count++;
             if (profileData.ranks?.hard && profileData.ranks.hard.startsWith('#')) top100Count++;
             top100Stat.textContent = `${top100Count} Modes`;
+          }
+
+          // Render Ranked Duels Summary & Full Match History (3-round breakdown + opponent + ELO delta)
+          const duelSumEl = document.getElementById('public-duel-summary');
+          const duelListEl = document.getElementById('public-duel-history-list');
+          const dStats = profileData.duelStats || { duelElo: 1000, duelWins: 0, duelLosses: 0, duelDraws: 0, duelMatches: 0, duelBestMatchPoints: 0 };
+          if (duelSumEl) {
+            duelSumEl.innerHTML = '';
+            const mkPill = (txt, cls = 'public-duel-pill') => {
+              const sp = document.createElement('span');
+              sp.className = cls;
+              sp.textContent = txt;
+              return sp;
+            };
+            duelSumEl.append(
+              mkPill(`🏆 ${dStats.duelElo ?? 1000} ELO`, 'public-duel-pill elo'),
+              mkPill(`⚔️ ${dStats.duelWins || 0}W - ${dStats.duelLosses || 0}L${(dStats.duelDraws || 0) > 0 ? ` - ${dStats.duelDraws}D` : ''}`),
+              mkPill(`🔥 Best: ${dStats.duelBestMatchPoints || 0} pts`)
+            );
+          }
+          if (duelListEl) {
+            const history = Array.isArray(profileData.rankedDuelHistory) ? profileData.rankedDuelHistory : [];
+            duelListEl.innerHTML = '';
+            if (history.length === 0) {
+              const emptyDiv = document.createElement('div');
+              emptyDiv.className = 'public-duel-meta';
+              emptyDiv.textContent = 'No completed ranked 3-round duels recorded yet.';
+              duelListEl.appendChild(emptyDiv);
+            } else {
+              for (const m of history) {
+                const row = document.createElement('div');
+                const outCls = (m.outcome === 'win' || m.outcome === 'loss' || m.outcome === 'draw') ? m.outcome : '';
+                row.className = `public-duel-row ${outCls}`;
+
+                const topDiv = document.createElement('div');
+                topDiv.className = 'public-duel-top';
+                const badge = m.outcome === 'win' ? '🏆 WIN' : (m.outcome === 'loss' ? '💀 LOSS' : (m.outcome === 'draw' ? '🤝 DRAW' : '⚔️ MATCH'));
+                const oppScoreStr = (m.oppTotal !== null && m.oppTotal !== undefined) ? ` (${m.myTotal} - ${m.oppTotal} pts)` : ` (${m.myTotal} pts)`;
+                const leftSpan = document.createElement('span');
+                leftSpan.textContent = `${badge} vs ${m.opponent || 'Opponent'}${oppScoreStr}`;
+
+                const eloSpan = document.createElement('span');
+                if (m.eloRecorded && typeof m.eloDelta === 'number') {
+                  const sign = m.eloDelta >= 0 ? `+${m.eloDelta}` : `${m.eloDelta}`;
+                  eloSpan.className = `public-duel-elo-tag ${m.eloDelta > 0 ? 'pos' : (m.eloDelta < 0 ? 'neg' : 'flat')}`;
+                  eloSpan.textContent = `${m.oldElo ?? '?'}→${m.newElo ?? '?'} (${sign} ELO)`;
+                } else {
+                  eloSpan.className = 'public-duel-elo-tag flat';
+                  eloSpan.textContent = 'Past Ranked Match';
+                }
+                topDiv.append(leftSpan, eloSpan);
+
+                const mr = m.myRounds || {};
+                const or = m.oppRounds;
+                const modesDiv = document.createElement('div');
+                modesDiv.className = 'public-duel-modes';
+                const myLine = `You: 🟢 E ${mr.easy?.raw || 0} (${mr.easy?.pts || 0}) • 🟡 M ${mr.medium?.raw || 0} (${mr.medium?.pts || 0}) • 🔴 H ${mr.hard?.raw || 0} (${mr.hard?.pts || 0})`;
+                modesDiv.textContent = myLine;
+
+                row.append(topDiv, modesDiv);
+                if (or) {
+                  const oppDiv = document.createElement('div');
+                  oppDiv.className = 'public-duel-modes';
+                  oppDiv.style.opacity = '0.82';
+                  oppDiv.textContent = `${m.opponent}: 🟢 E ${or.easy?.raw || 0} (${or.easy?.pts || 0}) • 🟡 M ${or.medium?.raw || 0} (${or.medium?.pts || 0}) • 🔴 H ${or.hard?.raw || 0} (${or.hard?.pts || 0})`;
+                  row.appendChild(oppDiv);
+                }
+
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'public-duel-meta';
+                const coinsTxt = (m.eloRecorded && m.coinsEarned > 0) ? ` • 🪙 +${m.coinsEarned} coins` : '';
+                metaDiv.textContent = `🕒 ${m.readableAt || ''}${coinsTxt}`;
+                row.appendChild(metaDiv);
+
+                duelListEl.appendChild(row);
+              }
+            }
           }
         }
 

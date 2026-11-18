@@ -140,6 +140,9 @@ async function syncLiveDatabase() {
       .sort((a, b) => (b.points - a.points) || ((a.createdAt || 0) - (b.createdAt || 0)))
       .slice(0, 200);
 
+    const rawHistory = Array.isArray(liveDb.duelMatchHistory) ? liveDb.duelMatchHistory : [];
+    liveDb.duelMatchHistory = rawHistory.slice(0, 500);
+
     const userCount = Object.keys(liveDb.users || {}).length;
     const easyCount = liveDb.runs?.easy?.length || 0;
     const medCount = liveDb.runs?.medium?.length || 0;
