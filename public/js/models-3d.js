@@ -4891,11 +4891,15 @@ class FlappyBird3DModels {
 
           const birdView = document.getElementById('panel-view-bird-skins');
           const pipeView = document.getElementById('panel-view-pipe-skins');
+          const bgView = document.getElementById('panel-view-bg-skins');
           const isBirdTab = birdView && birdView.style.display !== 'none';
           const isPipeTab = pipeView && pipeView.style.display !== 'none';
-          if (!isBirdTab && !isPipeTab) return;
+          const isBgTab = bgView && bgView.style.display !== 'none';
+          if (!isBirdTab && !isPipeTab && !isBgTab) return;
 
-          const targetCanvas = document.getElementById(isBirdTab ? 'bird-spotlight-canvas' : 'pipe-spotlight-canvas');
+          const targetCanvas = document.getElementById(
+            isBirdTab ? 'bird-spotlight-canvas' : (isPipeTab ? 'pipe-spotlight-canvas' : 'bg-spotlight-canvas')
+          );
           if (!targetCanvas) return;
 
           const size = 160;
@@ -4927,6 +4931,11 @@ class FlappyBird3DModels {
                 );
                 this.spotlightCamera.lookAt(px, py, 0);
               }
+            } else if (isBgTab && this.birdGroup) {
+              const bx = this.birdGroup.position.x + 2.2;
+              const by = CONFIG.birdStartY + 0.4;
+              this.spotlightCamera.position.set(bx, by, 11.5);
+              this.spotlightCamera.lookAt(bx + 0.4, by - 0.2, 0);
             }
 
             const w = Math.max(1, window.innerWidth);
@@ -4966,6 +4975,155 @@ class FlappyBird3DModels {
             if (this.birdMeshGroup) this.birdMeshGroup.rotation.y = savedRotY;
             if (this.birdGroup) this.birdGroup.rotation.z = savedRotZ;
             this.renderer.setViewport(0, 0, Math.max(1, window.innerWidth), Math.max(1, window.innerHeight));
+          }
+        }
+
+        // ------------------------------------------------------------------------
+        // 3D BACKGROUND SKINS, ANIMATED PATTERNS & 15-FRAME VIDEO LOOP
+        // ------------------------------------------------------------------------
+        applyCoverAspectToBgTexture(tex) {
+          if (!tex || !tex.image || !tex.image.width || !tex.image.height) return;
+          const imgAspect = tex.image.width / tex.image.height;
+          const viewAspect = Math.max(1, window.innerWidth) / Math.max(1, window.innerHeight);
+          if (imgAspect > viewAspect) {
+            const rx = viewAspect / imgAspect;
+            tex.repeat.set(rx, 1);
+            tex.offset.set((1 - rx) * 0.5, 0);
+          } else {
+            const ry = imgAspect / viewAspect;
+            tex.repeat.set(1, ry);
+            tex.offset.set(0, (1 - ry) * 0.5);
+          }
+        }
+
+        applyBackgroundVisualsOnly(bgItem) {
+          this.currentBackgroundSkin = bgItem || null;
+          if (!this.scene || !this.renderer) return;
+
+          if (!bgItem || bgItem.id === 'bg_classic' || bgItem.pattern === 'default_theme') {
+            this.scene.background = null;
+            this._activeBgCanvas = null;
+            this._bgVideoTextures = null;
+            if (this.scene.fog) this.scene.fog.density = 0.014;
+            const themeName = (this.settings && this.settings.theme) || 'dark';
+            if (this.scene.fog) {
+              if (themeName === 'light') {
+                this.renderer.setClearColor(0x7dd3fc, 1);
+                this.scene.fog.color.setHex(0x93e1fa);
+              } else if (themeName === 'cyber') {
+                this.renderer.setClearColor(0x1e1136, 1);
+                this.scene.fog.color.setHex(0x2e1065);
+              } else {
+                this.renderer.setClearColor(0x3898d8, 1);
+                this.scene.fog.color.setHex(0x5bb8e8);
+              }
+            }
+            return;
+          }
+
+          if (this.scene.fog) {
+            this.scene.fog.color.setHex(bgItem.fogHex || bgItem.bgHex || 0x1e293b);
+            this.scene.fog.density = typeof bgItem.fogDensity === 'number' ? bgItem.fogDensity : 0.004;
+          }
+          if (typeof bgItem.bgHex === 'number') {
+            this.renderer.setClearColor(bgItem.bgHex, 1);
+          }
+
+          if (bgItem.pattern === 'solid' && typeof bgItem.bgHex === 'number') {
+            this._activeBgCanvas = null;
+            this._bgVideoTextures = null;
+            this.scene.background = new THREE.Color(bgItem.bgHex);
+            return;
+          }
+
+          if (bgItem.id === 'bg_custom_image') {
+            this._activeBgCanvas = null;
+            this._bgVideoTextures = null;
+            const imgData = (this.currentUser && this.currentUser.customBackgroundImage) || this._localCustomImageDataUrl;
+            if (imgData && typeof Image === 'function') {
+              const img = new Image();
+              img.onload = () => {
+                if (!this.currentBackgroundSkin || this.currentBackgroundSkin.id !== 'bg_custom_image') return;
+                const tex = new THREE.Texture(img);
+                if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+                tex.needsUpdate = true;
+                this.applyCoverAspectToBgTexture(tex);
+                this.scene.background = tex;
+              };
+              img.src = imgData;
+              return;
+            }
+          }
+
+          if (bgItem.id === 'bg_custom_video') {
+            this._activeBgCanvas = null;
+            const vidObj = (this.currentUser && this.currentUser.customBackgroundVideo) || this._localCustomVideoObj;
+            const frames = (vidObj && Array.isArray(vidObj.frames)) ? vidObj.frames.slice(0, 15) : [];
+            if (frames.length > 0 && typeof Image === 'function') {
+              const texList = new Array(frames.length).fill(null);
+              this._bgVideoTextures = texList;
+              this._bgVideoFrameIdx = 0;
+              this._bgVideoLastStepAt = 0;
+              frames.forEach((srcUrl, idx) => {
+                const img = new Image();
+                img.onload = () => {
+                  if (!this.currentBackgroundSkin || this.currentBackgroundSkin.id !== 'bg_custom_video') return;
+                  const tex = new THREE.Texture(img);
+                  if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+                  tex.needsUpdate = true;
+                  this.applyCoverAspectToBgTexture(tex);
+                  texList[idx] = tex;
+                  if (idx === 0) {
+                    this.scene.background = tex;
+                  }
+                };
+                img.src = srcUrl;
+              });
+              return;
+            }
+            this._bgVideoTextures = null;
+          }
+
+          // Case 2 static patterns & Case 3 animated procedural patterns
+          this._bgVideoTextures = null;
+          if (typeof createBackgroundTexture === 'function') {
+            if (!this._reusableBgCanvas) {
+              this._reusableBgCanvas = document.createElement('canvas');
+              this._reusableBgCanvas.width = 512;
+              this._reusableBgCanvas.height = 512;
+            }
+            this._activeBgCanvas = this._reusableBgCanvas;
+            this._lastBgAnimRedrawAt = 0;
+            const tex = createBackgroundTexture(bgItem, this._activeBgCanvas, this.elapsedTime || 0);
+            this.scene.background = tex;
+          }
+        }
+
+        updateAnimatedBackground(frameDt) {
+          const bg = this.currentBackgroundSkin;
+          if (!bg || !this.scene) return;
+          const nowMs = Date.now();
+
+          if (bg.id === 'bg_custom_video' && Array.isArray(this._bgVideoTextures) && this._bgVideoTextures.length > 1) {
+            if (!this._bgVideoLastStepAt) this._bgVideoLastStepAt = nowMs;
+            if (nowMs - this._bgVideoLastStepAt >= 133) {
+              this._bgVideoLastStepAt = nowMs;
+              this._bgVideoFrameIdx = ((this._bgVideoFrameIdx || 0) + 1) % this._bgVideoTextures.length;
+              const nextTex = this._bgVideoTextures[this._bgVideoFrameIdx];
+              if (nextTex) {
+                this.applyCoverAspectToBgTexture(nextTex);
+                this.scene.background = nextTex;
+              }
+            }
+            return;
+          }
+
+          if (bg.animated && this._activeBgCanvas && typeof createBackgroundTexture === 'function') {
+            if (!this._lastBgAnimRedrawAt || (nowMs - this._lastBgAnimRedrawAt >= 75)) {
+              this._lastBgAnimRedrawAt = nowMs;
+              const tex = createBackgroundTexture(bg, this._activeBgCanvas, this.elapsedTime || 0);
+              this.scene.background = tex;
+            }
           }
         }
 }

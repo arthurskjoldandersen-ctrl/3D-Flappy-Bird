@@ -25,8 +25,14 @@
           this.selectedPipeSkinId = localStorage.getItem('flappy3d_pipe_skin') || 'classic_pipe';
           this.previewPipeSkinId = null;
           this.pipeSkinCache = {};
+
+          this.selectedBackgroundId = localStorage.getItem('flappy3d_background_skin') || 'bg_classic';
+          this.previewBgSkinId = null;
+          this.currentBackgroundSkin = null;
+
           this.birdLockerFilter = 'all';
           this.pipeLockerFilter = 'all';
+          this.bgLockerFilter = 'all';
           this.skinSearchQuery = '';
           this.lockerSortOrder = 'default';
 
@@ -94,9 +100,12 @@
           this.createBird();
           this.initParticlePool();
 
-          // Apply saved Bird Skin & Pipe Skin and spawn preview pipes in the Start screen
+          // Apply saved Bird Skin, Pipe Skin & Background Skin and spawn preview pipes in the Start screen
           this.applySkin(this.selectedSkinId, false);
           this.applyPipeSkin(this.selectedPipeSkinId, false);
+          if (typeof this.applyBackgroundSkin === 'function') {
+            this.applyBackgroundSkin(this.selectedBackgroundId, false);
+          }
           this.spawnLobbyPreviewPipes();
 
           this.bindEvents();
@@ -104,6 +113,9 @@
           this.updateHUD();
           this.renderAllCosmeticGrids();
           this.updateAllProfilePictures();
+          if (typeof this.renderDuelCasesShop === 'function') {
+            this.renderDuelCasesShop();
+          }
 
           // Connect to Online Server & poll leaderboards every 5s while in menus
           this.initOnlineSession();
@@ -821,6 +833,8 @@
               this.skinSearchQuery = (e.target.value || '').trim().toLowerCase();
               if (this.currentLockerTab === 'pipes') {
                 this.renderPipeSkinsGrid();
+              } else if (this.currentLockerTab === 'bg' && typeof this.renderBgSkinsGrid === 'function') {
+                this.renderBgSkinsGrid();
               } else {
                 this.renderBirdSkinsGrid();
               }
@@ -853,6 +867,8 @@
             }
             if (this.currentLockerTab === 'pipes') {
               this.renderPipeSkinsGrid();
+            } else if (this.currentLockerTab === 'bg' && typeof this.renderBgSkinsGrid === 'function') {
+              this.renderBgSkinsGrid();
             } else {
               this.renderBirdSkinsGrid();
             }
@@ -983,22 +999,28 @@
             });
           }
 
-          // Locker Sub-Tabs (Bird Skins vs Pipe Skins)
+          // Locker Sub-Tabs (Bird Skins vs Pipe Skins vs Background Skins)
           const tabBirds = document.getElementById('tab-btn-bird-skins');
           const tabPipes = document.getElementById('tab-btn-pipe-skins');
+          const tabBgs = document.getElementById('tab-btn-bg-skins');
           const viewBirds = document.getElementById('panel-view-bird-skins');
           const viewPipes = document.getElementById('panel-view-pipe-skins');
+          const viewBgs = document.getElementById('panel-view-bg-skins');
           const spotBirds = document.getElementById('bird-skin-spotlight');
           const spotPipes = document.getElementById('pipe-skin-spotlight');
+          const spotBgs = document.getElementById('bg-skin-spotlight');
 
           const switchLockerTab = (tab) => {
             this.currentLockerTab = tab;
             if (tabBirds) tabBirds.classList.toggle('active', tab === 'birds');
             if (tabPipes) tabPipes.classList.toggle('active', tab === 'pipes');
+            if (tabBgs) tabBgs.classList.toggle('active', tab === 'bg');
             if (viewBirds) viewBirds.style.display = tab === 'birds' ? 'flex' : 'none';
             if (viewPipes) viewPipes.style.display = tab === 'pipes' ? 'flex' : 'none';
+            if (viewBgs) viewBgs.style.display = tab === 'bg' ? 'flex' : 'none';
             if (spotBirds) spotBirds.style.display = tab === 'birds' ? 'flex' : 'none';
             if (spotPipes) spotPipes.style.display = tab === 'pipes' ? 'flex' : 'none';
+            if (spotBgs) spotBgs.style.display = tab === 'bg' ? 'flex' : 'none';
             if (tab === 'birds') this.renderBirdSkinsGrid();
             if (tab === 'pipes') {
               if (this.pipes.length === 0 && typeof this.spawnLobbyPreviewPipes === 'function') {
@@ -1006,10 +1028,15 @@
               }
               this.renderPipeSkinsGrid();
             }
+            if (tab === 'bg' && typeof this.renderBgSkinsGrid === 'function') {
+              this.renderBgSkinsGrid();
+            }
           };
+          this.switchLockerTabFn = switchLockerTab;
 
           if (tabBirds) tabBirds.addEventListener('click', () => switchLockerTab('birds'));
           if (tabPipes) tabPipes.addEventListener('click', () => switchLockerTab('pipes'));
+          if (tabBgs) tabBgs.addEventListener('click', () => switchLockerTab('bg'));
 
           const switchRightPanel = (mode) => {
             if (mode === 'lb') this.switchView('leaderboard');
@@ -1020,9 +1047,17 @@
             } else if (mode === 'pipes') {
               this.switchView('skins');
               switchLockerTab('pipes');
+            } else if (mode === 'bg') {
+              this.switchView('skins');
+              switchLockerTab('bg');
             }
           };
           this.switchRightPanelFn = switchRightPanel;
+
+          const profileEqBgCard = document.getElementById('profile-equipped-bg-card');
+          if (profileEqBgCard) {
+            profileEqBgCard.addEventListener('click', () => switchRightPanel('bg'));
+          }
 
           const openStatsBtn = document.getElementById('open-stats-btn');
           if (openStatsBtn) {
@@ -1093,9 +1128,16 @@
                 this.previewPipeSkinId = null;
                 this.applyPipeSkin(this.selectedPipeSkinId, false);
               }
+              if (this.previewBgSkinId) {
+                this.previewBgSkinId = null;
+                if (typeof this.applyBackgroundSkin === 'function') {
+                  this.applyBackgroundSkin(this.selectedBackgroundId || 'bg_classic', false);
+                }
+              }
               this.updatePreviewBanner();
               this.renderBirdSkinsGrid();
               this.renderPipeSkinsGrid();
+              if (typeof this.renderBgSkinsGrid === 'function') this.renderBgSkinsGrid();
             });
           }
 
@@ -1115,6 +1157,15 @@
               document.querySelectorAll('#pipe-filter-bar .locker-filter-btn').forEach(b => b.classList.remove('active'));
               btn.classList.add('active');
               this.renderPipeSkinsGrid();
+            });
+          });
+
+          document.querySelectorAll('#bg-filter-bar .locker-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              this.bgLockerFilter = btn.getAttribute('data-filter') || 'all';
+              document.querySelectorAll('#bg-filter-bar .locker-filter-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              if (typeof this.renderBgSkinsGrid === 'function') this.renderBgSkinsGrid();
             });
           });
 
@@ -1185,6 +1236,9 @@
             this.camera.updateProjectionMatrix();
             this.adjustCameraForAspect(aspect);
             this.renderer.setSize(width, height);
+            if (this.scene && this.scene.background && this.scene.background.isTexture && typeof this.applyCoverAspectToBgTexture === 'function') {
+              this.applyCoverAspectToBgTexture(this.scene.background);
+            }
           });
         }
 
@@ -1304,7 +1358,7 @@
         }
 
         startGame() {
-          if (this.state === GAME_STATE.PLAYING || this.isStartingRun) return;
+          if (this.isAccountBanned || this.state === GAME_STATE.PLAYING || this.isStartingRun) return;
           this.isStartingRun = true;
           document.body.classList.add('in-game');
           const topBarEl2 = document.getElementById('top-app-bar');
@@ -1318,7 +1372,7 @@
             this.chat.onRoundStart();
           }
 
-          // If the player was previewing a locked Bird Skin or Pipe Skin in the lobby, revert to their equipped unlocked skin for actual gameplay!
+          // If the player was previewing a locked skin/pipe/background in the lobby, revert to their equipped unlocked cosmetic!
           if (this.previewSkinId) {
             this.previewSkinId = null;
             this.applySkin(this.selectedSkinId, false);
@@ -1326,6 +1380,12 @@
           if (this.previewPipeSkinId) {
             this.previewPipeSkinId = null;
             this.applyPipeSkin(this.selectedPipeSkinId, false);
+          }
+          if (this.previewBgSkinId) {
+            this.previewBgSkinId = null;
+            if (typeof this.applyBackgroundSkin === 'function') {
+              this.applyBackgroundSkin(this.selectedBackgroundId || 'bg_classic', false);
+            }
           }
           this.updatePreviewBanner();
 
@@ -1900,6 +1960,9 @@
 
           if (!isSpectatingDuel) {
             this.updateAnimatedSkinEffects(frameDt);
+            if (typeof this.updateAnimatedBackground === 'function') {
+              this.updateAnimatedBackground(frameDt);
+            }
           }
 
           // Update pooled particles with zero garbage collection
@@ -2416,8 +2479,10 @@
             if (msg) {
               const msgEl = document.getElementById('duel-create-msg');
               if (msgEl) msgEl.textContent = msg;
-              const waitSub = document.getElementById('duel-lobby-count');
-              if (typeof alert === 'function' && /elo/i.test(msg)) {
+              if (typeof this.showLockerToast === 'function') {
+                this.showLockerToast(msg, true);
+              }
+              if (typeof alert === 'function' && /elo|alt|boosting/i.test(msg)) {
                 alert(msg);
               }
             }
@@ -2817,6 +2882,15 @@
             if (medEl) medEl.textContent = `${rM.rawScore || 0} × 2 = ${rM.weightedScore || 0} pts`;
             if (hardEl) hardEl.textContent = `${rH.rawScore || 0} × 3 = ${rH.weightedScore || 0} pts`;
             if (totEl) totEl.textContent = `${p.totalPoints || 0} PTS`;
+            const coinsRowEl = document.getElementById(`duel-final-${prefix}-coins`);
+            if (coinsRowEl) {
+              if (isFriendlyMatch) {
+                coinsRowEl.textContent = '🤝 Friendly (0 Coins)';
+              } else {
+                const earned = Math.max(0, Math.round(Number(p.coinsEarned) || 0));
+                coinsRowEl.textContent = `+${earned} 🪙`;
+              }
+            }
           };
 
           fillCol('p1', p1);
@@ -3094,7 +3168,6 @@
         // --------------------------------------------------------------------
         updateDuelShopCoinsUI(explicitCoins = null) {
           const coinsEl = document.getElementById('duel-shop-coins-display');
-          if (!coinsEl) return;
           let rawCoins = explicitCoins;
           if (rawCoins === null || rawCoins === undefined) {
             if (this.myDuelStats && typeof this.myDuelStats.duelCoins === 'number') {
@@ -3105,7 +3178,289 @@
               rawCoins = 0;
             }
           }
-          coinsEl.textContent = String(Math.max(0, Math.round(Number(rawCoins) || 0)));
+          const cleanCoins = Math.max(0, Math.round(Number(rawCoins) || 0));
+          if (coinsEl) {
+            coinsEl.textContent = String(cleanCoins);
+          }
+          if (!this._renderingDuelShop) {
+            this._renderingDuelShop = true;
+            try { this.renderDuelCasesShop(cleanCoins); } finally { this._renderingDuelShop = false; }
+          }
+        }
+
+        renderDuelCasesShop(overrideCoins = null) {
+          const container = document.getElementById('duel-shop-cases-container');
+          if (!container || typeof BACKGROUND_CASES === 'undefined' || typeof BACKGROUND_SKINS === 'undefined') return;
+
+          const coins = overrideCoins !== null
+            ? Math.max(0, Math.round(Number(overrideCoins) || 0))
+            : Math.max(0, Math.round(Number((this.currentUser && this.currentUser.duelCoins) ?? (this.myDuelStats && this.myDuelStats.duelCoins) ?? 0)));
+          const isLoggedIn = Boolean(this.authToken && this.currentUser);
+          const unlockedIdsSig = BACKGROUND_SKINS
+            .filter(b => this.isCosmeticUnlocked(b))
+            .map(b => b.id)
+            .join(',');
+          const renderSig = `${coins}|${isLoggedIn ? 1 : 0}|${this._caseSpinning ? 1 : 0}|${unlockedIdsSig}`;
+          const prevGrid = container.querySelector ? container.querySelector('.duels-cases-grid') : null;
+          if (container.dataset && container.dataset.shopRenderSig === renderSig && prevGrid) {
+            return;
+          }
+
+          const savedGridScroll = prevGrid ? (prevGrid.scrollTop || 0) : 0;
+          const savedContainerScroll = container.scrollTop || 0;
+          const shopCardEl = container.closest ? container.closest('.duels-shop-card') : null;
+          const savedCardScroll = shopCardEl ? (shopCardEl.scrollTop || 0) : 0;
+          const duelsContainerEl = document.querySelector && document.querySelector('#view-duels .duels-container');
+          const savedOuterScroll = duelsContainerEl ? (duelsContainerEl.scrollTop || 0) : 0;
+
+          const tierClasses = {
+            case_basic: 'case-tier-basic',
+            case_pattern: 'case-tier-pattern',
+            case_ultimate: 'case-tier-ultimate'
+          };
+
+          container.innerHTML = '';
+          const grid = document.createElement('div');
+          grid.className = 'duels-cases-grid';
+
+          for (const box of BACKGROUND_CASES) {
+            const boxItems = BACKGROUND_SKINS.filter(b => b.caseId === box.id);
+            const ownedInCase = boxItems.filter(b => this.isCosmeticUnlocked(b)).length;
+            const canAfford = isLoggedIn && coins >= box.price && !this._caseSpinning;
+
+            const card = document.createElement('div');
+            card.className = `duel-case-card ${tierClasses[box.id] || ''}`;
+
+            const chipsHtml = boxItems.map(item => {
+              const is1Pct = item.id === 'bg_custom_image';
+              const is01Pct = item.id === 'bg_custom_video';
+              const extraCls = is01Pct ? ' special-01pct' : (is1Pct ? ' special-1pct' : '');
+              const ownedMark = this.isCosmeticUnlocked(item) ? ' ✓' : '';
+              return `<span class="duel-case-chip${extraCls}" title="${item.desc}">${item.emoji} ${item.name} (${item.dropPct}%)${ownedMark}</span>`;
+            }).join('');
+
+            card.innerHTML = `
+              <div class="duel-case-top">
+                <div class="duel-case-title-wrap">
+                  <div class="duel-case-icon">${box.emoji}</div>
+                  <div>
+                    <div class="duel-case-name">${box.name}</div>
+                    <div class="duel-case-sub">${box.subtitle}</div>
+                  </div>
+                </div>
+                <span class="duel-case-owned-pill">${ownedInCase}/${boxItems.length} Owned</span>
+              </div>
+              <div class="duel-case-preview-chips">${chipsHtml}</div>
+              <div class="duel-case-footer">
+                <span class="duel-case-price">🪙 ${box.price} Coins</span>
+                <button type="button" class="btn-open-case" id="btn-open-${box.id}" data-case="${box.id}" ${canAfford ? '' : 'disabled'}>
+                  ${!isLoggedIn ? '🔑 Log in to Open' : (coins < box.price ? `Need ${box.price - coins} More 🪙` : `🎲 Open Case (${box.price} 🪙)`)}
+                </button>
+              </div>
+            `;
+
+            const openBtn = card.querySelector('.btn-open-case');
+            if (openBtn) {
+              openBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openDuelCaseWithAnimation(box.id);
+              });
+            }
+            grid.appendChild(card);
+          }
+
+          container.appendChild(grid);
+          if (container.dataset) container.dataset.shopRenderSig = renderSig;
+
+          const restoreScrolls = () => {
+            if (savedGridScroll) grid.scrollTop = savedGridScroll;
+            if (savedContainerScroll) container.scrollTop = savedContainerScroll;
+            if (shopCardEl && savedCardScroll) shopCardEl.scrollTop = savedCardScroll;
+            if (duelsContainerEl && savedOuterScroll) duelsContainerEl.scrollTop = savedOuterScroll;
+          };
+          restoreScrolls();
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(restoreScrolls);
+          }
+        }
+
+        async openDuelCaseWithAnimation(caseId) {
+          if (this._caseSpinning) return;
+          if (!this.authToken || !this.currentUser) {
+            this.showLockerToast('🔑 Please log in to open Background Cases!', true);
+            return;
+          }
+
+          this._caseSpinning = true;
+          this.renderDuelCasesShop();
+
+          try {
+            const res = await this.apiRequest('/api/shop/open-case', 'POST', { caseId });
+            if (!res || !res.ok || !res.wonItem) {
+              throw new Error('Could not open case.');
+            }
+
+            // Update balance & unlocks immediately from authoritative server result
+            this.currentUser.duelCoins = res.newBalance;
+            this.currentUser.unlockedBackgrounds = Array.isArray(res.unlockedBackgrounds) ? res.unlockedBackgrounds : [];
+            if (this.myDuelStats) this.myDuelStats.duelCoins = res.newBalance;
+
+            const modal = document.getElementById('case-spinner-modal');
+            const badgeEl = document.getElementById('case-spinner-badge');
+            const titleEl = document.getElementById('case-spinner-title');
+            const viewportEl = document.getElementById('case-spinner-viewport');
+            const trackEl = document.getElementById('case-spinner-track');
+            const resultEl = document.getElementById('case-spinner-result');
+            const actionsEl = document.getElementById('case-spinner-actions');
+            const closeBtn = document.getElementById('case-spinner-close-btn');
+            const doneBtn = document.getElementById('btn-case-done');
+            const equipBtn = document.getElementById('btn-case-equip-won');
+            const gotoUploadBtn = document.getElementById('btn-case-goto-upload');
+
+            const won = res.wonItem;
+            const winIdx = typeof res.winIndex === 'number' ? res.winIndex : 38;
+            const reel = Array.isArray(res.spinReel) && res.spinReel.length > 0 ? res.spinReel : [won];
+
+            if (modal && trackEl) {
+              modal.style.display = 'flex';
+              modal.classList.add('active');
+              if (badgeEl) badgeEl.textContent = `📦 OPENING ${String(res.caseName || 'CASE').toUpperCase()}...`;
+              if (titleEl) titleEl.textContent = 'Spinning for a Background Skin...';
+              if (resultEl) resultEl.style.display = 'none';
+              if (actionsEl) actionsEl.style.display = 'none';
+
+              trackEl.style.transform = 'translateX(0px)';
+              trackEl.innerHTML = reel.map((slot) => {
+                const cols = Array.isArray(slot.colors) && slot.colors.length >= 2 ? slot.colors : ['#1e293b', '#38bdf8'];
+                const bgStyle = slot.pattern === 'solid'
+                  ? cols[0]
+                  : `linear-gradient(135deg, ${cols[0]} 0%, ${cols[1]} 65%, ${cols[2] || cols[1]} 100%)`;
+                const mythicCls = slot.dropPct <= 1 ? ' is-mythic-tile' : '';
+                return `
+                  <div class="case-spin-tile${mythicCls}" style="background:${bgStyle};">
+                    <span class="case-spin-tile-emoji">${slot.emoji || '🎨'}</span>
+                    <span class="case-spin-tile-name">${slot.name || ''}</span>
+                    <span class="case-spin-tile-pct">${slot.dropPct || 0}%</span>
+                  </div>
+                `;
+              }).join('');
+
+              const STRIDE = 114;
+              const TILE_W = 106;
+              const PAD_LEFT = 12;
+              const vpW = (viewportEl && viewportEl.clientWidth) ? viewportEl.clientWidth : 580;
+              const jitter = (Math.random() - 0.5) * 44;
+              const targetX = (vpW * 0.5) - (PAD_LEFT + winIdx * STRIDE + TILE_W * 0.5) + jitter;
+
+              if (this._caseAnimRaf) cancelAnimationFrame(this._caseAnimRaf);
+
+              const revealResult = () => {
+                const resSwatch = document.getElementById('case-result-swatch');
+                const resRarity = document.getElementById('case-result-rarity');
+                const resStatus = document.getElementById('case-result-status');
+                const resName = document.getElementById('case-result-name');
+                const resDesc = document.getElementById('case-result-desc');
+
+                if (badgeEl) badgeEl.textContent = res.isDuplicate ? '🪙 DUPLICATE REFUND' : '🎉 UNBOXED BACKGROUND!';
+                if (titleEl) titleEl.textContent = `You unboxed ${won.emoji || '🎨'} ${won.name}!`;
+                if (resSwatch) {
+                  const cols = Array.isArray(won.colors) && won.colors.length >= 2 ? won.colors : ['#1e293b', '#38bdf8'];
+                  resSwatch.textContent = won.emoji || '🎨';
+                  resSwatch.style.background = won.pattern === 'solid'
+                    ? cols[0]
+                    : `linear-gradient(135deg, ${cols[0]}, ${cols[1]})`;
+                }
+                if (resRarity) {
+                  resRarity.textContent = `${won.rarity || 'RARE'} (${won.dropPct}%)`;
+                  resRarity.className = `rarity-tag rarity-${won.rarity || 'RARE'}`;
+                }
+                if (resStatus) {
+                  resStatus.textContent = res.isDuplicate
+                    ? `🔁 Already Owned — Refunded +${res.refundCoins || 0} 🪙!`
+                    : '✨ NEWLY UNLOCKED!';
+                }
+                if (resName) resName.textContent = won.name;
+                if (resDesc) resDesc.textContent = won.desc || '';
+                if (resultEl) resultEl.style.display = 'flex';
+                if (actionsEl) actionsEl.style.display = 'flex';
+
+                if (gotoUploadBtn) {
+                  const isCustomUpload = won.id === 'bg_custom_image' || won.id === 'bg_custom_video';
+                  gotoUploadBtn.style.display = isCustomUpload ? 'inline-flex' : 'none';
+                  gotoUploadBtn.onclick = () => {
+                    closeSpinnerModal();
+                    this.applyBackgroundSkin(won.id, true);
+                    this.switchView('skins');
+                    if (typeof this.switchLockerTabFn === 'function') this.switchLockerTabFn('bg');
+                  };
+                }
+                if (equipBtn) {
+                  equipBtn.onclick = () => {
+                    this.applyBackgroundSkin(won.id, true);
+                    closeSpinnerModal();
+                  };
+                }
+              };
+
+              const closeSpinnerModal = () => {
+                if (this._caseAnimRaf) {
+                  cancelAnimationFrame(this._caseAnimRaf);
+                  this._caseAnimRaf = null;
+                }
+                modal.style.display = 'none';
+                modal.classList.remove('active');
+              };
+
+              if (closeBtn) closeBtn.onclick = closeSpinnerModal;
+              if (doneBtn) doneBtn.onclick = closeSpinnerModal;
+
+              const startAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+              const DURATION = 3200;
+              let lastTickBucket = -1;
+
+              const step = () => {
+                const nowT = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+                const elapsed = Math.min(1, (nowT - startAt) / DURATION);
+                const eased = 1 - Math.pow(1 - elapsed, 3.2);
+                const curX = targetX * eased;
+                trackEl.style.transform = `translateX(${curX.toFixed(1)}px)`;
+
+                const bucket = Math.floor(((-curX) + vpW * 0.5) / STRIDE);
+                if (bucket !== lastTickBucket) {
+                  lastTickBucket = bucket;
+                  if (this.sound && typeof this.sound.playFlap === 'function' && elapsed < 0.96) {
+                    try { this.sound.playFlap(); } catch (_) {}
+                  }
+                }
+
+                if (elapsed < 1 && modal.style.display !== 'none') {
+                  this._caseAnimRaf = requestAnimationFrame(step);
+                } else {
+                  this._caseAnimRaf = null;
+                  if (this.sound && typeof this.sound.playScore === 'function') {
+                    try { this.sound.playScore(); } catch (_) {}
+                  }
+                  revealResult();
+                }
+              };
+
+              if (typeof requestAnimationFrame === 'function') {
+                this._caseAnimRaf = requestAnimationFrame(step);
+              } else {
+                trackEl.style.transform = `translateX(${targetX}px)`;
+                revealResult();
+              }
+            }
+
+            this.updateDuelShopCoinsUI(res.newBalance);
+            this.updateProfileRecordPills();
+            if (typeof this.renderBgSkinsGrid === 'function') this.renderBgSkinsGrid();
+          } catch (err) {
+            this.showLockerToast(`❌ ${err.message || 'Failed to open case.'}`, true);
+          } finally {
+            this._caseSpinning = false;
+            this.renderDuelCasesShop();
+          }
         }
 
         renderDuelLobbiesList() {

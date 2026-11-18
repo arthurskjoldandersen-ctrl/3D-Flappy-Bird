@@ -491,6 +491,7 @@
   box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
+  justify-content: flex-start !important;
   overflow: hidden;
 }
 
@@ -610,9 +611,14 @@
   overflow: hidden;
 }
 
+.skin-spotlight,
+.preview-banner {
+  flex-shrink: 0 !important;
+}
+
 .skins-scroll-container {
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 1fr)) !important;
   gap: 12px !important;
   flex: 1 1 auto !important;
   min-height: 0 !important;
@@ -1550,6 +1556,7 @@ body.in-game #top-app-bar,
 .locker-filter-bar {
   display: flex !important;
   flex-wrap: wrap !important;
+  flex-shrink: 0 !important;
   align-items: center !important;
   justify-content: flex-start !important;
   gap: 8px !important;
@@ -8689,6 +8696,424 @@ body.in-game #btn-chat-toggle {
     border-bottom-right-radius: 0 !important;
   }
 }
+
+/* ============================================================================
+   DUEL COINS BACKGROUND CASES SHOP, CS:GO SPINNER, UPLOADER & BAN OVERLAY
+   ============================================================================ */
+.duels-cases-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 2px 6px 26px 2px;
+  flex: 1 1 0%;
+  min-height: 0;
+}
+
+.duel-case-card {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 8px;
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+
+.theme-light .duel-case-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.15);
+  color: #0f172a;
+}
+
+.duel-case-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+.duel-case-card.case-tier-ultimate {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.32), rgba(15, 23, 42, 0.85));
+}
+
+.theme-light .duel-case-card.case-tier-ultimate {
+  background: linear-gradient(135deg, #fef3c7, #ede9fe);
+}
+
+.duel-case-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.duel-case-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.duel-case-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.45rem;
+  flex-shrink: 0;
+}
+
+.theme-light .duel-case-icon {
+  background: rgba(15, 23, 42, 0.07);
+}
+
+.duel-case-name {
+  font-size: 0.96rem;
+  font-weight: 900;
+  color: inherit;
+}
+
+.duel-case-sub {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.duel-case-owned-pill {
+  font-size: 0.70rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  white-space: nowrap;
+}
+
+.theme-light .duel-case-owned-pill {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.duel-case-preview-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.duel-case-chip {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theme-light .duel-case-chip {
+  background: rgba(15, 23, 42, 0.06);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #1e293b;
+}
+
+.duel-case-chip.special-1pct {
+  background: rgba(236, 72, 153, 0.22);
+  border-color: rgba(244, 114, 182, 0.65);
+  color: #fbcfe8;
+}
+
+.duel-case-chip.special-01pct {
+  background: rgba(245, 158, 11, 0.24);
+  border-color: rgba(251, 191, 36, 0.75);
+  color: #fde047;
+}
+
+.theme-light .duel-case-chip.special-1pct {
+  color: #be185d;
+  background: #fce7f3;
+}
+
+.theme-light .duel-case-chip.special-01pct {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.duel-case-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.duel-case-price {
+  font-weight: 900;
+  font-size: 0.90rem;
+  color: #fbbf24;
+}
+
+.theme-light .duel-case-price {
+  color: #b45309;
+}
+
+.btn-open-case {
+  border: none;
+  border-radius: 11px;
+  padding: 7px 14px;
+  font-weight: 900;
+  font-size: 0.80rem;
+  cursor: pointer;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.btn-open-case:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.btn-open-case:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* CS:GO Case Roulette Modal */
+.case-spinner-card {
+  max-width: 680px !important;
+  width: min(94vw, 680px) !important;
+  text-align: center;
+}
+
+.case-spinner-viewport {
+  position: relative;
+  width: 100%;
+  height: 124px;
+  background: rgba(2, 6, 23, 0.88);
+  border: 2px solid rgba(251, 191, 36, 0.55);
+  border-radius: 16px;
+  overflow: hidden;
+  margin: 14px 0;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.85);
+}
+
+.case-spinner-marker {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #fbbf24, #ef4444, #fbbf24);
+  z-index: 5;
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.95);
+}
+
+.case-spinner-track {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 8px;
+  padding: 0 12px;
+  will-change: transform;
+}
+
+.case-spin-tile {
+  width: 106px;
+  min-width: 106px;
+  height: 98px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  gap: 4px;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.case-spin-tile.is-mythic-tile {
+  border-color: #fde047;
+  box-shadow: 0 0 14px rgba(253, 224, 71, 0.5);
+}
+
+.case-spin-tile-emoji {
+  font-size: 1.55rem;
+}
+
+.case-spin-tile-name {
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.1;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-spin-tile-pct {
+  font-size: 0.62rem;
+  opacity: 0.9;
+  font-weight: 800;
+}
+
+.case-spinner-result {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1.5px solid rgba(56, 189, 248, 0.45);
+  margin-bottom: 12px;
+}
+
+.theme-light .case-spinner-result {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.case-result-swatch {
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}
+
+.case-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.case-result-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.case-result-status {
+  font-size: 0.74rem;
+  font-weight: 900;
+  color: #86efac;
+}
+
+.theme-light .case-result-status {
+  color: #15803d;
+}
+
+.case-result-name {
+  display: block;
+  font-size: 1.02rem;
+  font-weight: 900;
+}
+
+.case-result-desc {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.case-spinner-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Custom Picture & 15-Frame Video Upload UI inside Backgrounds Spotlight */
+.bg-upload-panel {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.theme-light .bg-upload-panel {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.bg-upload-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 6px 12px;
+  font-weight: 900;
+  font-size: 0.76rem;
+  cursor: pointer;
+  background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+  color: #ffffff;
+}
+
+.bg-upload-status {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+}
+
+.bg-video-frames-strip {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.bg-frame-thumb {
+  width: 28px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Final Duel Coins Row */
+.duel-final-coins-row {
+  color: #fde047 !important;
+  font-weight: 800 !important;
+}
+
+.theme-light .duel-final-coins-row {
+  color: #b45309 !important;
+}
+
+/* Persistent Unclosable Ban Lock Overlay */
+.banned-lock-overlay {
+  z-index: 999999 !important;
+  background: rgba(6, 6, 12, 0.94) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.banned-lock-card {
+  max-width: 480px !important;
+  border: 2px solid rgba(239, 68, 68, 0.7) !important;
+  background: rgba(15, 23, 42, 0.98) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 24px 64px rgba(220, 38, 38, 0.35) !important;
+}
+
 
 
 

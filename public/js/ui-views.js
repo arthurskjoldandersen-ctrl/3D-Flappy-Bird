@@ -38,8 +38,38 @@ class FlappyBirdUIAndProgression {
           } catch (_) {}
         }
 
-        loadCareerStats() {
+        getEmptyCareerStats() {
           const defaultModeStat = () => ({ runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 });
+          return {
+            totalRuns: 0,
+            totalScore: 0,
+            totalFlaps: 0,
+            lastScore: 0,
+            lastMode: 'medium',
+            modes: {
+              easy: defaultModeStat(),
+              medium: defaultModeStat(),
+              hard: defaultModeStat()
+            }
+          };
+        }
+
+        getEmptyTrollQuests() {
+          return {
+            unlockedIds: {},
+            scoreDeaths: {},
+            recentScores: [],
+            recentModes: [],
+            zeroFlapDeaths: 0,
+            chokeMilestones: 0,
+            bestFlapsUnder5: 0,
+            bestFlapsUnder8: 0,
+            bestFlapsSingleRun: 0,
+            totalBonks: 0
+          };
+        }
+
+        loadCareerStats() {
           try {
             const raw = localStorage.getItem('flappy3d_career_v1');
             if (raw) {
@@ -65,18 +95,7 @@ class FlappyBirdUIAndProgression {
               };
             }
           } catch (_) {}
-          return {
-            totalRuns: 0,
-            totalScore: 0,
-            totalFlaps: 0,
-            lastScore: 0,
-            lastMode: 'medium',
-            modes: {
-              easy: defaultModeStat(),
-              medium: defaultModeStat(),
-              hard: defaultModeStat()
-            }
-          };
+          return this.getEmptyCareerStats();
         }
 
         saveCareerStats() {
@@ -104,24 +123,125 @@ class FlappyBirdUIAndProgression {
               };
             }
           } catch (_) {}
-          return {
-            unlockedIds: {},
-            scoreDeaths: {},
-            recentScores: [],
-            recentModes: [],
-            zeroFlapDeaths: 0,
-            chokeMilestones: 0,
-            bestFlapsUnder5: 0,
-            bestFlapsUnder8: 0,
-            bestFlapsSingleRun: 0,
-            totalBonks: 0
-          };
+          return this.getEmptyTrollQuests();
         }
 
         saveTrollQuests() {
           try {
             localStorage.setItem('flappy3d_troll_quests_v1', JSON.stringify(this.trollQuests));
           } catch (_) {}
+        }
+
+        getProgressionSyncPayload() {
+          return {
+            trollQuests: this.trollQuests || this.loadTrollQuests(),
+            careerStats: this.careerStats || this.loadCareerStats()
+          };
+        }
+
+        mergeProgressionFromServer(user) {
+          if (!user) return;
+          const uKey = typeof user.username === 'string' ? user.username.trim().toLowerCase() : '';
+          let prevOwner = '';
+          try { prevOwner = (localStorage.getItem('flappy3d_quest_owner') || '').trim().toLowerCase(); } catch (_) {}
+
+          const switchingUsers = Boolean(prevOwner && uKey && prevOwner !== uKey);
+          if (switchingUsers) {
+            this.trollQuests = this.getEmptyTrollQuests();
+            this.careerStats = this.getEmptyCareerStats();
+          } else {
+            if (!this.trollQuests) this.trollQuests = this.loadTrollQuests();
+            if (!this.careerStats) this.careerStats = this.loadCareerStats();
+          }
+          if (uKey) {
+            try { localStorage.setItem('flappy3d_quest_owner', uKey); } catch (_) {}
+          }
+
+          const stq = user.trollQuests && typeof user.trollQuests === 'object' ? user.trollQuests : null;
+          const scs = user.careerStats && typeof user.careerStats === 'object' ? user.careerStats : null;
+          const ltq = this.trollQuests;
+          const lcs = this.careerStats;
+          let clientAhead = false;
+
+          if (!switchingUsers) {
+            if (!stq && ((Number(ltq.totalBonks) || 0) > 0 || Object.keys(ltq.unlockedIds || {}).length > 0)) {
+              clientAhead = true;
+            }
+            if (!scs && (Number(lcs.totalRuns) || 0) > 0) {
+              clientAhead = true;
+            }
+          }
+
+          if (stq) {
+            const sUnlocked = stq.unlockedIds && typeof stq.unlockedIds === 'object' ? stq.unlockedIds : {};
+            for (const k of Object.keys(ltq.unlockedIds || {})) {
+              if (ltq.unlockedIds[k] && !sUnlocked[k]) clientAhead = true;
+            }
+            for (const k of Object.keys(sUnlocked)) {
+              if (sUnlocked[k]) ltq.unlockedIds[k] = true;
+            }
+            const sDeaths = stq.scoreDeaths && typeof stq.scoreDeaths === 'object' ? stq.scoreDeaths : {};
+            for (const k of Object.keys(ltq.scoreDeaths || {})) {
+              if ((Number(ltq.scoreDeaths[k]) || 0) > (Number(sDeaths[k]) || 0)) clientAhead = true;
+            }
+            for (const k of Object.keys(sDeaths)) {
+              const sv = Number(sDeaths[k]) || 0;
+              if (sv > (Number(ltq.scoreDeaths[k]) || 0)) ltq.scoreDeaths[k] = sv;
+            }
+            ['zeroFlapDeaths', 'chokeMilestones', 'bestFlapsUnder5', 'bestFlapsUnder8', 'bestFlapsSingleRun', 'totalBonks'].forEach((f) => {
+              const lv = Number(ltq[f]) || 0;
+              const sv = Number(stq[f]) || 0;
+              if (lv > sv) clientAhead = true;
+              ltq[f] = Math.max(lv, sv);
+            });
+            if ((!Array.isArray(ltq.recentScores) || ltq.recentScores.length === 0) && Array.isArray(stq.recentScores)) {
+              ltq.recentScores = stq.recentScores.slice(-10);
+            }
+            if ((!Array.isArray(ltq.recentModes) || ltq.recentModes.length === 0) && Array.isArray(stq.recentModes)) {
+              ltq.recentModes = stq.recentModes.slice(-10);
+            }
+          }
+
+          if (scs) {
+            ['totalRuns', 'totalScore', 'totalFlaps'].forEach((f) => {
+              const lv = Number(lcs[f]) || 0;
+              const sv = Number(scs[f]) || 0;
+              if (lv > sv) clientAhead = true;
+              lcs[f] = Math.max(lv, sv);
+            });
+            if (!lcs.totalRuns && scs.lastScore) lcs.lastScore = Number(scs.lastScore) || 0;
+            if (scs.modes && typeof scs.modes === 'object') {
+              ['easy', 'medium', 'hard'].forEach((m) => {
+                const sm = scs.modes[m];
+                if (!sm || typeof sm !== 'object') return;
+                if (!lcs.modes[m]) lcs.modes[m] = { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 };
+                ['runs', 'totalScore', 'totalFlaps'].forEach((f) => {
+                  const lv = Number(lcs.modes[m][f]) || 0;
+                  const sv = Number(sm[f]) || 0;
+                  if (lv > sv) clientAhead = true;
+                  lcs.modes[m][f] = Math.max(lv, sv);
+                });
+              });
+            }
+          }
+
+          this.saveCareerStats();
+          this.saveTrollQuests();
+          if (clientAhead) {
+            this.syncProgressionToServer();
+          }
+        }
+
+        syncProgressionToServer() {
+          if (!this.authToken || !this.currentUser) return;
+          const expectedUser = (this.currentUser.username || '').toLowerCase();
+          this.apiRequest('/api/user/quests-sync', 'POST', this.getProgressionSyncPayload())
+            .then((res) => {
+              if (!this.currentUser || (this.currentUser.username || '').toLowerCase() !== expectedUser) return;
+              if (res && res.trollQuests) this.currentUser.trollQuests = res.trollQuests;
+              if (res && res.careerStats) this.currentUser.careerStats = res.careerStats;
+            })
+            .catch(() => {});
         }
 
         reconcileTrollQuests() {
@@ -145,6 +265,7 @@ class FlappyBirdUIAndProgression {
           if (typeof BIRD_SKINS === 'undefined' || typeof PIPE_SKINS === 'undefined') return;
           let skinChanged = false;
           let pipeChanged = false;
+          let bgChanged = false;
 
           const birdObj = BIRD_SKINS.find(s => s.id === this.selectedSkinId);
           if (!birdObj || !this.isCosmeticUnlocked(birdObj)) {
@@ -160,11 +281,24 @@ class FlappyBirdUIAndProgression {
             try { localStorage.setItem('flappy3d_pipe_skin', 'classic_pipe'); } catch (_) {}
           }
 
+          if (typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS)) {
+            const bgId = this.selectedBackgroundId || 'bg_classic';
+            const bgObj = BACKGROUND_SKINS.find(b => b.id === bgId);
+            if (!bgObj || !this.isCosmeticUnlocked(bgObj)) {
+              this.selectedBackgroundId = 'bg_classic';
+              bgChanged = true;
+              try { localStorage.setItem('flappy3d_background_skin', 'bg_classic'); } catch (_) {}
+            }
+          }
+
           if (skinChanged) {
             this.applySkin('classic', Boolean(this.authToken && this.currentUser));
           }
           if (pipeChanged) {
             this.applyPipeSkin('classic_pipe', Boolean(this.authToken && this.currentUser));
+          }
+          if (bgChanged && typeof this.applyBackgroundSkin === 'function') {
+            this.applyBackgroundSkin('bg_classic', Boolean(this.authToken && this.currentUser));
           }
         }
 
@@ -438,6 +572,7 @@ class FlappyBirdUIAndProgression {
           });
 
           this.saveTrollQuests();
+          this.syncProgressionToServer();
         }
 
         getBestForDifficulty(diffKey) {
@@ -465,6 +600,19 @@ class FlappyBirdUIAndProgression {
           if (this.currentUser && Array.isArray(this.currentUser.grantedSkins) && this.currentUser.grantedSkins.includes(item.id)) {
             return true;
           }
+          // Background Skins (unlocked via Cases shop or Admin grants; bg_classic is default)
+          if (item.kind === 'bg' || item.reqMode === 'case') {
+            if (item.id === 'bg_classic' || item.reqScore <= 0) return true;
+            if (this.currentUser) {
+              if (Array.isArray(this.currentUser.unlockedBackgrounds) && this.currentUser.unlockedBackgrounds.includes(item.id)) {
+                return true;
+              }
+              if (this.currentUser.selectedBackground === item.id) {
+                return true;
+              }
+            }
+            return false;
+          }
           // Priority 2.5: Skin equipped by database/admin is unlocked immediately
           if (this.currentUser && (this.currentUser.selectedSkin === item.id || this.currentUser.selectedPipeSkin === item.id)) {
             return true;
@@ -490,6 +638,112 @@ class FlappyBirdUIAndProgression {
 
         getUnlockedPipeSkinCount() {
           return PIPE_SKINS.filter(s => this.isCosmeticUnlocked(s)).length;
+        }
+
+        getUnlockedBackgroundSkinCount() {
+          if (typeof BACKGROUND_SKINS === 'undefined' || !Array.isArray(BACKGROUND_SKINS)) return 1;
+          return BACKGROUND_SKINS.filter(b => this.isCosmeticUnlocked(b)).length;
+        }
+
+        getClientBanToken() {
+          if (this._cachedBanToken) return this._cachedBanToken;
+          try {
+            const tok = localStorage.getItem('flappy3d_ban_token') || '';
+            if (tok) {
+              this._cachedBanToken = tok;
+              return tok;
+            }
+          } catch (_) {}
+          return '';
+        }
+
+        setClientBanToken(token) {
+          const clean = typeof token === 'string' ? token.trim() : '';
+          this._cachedBanToken = clean;
+          try {
+            if (clean) localStorage.setItem('flappy3d_ban_token', clean);
+            else localStorage.removeItem('flappy3d_ban_token');
+          } catch (_) {}
+          try {
+            if (typeof indexedDB !== 'undefined' && indexedDB && indexedDB.open) {
+              const req = indexedDB.open('flappy3d_meta', 1);
+              req.onupgradeneeded = () => {
+                if (!req.result.objectStoreNames.contains('kv')) {
+                  req.result.createObjectStore('kv');
+                }
+              };
+              req.onsuccess = () => {
+                try {
+                  const tx = req.result.transaction('kv', 'readwrite');
+                  const store = tx.objectStore('kv');
+                  if (clean) store.put(clean, 'ban_token');
+                  else store.delete('ban_token');
+                } catch (_) {}
+              };
+            }
+          } catch (_) {}
+        }
+
+        initBanTokenPersistence() {
+          return new Promise((resolve) => {
+            const existing = this.getClientBanToken();
+            try {
+              if (typeof indexedDB === 'undefined' || !indexedDB || !indexedDB.open) {
+                return resolve(existing);
+              }
+              const req = indexedDB.open('flappy3d_meta', 1);
+              req.onupgradeneeded = () => {
+                if (!req.result.objectStoreNames.contains('kv')) {
+                  req.result.createObjectStore('kv');
+                }
+              };
+              req.onsuccess = () => {
+                try {
+                  const tx = req.result.transaction('kv', 'readonly');
+                  const getReq = tx.objectStore('kv').get('ban_token');
+                  getReq.onsuccess = () => {
+                    const idbTok = (typeof getReq.result === 'string' && getReq.result) ? getReq.result : '';
+                    if (idbTok && !existing) {
+                      this._cachedBanToken = idbTok;
+                      try { localStorage.setItem('flappy3d_ban_token', idbTok); } catch (_) {}
+                    } else if (existing && !idbTok) {
+                      this.setClientBanToken(existing);
+                    }
+                    resolve(this._cachedBanToken || idbTok || '');
+                  };
+                  getReq.onerror = () => resolve(existing);
+                } catch (_) {
+                  resolve(existing);
+                }
+              };
+              req.onerror = () => resolve(existing);
+            } catch (_) {
+              resolve(existing);
+            }
+          });
+        }
+
+        showBannedScreen(banned, info = null) {
+          this.isAccountBanned = Boolean(banned);
+          if (banned && info && info.banToken) {
+            this.setClientBanToken(info.banToken);
+          } else if (!banned) {
+            this.setClientBanToken('');
+          }
+
+          const modal = document.getElementById('banned-overlay-modal');
+          if (modal) {
+            modal.style.display = banned ? 'flex' : 'none';
+            modal.classList.toggle('active', Boolean(banned));
+          }
+          if (banned) {
+            this.state = GAME_STATE.START;
+            document.body.classList.remove('in-game');
+            const reasonEl = document.getElementById('banned-reason-text');
+            if (reasonEl) reasonEl.textContent = (info && (info.banReason || info.reason)) || 'Banned by Administrator.';
+            const accEl = document.getElementById('banned-account-text');
+            if (accEl) accEl.textContent = (info && (info.rootUsername || (this.currentUser && this.currentUser.username))) || 'Suspended Account / Browser';
+          }
         }
 
         // ------------------------------------------------------------------------
@@ -675,32 +929,35 @@ class FlappyBirdUIAndProgression {
             const known = this.getClientKnownAccounts();
             const headers = {
               'Content-Type': 'application/json',
-              'X-Cookie-Consent': '1',
-              'X-Device-Id': devId,
-              'X-Device-Fingerprint': this.getClientHardwareFingerprint()
+              ...this.getClientSignalHeaders(),
+              'X-Cookie-Consent': '1'
             };
             if (known.length > 0) headers['X-Known-Accounts'] = known.join(',');
             if (this.authToken) headers['Authorization'] = `Bearer ${this.authToken}`;
-            await fetch('/api/cookies/accept', {
+            const res = await fetch('/api/cookies/accept', {
               method: 'POST',
               headers,
               body: JSON.stringify({ deviceId: devId, knownAccounts: known })
             });
+            const data = await res.json().catch(() => null);
+            if (data && data.banned) {
+              this.showBannedScreen(true, data.banInfo || data);
+            }
           } catch (_) {}
         }
 
-        async acceptGameCookies() {
+        acceptGameCookies() {
           try { localStorage.setItem('flappy3d_cookie_consent', '1'); } catch (_) {}
           try {
             if (typeof document !== 'undefined') {
               document.cookie = 'flappy3d_cookie_consent=1; path=/; max-age=31536000; SameSite=Lax';
             }
           } catch (_) {}
-          await this.syncAcceptedCookiesWithServer();
           this.showCookieConsentModal(false);
-          if (!this.currentUser) {
+          if (!this.currentUser && !this.isAccountBanned) {
             this.toggleGuestLoginModal(true);
           }
+          this.syncAcceptedCookiesWithServer();
         }
 
         getClientSignalHeaders() {
@@ -708,6 +965,10 @@ class FlappyBirdUIAndProgression {
             'X-Device-Id': this.getClientDeviceId(),
             'X-Device-Fingerprint': this.getClientHardwareFingerprint()
           };
+          const banTok = this.getClientBanToken();
+          if (banTok) {
+            headers['X-Ban-Token'] = banTok;
+          }
           if (this.hasAcceptedCookies()) {
             headers['X-Cookie-Consent'] = '1';
           }
@@ -749,7 +1010,14 @@ class FlappyBirdUIAndProgression {
               }
 
               const data = await res.json().catch(() => ({}));
-              throw new Error(data.error || `Request failed (${status})`);
+              const reqErr = new Error(data.error || `Request failed (${status})`);
+              reqErr.status = status;
+              if (data && data.banned) {
+                reqErr.banned = true;
+                reqErr.banInfo = data;
+                this.showBannedScreen(true, data);
+              }
+              throw reqErr;
             } catch (err) {
               const errMsg = String(err && err.message || '');
               const isProxyOrWakeup = errMsg.includes('502') || errMsg.includes('503') || errMsg.includes('504');
@@ -762,7 +1030,7 @@ class FlappyBirdUIAndProgression {
               }
 
               const isLocalHost = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-              if (isLocalHost && window.location.port !== '3000' && !errMsg.includes('40')) {
+              if (isLocalHost && window.location.port !== '3000' && !(err && err.status) && !errMsg.includes('40')) {
                 try {
                   const fallbackUrl = `http://localhost:3000${path.startsWith('/') ? '' : '/'}${path}`;
                   const fallbackRes = await fetch(fallbackUrl, {
@@ -778,7 +1046,38 @@ class FlappyBirdUIAndProgression {
           }
         }
 
+        showLockerToast(message, isError = false) {
+          if (typeof document === 'undefined' || !document.body || !message) return;
+          let toast = document.getElementById('locker-toast');
+          if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'locker-toast';
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            toast.style.cssText = 'position:fixed;top:68px;left:50%;transform:translateX(-50%);z-index:99999;padding:10px 18px;border-radius:999px;font-weight:800;font-size:0.86rem;box-shadow:0 10px 28px rgba(15,23,42,0.35);pointer-events:none;transition:opacity 0.2s ease,transform 0.2s ease;opacity:0;max-width:min(92vw,460px);text-align:center;';
+            document.body.appendChild(toast);
+          }
+          toast.textContent = String(message);
+          if (isError) {
+            toast.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
+            toast.style.color = '#ffffff';
+            toast.style.border = '1.5px solid #fca5a5';
+          } else {
+            toast.style.background = 'linear-gradient(135deg,#0f172a,#1e293b)';
+            toast.style.color = '#f8fafc';
+            toast.style.border = '1.5px solid #38bdf8';
+          }
+          toast.style.opacity = '1';
+          toast.style.transform = 'translateX(-50%) translateY(0)';
+          clearTimeout(this._lockerToastTimer);
+          this._lockerToastTimer = setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(-6px)';
+          }, isError ? 3800 : 2200);
+        }
+
         async initOnlineSession() {
+          await this.initBanTokenPersistence();
           try {
             const info = await this.apiRequest('/api/server-info');
             const dot = document.getElementById('server-dot');
@@ -791,9 +1090,20 @@ class FlappyBirdUIAndProgression {
                 lanEl.textContent = window.location.origin;
               }
             }
+            if (info && info.banned) {
+              this.showBannedScreen(true, info.banInfo || info);
+              this.clearLoggedInUser(false);
+              return;
+            }
+            this.showBannedScreen(false);
           } catch (_) {
             const dot = document.getElementById('server-dot');
             if (dot) dot.classList.add('offline');
+          }
+
+          if (this.isAccountBanned) {
+            this.clearLoggedInUser(false);
+            return;
           }
 
           const acceptCookieBtn = document.getElementById('btn-accept-cookies');
@@ -1170,6 +1480,10 @@ class FlappyBirdUIAndProgression {
         setLoggedInUser(user, token) {
           this.currentUser = user;
           this.authToken = token;
+          this._cosmeticsVersion = Number(user && user.cosmeticsVersion) || 0;
+          this._pendingBirdSkinSave = null;
+          this._pendingPipeSkinSave = null;
+          this._pendingBgSkinSave = null;
           localStorage.setItem('flappy3d_token', token);
           if (user && user.username) {
             this.rememberClientAccount(user.username);
@@ -1223,6 +1537,7 @@ class FlappyBirdUIAndProgression {
             this.saveLocalRecords();
           }
 
+          this.mergeProgressionFromServer(user);
           this.reconcileTrollQuests();
 
           const skinObj = BIRD_SKINS.find(s => s.id === (user.selectedSkin || this.selectedSkinId));
@@ -1245,6 +1560,19 @@ class FlappyBirdUIAndProgression {
             }
           }
 
+          if (typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS) && typeof this.applyBackgroundSkin === 'function') {
+            const targetBgId = user.selectedBackground || this.selectedBackgroundId || 'bg_classic';
+            const bgObj = BACKGROUND_SKINS.find(b => b.id === targetBgId);
+            if (bgObj && this.isCosmeticUnlocked(bgObj)) {
+              this.applyBackgroundSkin(bgObj.id, false);
+            } else {
+              this.applyBackgroundSkin('bg_classic', false);
+              if (this.authToken) {
+                this.apiRequest('/api/skin', 'POST', { backgroundSkinId: 'bg_classic' }).catch(() => {});
+              }
+            }
+          }
+
           this.validateAndReconcileEquippedSkins();
           if (user.avatarSkinId) {
             this.avatarSkinId = user.avatarSkinId;
@@ -1257,6 +1585,9 @@ class FlappyBirdUIAndProgression {
           if (typeof this.updateDuelShopCoinsUI === 'function') {
             this.updateDuelShopCoinsUI(user.duelCoins);
           }
+          if (typeof this.renderDuelCasesShop === 'function') {
+            this.renderDuelCasesShop();
+          }
           if (typeof this.prefetchRunSession === 'function') {
             this.prefetchRunSession(this.selectedDifficulty);
           }
@@ -1265,6 +1596,13 @@ class FlappyBirdUIAndProgression {
         clearLoggedInUser(showGuestPrompt = true) {
           this.currentUser = null;
           this.authToken = null;
+          this._cosmeticsVersion = 0;
+          this._pendingBirdSkinSave = null;
+          this._pendingPipeSkinSave = null;
+          this._pendingBgSkinSave = null;
+          this._lastLocalBirdSkinChangeAt = 0;
+          this._lastLocalPipeSkinChangeAt = 0;
+          this._lastLocalBgSkinChangeAt = 0;
           this.prefetchedRun = null;
           this.prefetchPromise = null;
           this.prefetchingDifficulty = null;
@@ -1310,8 +1648,11 @@ class FlappyBirdUIAndProgression {
           if (typeof this.updateDuelShopCoinsUI === 'function') {
             this.updateDuelShopCoinsUI(0);
           }
+          if (typeof this.renderDuelCasesShop === 'function') {
+            this.renderDuelCasesShop();
+          }
 
-          if (showGuestPrompt) {
+          if (showGuestPrompt && !this.isAccountBanned) {
             this.toggleGuestLoginModal(true);
           }
         }
@@ -1694,6 +2035,11 @@ class FlappyBirdUIAndProgression {
           if (tabBirdBtnEl) tabBirdBtnEl.innerHTML = `<span>🐦</span> Bird Skins (${unlockedBirds}/${BIRD_SKINS.length})`;
           const tabPipeBtnEl = document.getElementById('tab-btn-pipe-skins');
           if (tabPipeBtnEl) tabPipeBtnEl.innerHTML = `<span>🏗️</span> Pipe Skins (${unlockedPipes}/${PIPE_SKINS.length})`;
+          const tabBgBtnEl = document.getElementById('tab-btn-bg-skins');
+          if (tabBgBtnEl && typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS)) {
+            const unlockedBgs = this.getUnlockedBackgroundSkinCount();
+            tabBgBtnEl.innerHTML = `<span>🌄</span> Backgrounds (${unlockedBgs}/${BACKGROUND_SKINS.length})`;
+          }
           const gotoLockerBtnEl = document.getElementById('btn-account-goto-locker');
           if (gotoLockerBtnEl) gotoLockerBtnEl.textContent = `🎨 Open Skins Locker (${totalUnlocked}/${totalCosmetics})`;
 
@@ -1795,6 +2141,23 @@ class FlappyBirdUIAndProgression {
           if (eqPipeTier && activePipe) {
             eqPipeTier.textContent = activePipe.rarity;
             eqPipeTier.className = `rarity-tag rarity-${activePipe.rarity}`;
+          }
+
+          if (typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS)) {
+            const activeBg = BACKGROUND_SKINS.find(b => b.id === (this.selectedBackgroundId || 'bg_classic')) || BACKGROUND_SKINS[0];
+            const eqBgIcon = document.getElementById('profile-eq-bg-icon');
+            if (eqBgIcon && activeBg) {
+              eqBgIcon.textContent = activeBg.emoji || '🌤️';
+              const c = activeBg.colors || ['#3898d8', '#7dd3fc'];
+              eqBgIcon.style.background = `linear-gradient(135deg, ${c[0]} 0%, ${c[1] || c[0]} 100%)`;
+            }
+            const eqBgName = document.getElementById('profile-eq-bg-name');
+            if (eqBgName && activeBg) eqBgName.textContent = activeBg.name;
+            const eqBgTier = document.getElementById('profile-eq-bg-tier');
+            if (eqBgTier && activeBg) {
+              eqBgTier.textContent = activeBg.rarity;
+              eqBgTier.className = `rarity-tag rarity-${activeBg.rarity}`;
+            }
           }
 
           // Update Profile Career & Quest Telemetry Counters
@@ -1932,6 +2295,10 @@ class FlappyBirdUIAndProgression {
         }
 
         getCosmeticProgress(item) {
+          if (item.kind === 'bg' || item.reqMode === 'case') {
+            const owned = this.isCosmeticUnlocked(item) ? 1 : 0;
+            return { current: owned, target: 1, percent: owned ? 100 : 0 };
+          }
           if (item.reqMode === 'meme' && item.trollQuestId) {
             const tProg = this.getTrollQuestProgress(item.trollQuestId, item.reqScore);
             return { current: tProg.current, target: tProg.target, percent: tProg.percent };
@@ -2014,10 +2381,28 @@ class FlappyBirdUIAndProgression {
         }
 
         async handleLogout() {
+          if (this.authToken && this.currentUser) {
+            try {
+              await this.apiRequest('/api/user/quests-sync', 'POST', this.getProgressionSyncPayload());
+            } catch (_) {}
+          }
           try {
             await this.apiRequest('/api/logout', 'POST');
           } catch (_) {}
+          try { localStorage.removeItem('flappy3d_quest_owner'); } catch (_) {}
+          this.trollQuests = this.getEmptyTrollQuests();
+          this.careerStats = this.getEmptyCareerStats();
+          this.saveTrollQuests();
+          this.saveCareerStats();
           this.clearLoggedInUser();
+          this.validateAndReconcileEquippedSkins();
+          this.applySkin(this.selectedSkinId || 'classic', false, true);
+          this.applyPipeSkin(this.selectedPipeSkinId || 'classic_pipe', false, true);
+          if (typeof this.applyBackgroundSkin === 'function') {
+            this.selectedBackgroundId = 'bg_classic';
+            try { localStorage.setItem('flappy3d_background_skin', 'bg_classic'); } catch (_) {}
+            this.applyBackgroundSkin('bg_classic', false, true);
+          }
         }
 
         renderLeaderboard(highlightEntryId = null) {
@@ -2267,10 +2652,14 @@ class FlappyBirdUIAndProgression {
           this.validateAndReconcileEquippedSkins();
           if (!this.birdLockerFilter) this.birdLockerFilter = 'all';
           if (!this.pipeLockerFilter) this.pipeLockerFilter = 'all';
+          if (!this.bgLockerFilter) this.bgLockerFilter = 'all';
           this.updateProfileRecordPills();
           this.renderStatsMenu();
           this.renderBirdSkinsGrid();
           this.renderPipeSkinsGrid();
+          if (typeof this.renderBgSkinsGrid === 'function') {
+            this.renderBgSkinsGrid();
+          }
         }
 
         renderStatsMenu() {
@@ -2693,6 +3082,7 @@ class FlappyBirdUIAndProgression {
 
           const previewBird = this.previewSkinId && BIRD_SKINS.find(s => s.id === this.previewSkinId);
           const previewPipe = this.previewPipeSkinId && PIPE_SKINS.find(p => p.id === this.previewPipeSkinId);
+          const previewBg = this.previewBgSkinId && typeof BACKGROUND_SKINS !== 'undefined' && BACKGROUND_SKINS.find(b => b.id === this.previewBgSkinId);
 
           if (previewBird) {
             banner.classList.add('visible');
@@ -2700,17 +3090,24 @@ class FlappyBirdUIAndProgression {
           } else if (previewPipe) {
             banner.classList.add('visible');
             bannerText.textContent = `👁️ 3D Preview: ${previewPipe.emoji} ${previewPipe.name} (${previewPipe.reqText})`;
+          } else if (previewBg) {
+            banner.classList.add('visible');
+            bannerText.textContent = `👁️ 3D Preview: ${previewBg.emoji} ${previewBg.name} (${previewBg.reqText})`;
           } else {
             banner.classList.remove('visible');
           }
         }
 
-        renderSpotlightBox(elId, item, isPipe = false) {
+        renderSpotlightBox(elId, item, mode = false) {
           const spotEl = document.getElementById(elId);
           if (!spotEl || !item) return;
 
+          const isBg = mode === 'bg' || item.kind === 'bg';
+          const isPipe = !isBg && Boolean(mode);
           const unlocked = this.isCosmeticUnlocked(item);
-          const equipped = isPipe ? (this.selectedPipeSkinId === item.id) : (this.selectedSkinId === item.id);
+          const equipped = isBg
+            ? ((this.selectedBackgroundId || 'bg_classic') === item.id)
+            : (isPipe ? (this.selectedPipeSkinId === item.id) : (this.selectedSkinId === item.id));
           const prog = this.getCosmeticProgress(item);
 
           spotEl.className = 'skin-spotlight ' + (unlocked ? 'owned-spot' : 'locked-spot');
@@ -2725,24 +3122,65 @@ class FlappyBirdUIAndProgression {
                   ? `<span class="mode-tag mode-pokemon">🔴 POKÉMON QUEST</span>`
                   : (item.reqMode === 'meme'
                     ? `<span class="mode-tag mode-meme">😂 MEME QUEST</span>`
-                    : ''))));
+                    : (item.reqMode === 'case'
+                      ? `<span class="mode-tag mode-pokemon">${item.dropPct <= 0.1 ? '🎬 0.1% JACKPOT' : (item.dropPct <= 1 ? '🖼️ 1% RARE DROP' : '📦 CASE DROP')}</span>`
+                      : '')))));
 
-          const unitLabel = (item.reqMode === 'meme' || item.reqMode === 'pokemon') ? 'PROGRESS' : 'PTS';
+          const unitLabel = item.reqMode === 'case'
+            ? 'UNLOCKED'
+            : ((item.reqMode === 'meme' || item.reqMode === 'pokemon') ? 'PROGRESS' : 'PTS');
           const statusHtml = equipped
             ? `<span class="ownership-pill equipped">⚡ EQUIPPED & OWNED</span>`
             : (unlocked
               ? `<span class="ownership-pill owned">✅ OWNED IN LOCKER</span>`
               : `<span class="ownership-pill locked">🔒 NOT OWNED (${prog.current}/${prog.target} ${unitLabel})</span>`);
 
-          const canvasId = isPipe ? 'pipe-spotlight-canvas' : 'bird-spotlight-canvas';
-          const hitboxBadgeHtml = isPipe
-            ? `<span class="hitbox-fairness-tag" title="Every pipe skin uses the exact same 1.05m shaft / 1.24m cap collision bounds">🎯 1.05m Uniform Hitbox</span>`
-            : `<span class="hitbox-fairness-tag" title="Every bird & Pokémon skin uses the exact same 0.60m spherical hitbox">🎯 0.60m Uniform Hitbox</span>`;
+          const canvasId = isBg ? 'bg-spotlight-canvas' : (isPipe ? 'pipe-spotlight-canvas' : 'bird-spotlight-canvas');
+          const hitboxBadgeHtml = isBg
+            ? `<span class="hitbox-fairness-tag">🌄 Full 3D Skybox Backdrop</span>`
+            : (isPipe
+              ? `<span class="hitbox-fairness-tag" title="Every pipe skin uses the exact same 1.05m shaft / 1.24m cap collision bounds">🎯 1.05m Uniform Hitbox</span>`
+              : `<span class="hitbox-fairness-tag" title="Every bird & Pokémon skin uses the exact same 0.60m spherical hitbox">🎯 0.60m Uniform Hitbox</span>`);
 
-          const isAvatar = !isPipe && ((this.avatarSkinId || (this.currentUser && this.currentUser.avatarSkinId) || this.selectedSkinId || 'classic') === item.id);
-          const avatarBtnHtml = !isPipe
+          const isAvatar = !isPipe && !isBg && ((this.avatarSkinId || (this.currentUser && this.currentUser.avatarSkinId) || this.selectedSkinId || 'classic') === item.id);
+          const avatarBtnHtml = (!isPipe && !isBg)
             ? `<button type="button" class="btn-spotlight-avatar ${isAvatar ? 'is-active' : ''}" id="btn-spotlight-set-avatar" title="Set ${item.name} preview as your profile picture">🖼️ ${isAvatar ? 'Current Profile Picture ✓' : 'Set as Profile Picture'}</button>`
             : '';
+
+          let customMediaHtml = '';
+          if (isBg && (item.id === 'bg_custom_image' || item.id === 'bg_custom_video')) {
+            const isVideo = item.id === 'bg_custom_video';
+            if (unlocked && this.authToken && this.currentUser) {
+              const hasImg = Boolean(this.currentUser.customBackgroundImage);
+              const vidObj = this.currentUser.customBackgroundVideo;
+              const frames = (vidObj && Array.isArray(vidObj.frames)) ? vidObj.frames : [];
+              const thumbsHtml = isVideo && frames.length > 0
+                ? `<div class="bg-video-frames-strip">${frames.map((src, i) => `<img class="bg-frame-thumb" src="${src}" alt="Frame ${i + 1}" />`).join('')}</div>`
+                : (!isVideo && hasImg ? `<img class="bg-frame-thumb" style="width:46px;height:28px;" src="${this.currentUser.customBackgroundImage}" alt="Uploaded Picture" />` : '');
+              customMediaHtml = `
+                <div class="bg-upload-panel">
+                  <div>
+                    <button type="button" class="bg-upload-btn" id="btn-bg-upload-trigger">
+                      ${isVideo ? '🎬 Upload Video (Auto-Cut to 15 Frames)' : '🖼️ Upload Custom Picture'}
+                    </button>
+                    <input type="file" id="input-bg-upload-file" accept="${isVideo ? 'video/*' : 'image/*'}" style="display:none;" />
+                  </div>
+                  <span class="bg-upload-status" id="bg-upload-status-text">
+                    ${isVideo
+                      ? (frames.length > 0 ? `✅ ${frames.length}-Frame Loop Ready` : 'Pick MP4/WebM — auto-sampled to 15 lag-free frames')
+                      : (hasImg ? '✅ Custom Picture Uploaded' : 'Pick PNG/JPG/WebP from your device')}
+                  </span>
+                  ${thumbsHtml}
+                </div>
+              `;
+            } else {
+              customMediaHtml = `
+                <div class="bg-upload-panel">
+                  <span class="bg-upload-status">🔒 ${unlocked ? 'Log in to upload your custom background media.' : `Unlock via the 1000 🪙 Case (${isVideo ? '0.1%' : '1.0%'}) in Duel Coins Shop to upload!`}</span>
+                </div>
+              `;
+            }
+          }
 
           spotEl.innerHTML = `
             <div class="spotlight-3d-wrap">
@@ -2761,10 +3199,11 @@ class FlappyBirdUIAndProgression {
               </div>
               <div class="spotlight-desc">${item.desc} • <strong class="spotlight-req-strong">${unlocked ? 'Unlocked (' + item.reqText + ')' : 'Requirement: ' + item.reqText}</strong></div>
               ${avatarBtnHtml ? `<div class="spotlight-avatar-row" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">${avatarBtnHtml}</div>` : ''}
+              ${customMediaHtml}
             </div>
           `;
 
-          if (!isPipe) {
+          if (!isPipe && !isBg) {
             this.activeBirdSpotlightSkin = item;
             const setAvatarBtn = spotEl.querySelector('#btn-spotlight-set-avatar');
             if (setAvatarBtn) {
@@ -2774,12 +3213,35 @@ class FlappyBirdUIAndProgression {
               });
             }
           }
+          if (isBg) {
+            const upBtn = spotEl.querySelector('#btn-bg-upload-trigger');
+            const upInput = spotEl.querySelector('#input-bg-upload-file');
+            if (upBtn && upInput) {
+              upBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                upInput.value = '';
+                upInput.click();
+              });
+              upInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) {
+                  this.uploadCustomBackgroundMedia(item.id === 'bg_custom_video' ? 'video' : 'image', file);
+                }
+              });
+            }
+          }
         }
 
-        buildCosmeticCard(item, isPipe = false) {
+        buildCosmeticCard(item, mode = false) {
+          const isBg = mode === 'bg' || item.kind === 'bg';
+          const isPipe = !isBg && Boolean(mode);
           const unlocked = this.isCosmeticUnlocked(item);
-          const equipped = isPipe ? (this.selectedPipeSkinId === item.id) : (this.selectedSkinId === item.id);
-          const previewing = isPipe ? (this.previewPipeSkinId === item.id) : (this.previewSkinId === item.id);
+          const equipped = isBg
+            ? ((this.selectedBackgroundId || 'bg_classic') === item.id)
+            : (isPipe ? (this.selectedPipeSkinId === item.id) : (this.selectedSkinId === item.id));
+          const previewing = isBg
+            ? (this.previewBgSkinId === item.id)
+            : (isPipe ? (this.previewPipeSkinId === item.id) : (this.previewSkinId === item.id));
           const prog = this.getCosmeticProgress(item);
           const isAdminLocked = Boolean(this.currentUser && Array.isArray(this.currentUser.adminLockedSkins) && this.currentUser.adminLockedSkins.includes(item.id));
           const isGranted = Boolean(this.currentUser && Array.isArray(this.currentUser.grantedSkins) && this.currentUser.grantedSkins.includes(item.id));
@@ -2790,7 +3252,7 @@ class FlappyBirdUIAndProgression {
               ? ' tier-meme'
               : (item.rarity === 'GODLIKE'
                 ? ' tier-godlike'
-                : (item.rarity === 'MYTHIC' ? ' tier-mythic' : (item.rarity === 'EPIC' ? ' tier-epic' : ''))));
+                : (item.rarity === 'MYTHIC' ? ' tier-mythic' : (item.rarity === 'LEGENDARY' || item.rarity === 'EPIC' ? ' tier-epic' : ''))));
 
           const card = document.createElement('div');
           card.className = 'skin-card' +
@@ -2801,7 +3263,12 @@ class FlappyBirdUIAndProgression {
 
           const swatch = document.createElement('div');
           swatch.className = 'skin-swatch' + (isPipe ? ' pipe-swatch' : '');
-          if (isPipe) {
+          if (isBg) {
+            const c = item.colors || ['#3898d8', '#7dd3fc', '#1e1136'];
+            swatch.style.background = item.pattern === 'solid'
+              ? c[0]
+              : `linear-gradient(135deg, ${c[0]} 0%, ${c[1] || c[0]} 55%, ${c[2] || c[1] || c[0]} 100%)`;
+          } else if (isPipe) {
             swatch.style.background = `linear-gradient(90deg, ${item.colors[0]} 0%, ${item.colors[2]} 45%, ${item.colors[1]} 100%)`;
           } else {
             const hexBody = '#' + item.body.toString(16).padStart(6, '0');
@@ -2873,7 +3340,16 @@ class FlappyBirdUIAndProgression {
           }
           metaRow.appendChild(ownerTag);
 
-          if (item.reqMode === 'easy' || item.reqMode === 'medium' || item.reqMode === 'hard' || item.reqMode === 'pokemon' || item.reqMode === 'meme') {
+          if (item.reqMode === 'case') {
+            const caseTag = document.createElement('span');
+            caseTag.className = `mode-tag ${item.dropPct <= 1 ? 'mode-meme' : 'mode-pokemon'}`;
+            caseTag.textContent = item.dropPct <= 0.1
+              ? '🎬 0.1% JACKPOT'
+              : (item.dropPct <= 1
+                ? '🖼️ 1% RARE'
+                : (item.caseId === 'case_basic' ? '🎨 250 CASE' : (item.caseId === 'case_pattern' ? '🧩 500 CASE' : '🌌 1000 CASE')));
+            metaRow.appendChild(caseTag);
+          } else if (item.reqMode === 'easy' || item.reqMode === 'medium' || item.reqMode === 'hard' || item.reqMode === 'pokemon' || item.reqMode === 'meme') {
             const modeTag = document.createElement('span');
             modeTag.className = `mode-tag mode-${item.reqMode}`;
             modeTag.textContent = item.reqMode === 'easy'
@@ -2910,7 +3386,9 @@ class FlappyBirdUIAndProgression {
             reqEl.className = 'skin-req';
             reqEl.textContent = isAdminLocked
               ? '🔒 Locked by Admin MeDonut (Stays locked)'
-              : `${item.reqText} • ${prog.current}/${prog.target} (${prog.percent}%)`;
+              : (item.reqMode === 'case'
+                ? `Unlock via ${item.reqText}`
+                : `${item.reqText} • ${prog.current}/${prog.target} (${prog.percent}%)`);
             reqEl.title = reqEl.textContent;
 
             progRow.append(track, reqEl);
@@ -2940,13 +3418,27 @@ class FlappyBirdUIAndProgression {
           card.append(swatch, info, actionCol);
 
           card.addEventListener('click', () => {
-            if (isPipe) {
+            if (isBg) {
+              if (unlocked) {
+                this.previewBgSkinId = null;
+                this.applyBackgroundSkin(item.id, true);
+              } else {
+                this.previewBgSkinId = item.id;
+                if (typeof this.applyBackgroundVisualsOnly === 'function') {
+                  this.applyBackgroundVisualsOnly(item);
+                }
+                this.showLockerToast(`🔒 "${item.name}" is locked (${item.reqText || 'Open Cases in Duels Shop'}) — showing 3D preview`, false);
+              }
+              this.updatePreviewBanner();
+              this.renderBgSkinsGrid();
+            } else if (isPipe) {
               if (unlocked) {
                 this.previewPipeSkinId = null;
                 this.applyPipeSkin(item.id, true);
               } else {
                 this.previewPipeSkinId = item.id;
                 this.applyPipeSkinVisualsOnly(item);
+                this.showLockerToast(`🔒 "${item.name}" is locked (${item.reqText || 'Unlock to equip'}) — showing 3D preview`, false);
               }
               this.updatePreviewBanner();
               this.renderPipeSkinsGrid();
@@ -2957,6 +3449,7 @@ class FlappyBirdUIAndProgression {
               } else {
                 this.previewSkinId = item.id;
                 this.applySkinVisualsOnly(item);
+                this.showLockerToast(`🔒 "${item.name}" is locked (${item.reqText || 'Unlock to equip'}) — showing 3D preview`, false);
               }
               this.updatePreviewBanner();
               this.renderBirdSkinsGrid();
@@ -2964,6 +3457,18 @@ class FlappyBirdUIAndProgression {
           });
 
           return card;
+        }
+
+        restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll) {
+          if (!gridEl) return;
+          gridEl.scrollTop = prevScrollTop;
+          if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+          if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => {
+              gridEl.scrollTop = prevScrollTop;
+              if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+            });
+          }
         }
 
         sortCosmetics(list, sortOrder = 'default') {
@@ -3092,6 +3597,7 @@ class FlappyBirdUIAndProgression {
             sortedSkins.forEach(skin => {
               gridEl.appendChild(this.buildCosmeticCard(skin, false));
             });
+            this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
             return;
           }
 
@@ -3112,6 +3618,7 @@ class FlappyBirdUIAndProgression {
             sortedSkins.forEach(skin => {
               gridEl.appendChild(this.buildCosmeticCard(skin, false));
             });
+            this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
             return;
           }
 
@@ -3137,12 +3644,7 @@ class FlappyBirdUIAndProgression {
                 gridEl.appendChild(this.buildCosmeticCard(skin, false));
               });
             }
-            gridEl.scrollTop = prevScrollTop;
-            if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
-            requestAnimationFrame(() => {
-              gridEl.scrollTop = prevScrollTop;
-              if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
-            });
+            this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
             return;
           }
 
@@ -3157,12 +3659,7 @@ class FlappyBirdUIAndProgression {
             gridEl.appendChild(this.buildCosmeticCard(skin, false));
           });
 
-          gridEl.scrollTop = prevScrollTop;
-          if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
-          requestAnimationFrame(() => {
-            gridEl.scrollTop = prevScrollTop;
-            if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
-          });
+          this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
         }
 
         renderPipeSkinsGrid() {
@@ -3244,6 +3741,7 @@ class FlappyBirdUIAndProgression {
             sortedPipes.forEach(pipeSkin => {
               gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
             });
+            this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
             return;
           }
 
@@ -3264,6 +3762,7 @@ class FlappyBirdUIAndProgression {
             sortedPipes.forEach(pipeSkin => {
               gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
             });
+            this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
             return;
           }
 
@@ -3289,12 +3788,7 @@ class FlappyBirdUIAndProgression {
                 gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
               });
             }
-            gridEl.scrollTop = prevScrollTop;
-            if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
-            requestAnimationFrame(() => {
-              gridEl.scrollTop = prevScrollTop;
-              if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
-            });
+            this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
             return;
           }
 
@@ -3309,12 +3803,375 @@ class FlappyBirdUIAndProgression {
             gridEl.appendChild(this.buildCosmeticCard(pipeSkin, true));
           });
 
-          gridEl.scrollTop = prevScrollTop;
-          if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
-          requestAnimationFrame(() => {
-            gridEl.scrollTop = prevScrollTop;
-            if (viewSkinsEl && prevViewScroll) viewSkinsEl.scrollTop = prevViewScroll;
+          this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
+        }
+
+        renderBgSkinsGrid() {
+          const gridEl = document.getElementById('bg-skins-grid');
+          if (!gridEl || typeof BACKGROUND_SKINS === 'undefined' || !Array.isArray(BACKGROUND_SKINS)) return;
+          const prevScrollTop = gridEl.scrollTop;
+          const viewSkinsEl = document.getElementById('view-skins');
+          const prevViewScroll = viewSkinsEl ? viewSkinsEl.scrollTop : 0;
+          gridEl.innerHTML = '';
+
+          const activeBgId = this.previewBgSkinId || this.selectedBackgroundId || 'bg_classic';
+          const activeBgSkin = BACKGROUND_SKINS.find(b => b.id === activeBgId) || BACKGROUND_SKINS[0];
+          this.renderSpotlightBox('bg-skin-spotlight', activeBgSkin, 'bg');
+
+          const filter = this.bgLockerFilter || 'all';
+          const sortOrder = this.lockerSortOrder || 'default';
+          const query = (this.skinSearchQuery || '').trim().toLowerCase();
+
+          let filtered = BACKGROUND_SKINS.slice();
+          if (filter === 'owned') {
+            filtered = filtered.filter(b => this.isCosmeticUnlocked(b));
+          } else if (filter === 'locked') {
+            filtered = filtered.filter(b => !this.isCosmeticUnlocked(b));
+          } else if (filter === 'case_basic' || filter === 'case_pattern' || filter === 'case_ultimate') {
+            filtered = filtered.filter(b => b.caseId === filter);
+          }
+
+          if (query) {
+            filtered = filtered.filter(b =>
+              (b.name && b.name.toLowerCase().includes(query)) ||
+              (b.desc && b.desc.toLowerCase().includes(query)) ||
+              (b.rarity && b.rarity.toLowerCase().includes(query)) ||
+              (b.reqText && b.reqText.toLowerCase().includes(query))
+            );
+          }
+
+          const sorted = this.sortCosmetics(filtered, sortOrder);
+          if (sorted.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'lb-empty';
+            emptyEl.style.gridColumn = '1 / -1';
+            emptyEl.style.padding = '36px 16px';
+            emptyEl.style.textAlign = 'center';
+            emptyEl.textContent = query
+              ? `🔍 No background skins match "${query}".`
+              : '📦 No background skins in this category — open Cases in the Duels Shop!';
+            gridEl.appendChild(emptyEl);
+            this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
+            return;
+          }
+
+          if (filter === 'all' && sortOrder === 'default' && !query) {
+            const ownedList = sorted.filter(b => this.isCosmeticUnlocked(b));
+            const lockedList = sorted.filter(b => !this.isCosmeticUnlocked(b));
+            const divOwned = document.createElement('div');
+            divOwned.className = 'skins-section-divider owned-header';
+            divOwned.innerHTML = `<span>✅ OWNED BACKGROUNDS (${ownedList.length})</span><span>Click to Equip</span>`;
+            gridEl.appendChild(divOwned);
+            ownedList.forEach(b => gridEl.appendChild(this.buildCosmeticCard(b, 'bg')));
+
+            if (lockedList.length > 0) {
+              const divLocked = document.createElement('div');
+              divLocked.className = 'skins-section-divider locked-header';
+              divLocked.innerHTML = `<span>📦 UNLOCKABLE VIA DUEL COINS CASES (${lockedList.length})</span><span>Click to Preview</span>`;
+              gridEl.appendChild(divLocked);
+              lockedList.forEach(b => gridEl.appendChild(this.buildCosmeticCard(b, 'bg')));
+            }
+          } else {
+            const divHdr = document.createElement('div');
+            divHdr.className = 'skins-section-divider owned-header';
+            divHdr.innerHTML = `<span>🌄 BACKGROUND SKINS (${sorted.length})</span><span>Earned from 250 / 500 / 1000 🪙 Cases</span>`;
+            gridEl.appendChild(divHdr);
+            sorted.forEach(b => gridEl.appendChild(this.buildCosmeticCard(b, 'bg')));
+          }
+
+          this.restoreLockerScroll(gridEl, viewSkinsEl, prevScrollTop, prevViewScroll);
+        }
+
+        persistCosmeticSelectionToServer({ category, isPipe, skinId, prevSkinId, itemName }) {
+          if (!this.authToken || !this.currentUser) return;
+          const kind = category || (isPipe ? 'pipe' : 'bird');
+          const META = {
+            bird: {
+              seqKey: '_birdSkinSaveSeq',
+              pendingKey: '_pendingBirdSkinSave',
+              tsKey: '_lastLocalBirdSkinChangeAt',
+              userField: 'selectedSkin',
+              localField: 'selectedSkinId',
+              storageKey: 'flappy3d_skin',
+              fallbackId: 'classic',
+              payloadKey: 'skinId'
+            },
+            pipe: {
+              seqKey: '_pipeSkinSaveSeq',
+              pendingKey: '_pendingPipeSkinSave',
+              tsKey: '_lastLocalPipeSkinChangeAt',
+              userField: 'selectedPipeSkin',
+              localField: 'selectedPipeSkinId',
+              storageKey: 'flappy3d_pipe_skin',
+              fallbackId: 'classic_pipe',
+              payloadKey: 'pipeSkinId'
+            },
+            bg: {
+              seqKey: '_bgSkinSaveSeq',
+              pendingKey: '_pendingBgSkinSave',
+              tsKey: '_lastLocalBgSkinChangeAt',
+              userField: 'selectedBackground',
+              localField: 'selectedBackgroundId',
+              storageKey: 'flappy3d_background_skin',
+              fallbackId: 'bg_classic',
+              payloadKey: 'backgroundSkinId'
+            }
+          };
+          const m = META[kind] || META.bird;
+          const expectedUser = (this.currentUser.username || '').toLowerCase();
+          const reqSeq = (this[m.seqKey] = (this[m.seqKey] || 0) + 1);
+          this.currentUser[m.userField] = skinId;
+          this[m.pendingKey] = skinId;
+          this[m.tsKey] = Date.now();
+          this._cosmeticsVersion = (Number(this._cosmeticsVersion) || 0) + 1;
+
+          const sendWithRetry = (attempt = 0) => {
+            this.apiRequest('/api/skin', 'POST', {
+              [m.payloadKey]: skinId,
+              progression: this.getProgressionSyncPayload()
+            })
+              .then((res) => {
+                if (!this.currentUser || (this.currentUser.username || '').toLowerCase() !== expectedUser || this[m.seqKey] !== reqSeq) {
+                  return;
+                }
+                this[m.pendingKey] = null;
+                this[m.tsKey] = Date.now();
+                if (res && typeof res.cosmeticsVersion === 'number') {
+                  this._cosmeticsVersion = Math.max(this._cosmeticsVersion || 0, res.cosmeticsVersion);
+                }
+                if (res && res.trollQuests) this.currentUser.trollQuests = res.trollQuests;
+                if (res && res.careerStats) this.currentUser.careerStats = res.careerStats;
+                const confirmedId = (res && res[m.userField]) || skinId;
+                this.currentUser[m.userField] = confirmedId;
+                this[m.localField] = confirmedId;
+                try { localStorage.setItem(m.storageKey, confirmedId); } catch (_) {}
+                if (this.currentAppView === 'skins') {
+                  this.showLockerToast(`✅ Equipped ${itemName}!`, false);
+                }
+              })
+              .catch((err) => {
+                if (!this.currentUser || (this.currentUser.username || '').toLowerCase() !== expectedUser || this[m.seqKey] !== reqSeq) {
+                  return;
+                }
+                const status = err && err.status;
+                if (status !== 401 && status !== 403 && attempt < 2) {
+                  setTimeout(() => sendWithRetry(attempt + 1), (attempt + 1) * 600);
+                  return;
+                }
+                this[m.pendingKey] = null;
+                if (status === 401) {
+                  this[m.tsKey] = 0;
+                  this.showLockerToast('🔒 Your login session expired — please log in again to save skins.', true);
+                  this.clearLoggedInUser(true);
+                  return;
+                }
+                if (status === 403) {
+                  const catalog = kind === 'bg' ? (typeof BACKGROUND_SKINS !== 'undefined' ? BACKGROUND_SKINS : []) : (kind === 'pipe' ? PIPE_SKINS : BIRD_SKINS);
+                  const revertTarget = (prevSkinId && prevSkinId !== skinId) ? prevSkinId : m.fallbackId;
+                  const revertItem = catalog.find(x => x.id === revertTarget) || catalog[0];
+                  this[m.tsKey] = 0;
+                  if (revertItem) {
+                    this[m.localField] = revertItem.id;
+                    this.currentUser[m.userField] = revertItem.id;
+                    try { localStorage.setItem(m.storageKey, revertItem.id); } catch (_) {}
+                    if (kind === 'bg' && typeof this.applyBackgroundVisualsOnly === 'function') {
+                      this.applyBackgroundVisualsOnly(revertItem);
+                    } else if (kind === 'pipe') {
+                      this.applyPipeSkinVisualsOnly(revertItem, false);
+                    } else if (kind === 'bird') {
+                      this.applySkinVisualsOnly(revertItem, false);
+                    }
+                  }
+                  if (this.currentAppView === 'skins') {
+                    if (kind === 'bg') this.renderBgSkinsGrid();
+                    else if (kind === 'pipe') this.renderPipeSkinsGrid();
+                    else this.renderBirdSkinsGrid();
+                    this.updatePreviewBanner();
+                  }
+                  this.showLockerToast(`❌ ${(err && err.message) || 'Could not equip skin.'}`, true);
+                  this.apiRequest('/api/me')
+                    .then((data) => {
+                      if (data && data.user && typeof this.applyLiveUserSync === 'function') {
+                        this.applyLiveUserSync(data.user);
+                      }
+                    })
+                    .catch(() => {});
+                  return;
+                }
+                this.showLockerToast(`⚠️ Could not save "${itemName}": ${(err && err.message) || 'Connection error'}`, true);
+              });
+          };
+          sendWithRetry(0);
+        }
+
+        applyBackgroundSkin(bgSkinId, saveToServer = false, force = false, skipProfileUpdate = false) {
+          if (typeof BACKGROUND_SKINS === 'undefined' || !Array.isArray(BACKGROUND_SKINS)) return;
+          const bg = BACKGROUND_SKINS.find(b => b.id === bgSkinId) || BACKGROUND_SKINS[0];
+          if (!bg) return;
+          if (!force && !this.isCosmeticUnlocked(bg)) return;
+
+          const prevBgId = this.selectedBackgroundId || 'bg_classic';
+          this.selectedBackgroundId = bg.id;
+          try { localStorage.setItem('flappy3d_background_skin', bg.id); } catch (_) {}
+
+          if (typeof this.applyBackgroundVisualsOnly === 'function') {
+            this.applyBackgroundVisualsOnly(bg);
+          }
+          if (!skipProfileUpdate) {
+            this.updateProfileRecordPills();
+          }
+
+          if (saveToServer) {
+            if (this.authToken && this.currentUser) {
+              this.persistCosmeticSelectionToServer({
+                category: 'bg',
+                skinId: bg.id,
+                prevSkinId: prevBgId,
+                itemName: bg.name
+              });
+            } else if (this.currentAppView === 'skins') {
+              this.showLockerToast(`✅ Equipped ${bg.name}`, false);
+            }
+          }
+        }
+
+        compressImageToDataUrl(file) {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('Could not read selected image file.'));
+            reader.onload = () => {
+              const img = new Image();
+              img.onerror = () => reject(new Error('Invalid or unsupported image file.'));
+              img.onload = () => {
+                const maxW = 1280;
+                const maxH = 720;
+                const scale = Math.min(1, maxW / Math.max(1, img.width), maxH / Math.max(1, img.height));
+                const w = Math.max(2, Math.round(img.width * scale));
+                const h = Math.max(2, Math.round(img.height * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                let out = canvas.toDataURL('image/jpeg', 0.82);
+                if (out.length > 650000) {
+                  out = canvas.toDataURL('image/jpeg', 0.62);
+                }
+                resolve(out);
+              };
+              img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
           });
+        }
+
+        async extract15FramesFromVideoFile(file, onProgress = null) {
+          const objUrl = URL.createObjectURL(file);
+          const video = document.createElement('video');
+          video.muted = true;
+          video.playsInline = true;
+          video.preload = 'auto';
+          video.src = objUrl;
+
+          try {
+            await new Promise((resolve, reject) => {
+              const timer = setTimeout(() => reject(new Error('Timed out loading video metadata.')), 12000);
+              video.onloadedmetadata = () => { clearTimeout(timer); resolve(); };
+              video.onerror = () => { clearTimeout(timer); reject(new Error('Unsupported video format. Try MP4 or WebM.')); };
+            });
+
+            const vw = Math.max(2, video.videoWidth || 480);
+            const vh = Math.max(2, video.videoHeight || 270);
+            const scale = Math.min(1, 480 / vw, 270 / vh);
+            const tw = Math.max(2, Math.round(vw * scale));
+            const th = Math.max(2, Math.round(vh * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = tw;
+            canvas.height = th;
+            const ctx = canvas.getContext('2d');
+
+            const rawDur = Number(video.duration);
+            const duration = (Number.isFinite(rawDur) && rawDur > 0.1) ? rawDur : 3.0;
+            const FRAME_COUNT = 15;
+            const frames = [];
+
+            for (let i = 0; i < FRAME_COUNT; i++) {
+              const frac = i / (FRAME_COUNT - 1);
+              const t = Math.min(Math.max(0.01, duration - 0.03), frac * Math.max(0.05, duration - 0.05));
+              await new Promise((resolve) => {
+                let done = false;
+                const finish = () => {
+                  if (done) return;
+                  done = true;
+                  video.removeEventListener('seeked', finish);
+                  resolve();
+                };
+                const timer = setTimeout(finish, 900);
+                video.addEventListener('seeked', () => {
+                  clearTimeout(timer);
+                  finish();
+                }, { once: true });
+                try { video.currentTime = t; } catch (_) { clearTimeout(timer); finish(); }
+              });
+              ctx.drawImage(video, 0, 0, tw, th);
+              frames.push(canvas.toDataURL('image/jpeg', 0.65));
+              if (onProgress) onProgress(i + 1, FRAME_COUNT);
+            }
+            return frames.slice(0, FRAME_COUNT);
+          } finally {
+            try { video.pause(); } catch (_) {}
+            try { video.removeAttribute('src'); video.load(); } catch (_) {}
+            try { URL.revokeObjectURL(objUrl); } catch (_) {}
+          }
+        }
+
+        async uploadCustomBackgroundMedia(mediaType, file) {
+          if (!this.authToken || !this.currentUser) {
+            this.showLockerToast('🔒 Please log in first to upload custom backgrounds.', true);
+            return;
+          }
+          const statusEl = document.getElementById('bg-upload-status-text');
+          try {
+            if (mediaType === 'video') {
+              if (statusEl) statusEl.textContent = '⏳ Slicing video into 15 lag-free frames (0/15)...';
+              this.showLockerToast('🎬 Extracting 15 evenly-spaced frames from video...', false);
+              const frames = await this.extract15FramesFromVideoFile(file, (cur, tot) => {
+                if (statusEl) statusEl.textContent = `⏳ Cutting video to 15 frames (${cur}/${tot})...`;
+              });
+              if (statusEl) statusEl.textContent = '☁️ Saving 15-frame loop...';
+              const res = await this.apiRequest('/api/user/background-media', 'POST', {
+                mediaType: 'video',
+                frames,
+                autoEquip: true
+              });
+              if (res && res.ok) {
+                this.currentUser.customBackgroundVideo = res.customBackgroundVideo;
+                this.currentUser.customBgUpdatedAt = res.customBgUpdatedAt;
+                this.applyBackgroundSkin('bg_custom_video', false, true);
+                this.renderBgSkinsGrid();
+                this.showLockerToast(`🎬 Uploaded & equipped 15-frame video background!`, false);
+              }
+            } else {
+              if (statusEl) statusEl.textContent = '⏳ Optimizing picture...';
+              const imageDataUrl = await this.compressImageToDataUrl(file);
+              if (statusEl) statusEl.textContent = '☁️ Saving picture...';
+              const res = await this.apiRequest('/api/user/background-media', 'POST', {
+                mediaType: 'image',
+                imageDataUrl,
+                autoEquip: true
+              });
+              if (res && res.ok) {
+                this.currentUser.customBackgroundImage = res.customBackgroundImage;
+                this.currentUser.customBgUpdatedAt = res.customBgUpdatedAt;
+                this.applyBackgroundSkin('bg_custom_image', false, true);
+                this.renderBgSkinsGrid();
+                this.showLockerToast('🖼️ Uploaded & equipped Custom Picture Background!', false);
+              }
+            }
+          } catch (err) {
+            if (statusEl) statusEl.textContent = `❌ ${err.message}`;
+            this.showLockerToast(`❌ Upload failed: ${err.message}`, true);
+          }
         }
 
         // ------------------------------------------------------------------------
@@ -3324,29 +4181,23 @@ class FlappyBirdUIAndProgression {
           const skin = BIRD_SKINS.find(s => s.id === skinId) || BIRD_SKINS[0];
           if (!force && !this.isCosmeticUnlocked(skin)) return;
 
+          const prevSkinId = this.selectedSkinId;
           this.selectedSkinId = skin.id;
-          localStorage.setItem('flappy3d_skin', skin.id);
+          try { localStorage.setItem('flappy3d_skin', skin.id); } catch (_) {}
 
           this.applySkinVisualsOnly(skin, skipProfileUpdate);
 
-          if (saveToServer && this.authToken && this.currentUser) {
-            this.currentUser.selectedSkin = skin.id;
-            this._pendingBirdSkinSave = skin.id;
-            this._lastLocalBirdSkinChangeAt = Date.now();
-            this.apiRequest('/api/skin', 'POST', { skinId: skin.id })
-              .then((res) => {
-                if (this._pendingBirdSkinSave === skin.id) {
-                  this._pendingBirdSkinSave = null;
-                }
-                if (res && res.selectedSkin && this.currentUser && this._lastLocalBirdSkinChangeAt && !this._pendingBirdSkinSave) {
-                  this.currentUser.selectedSkin = res.selectedSkin;
-                }
-              })
-              .catch(() => {
-                if (this._pendingBirdSkinSave === skin.id) {
-                  this._pendingBirdSkinSave = null;
-                }
+          if (saveToServer) {
+            if (this.authToken && this.currentUser) {
+              this.persistCosmeticSelectionToServer({
+                isPipe: false,
+                skinId: skin.id,
+                prevSkinId,
+                itemName: skin.name
               });
+            } else if (this.currentAppView === 'skins') {
+              this.showLockerToast(`✅ Equipped ${skin.name} (Guest Local)`, false);
+            }
           }
         }
 
@@ -3501,29 +4352,23 @@ class FlappyBirdUIAndProgression {
           const pipeSkin = PIPE_SKINS.find(p => p.id === pipeSkinId) || PIPE_SKINS[0];
           if (!force && !this.isCosmeticUnlocked(pipeSkin)) return;
 
+          const prevPipeSkinId = this.selectedPipeSkinId;
           this.selectedPipeSkinId = pipeSkin.id;
-          localStorage.setItem('flappy3d_pipe_skin', pipeSkin.id);
+          try { localStorage.setItem('flappy3d_pipe_skin', pipeSkin.id); } catch (_) {}
 
           this.applyPipeSkinVisualsOnly(pipeSkin, skipProfileUpdate);
 
-          if (saveToServer && this.authToken && this.currentUser) {
-            this.currentUser.selectedPipeSkin = pipeSkin.id;
-            this._pendingPipeSkinSave = pipeSkin.id;
-            this._lastLocalPipeSkinChangeAt = Date.now();
-            this.apiRequest('/api/skin', 'POST', { pipeSkinId: pipeSkin.id })
-              .then((res) => {
-                if (this._pendingPipeSkinSave === pipeSkin.id) {
-                  this._pendingPipeSkinSave = null;
-                }
-                if (res && res.selectedPipeSkin && this.currentUser && this._lastLocalPipeSkinChangeAt && !this._pendingPipeSkinSave) {
-                  this.currentUser.selectedPipeSkin = res.selectedPipeSkin;
-                }
-              })
-              .catch(() => {
-                if (this._pendingPipeSkinSave === pipeSkin.id) {
-                  this._pendingPipeSkinSave = null;
-                }
+          if (saveToServer) {
+            if (this.authToken && this.currentUser) {
+              this.persistCosmeticSelectionToServer({
+                isPipe: true,
+                skinId: pipeSkin.id,
+                prevSkinId: prevPipeSkinId,
+                itemName: pipeSkin.name
               });
+            } else if (this.currentAppView === 'skins') {
+              this.showLockerToast(`✅ Equipped ${pipeSkin.name} (Guest Local)`, false);
+            }
           }
         }
 
@@ -3693,6 +4538,9 @@ class FlappyBirdUIAndProgression {
               this.renderer.setClearColor(0x3898d8, 1);
               this.scene.fog.color.setHex(0x5bb8e8);
             }
+            if (this.currentBackgroundSkin && this.currentBackgroundSkin.id !== 'bg_classic' && typeof this.applyBackgroundVisualsOnly === 'function') {
+              this.applyBackgroundVisualsOnly(this.currentBackgroundSkin);
+            }
           }
 
           // Re-render Leaderboard, Stats Menu, and Cosmetic Grids so mode-specific elements adapt in real-time
@@ -3787,6 +4635,8 @@ class FlappyBirdUIAndProgression {
           if (viewName === 'skins') {
             if (this.currentLockerTab === 'pipes') {
               this.renderPipeSkinsGrid();
+            } else if (this.currentLockerTab === 'bg' && typeof this.renderBgSkinsGrid === 'function') {
+              this.renderBgSkinsGrid();
             } else {
               this.renderBirdSkinsGrid();
             }
@@ -3800,6 +4650,9 @@ class FlappyBirdUIAndProgression {
           } else if (viewName === 'duels') {
             if (typeof this.activateDuelTab === 'function') {
               this.activateDuelTab('join', false);
+            }
+            if (typeof this.renderDuelCasesShop === 'function') {
+              this.renderDuelCasesShop();
             }
           } else if (viewName === 'account') {
             this.updateProfileRecordPills();
@@ -3847,12 +4700,62 @@ class FlappyBirdUIAndProgression {
             }
           }
 
+          // 1.5. Sync unlocked background skins from Case Shop or Admin grants
+          if (Array.isArray(userSync.unlockedBackgrounds)) {
+            const oldBgs = JSON.stringify(this.currentUser.unlockedBackgrounds || []);
+            const newBgs = JSON.stringify(userSync.unlockedBackgrounds);
+            if (oldBgs !== newBgs) {
+              this.currentUser.unlockedBackgrounds = [...userSync.unlockedBackgrounds];
+              hasGridChanges = true;
+              if (typeof this.renderDuelCasesShop === 'function') {
+                this.renderDuelCasesShop();
+              }
+            }
+          }
+
+          if (typeof userSync.customBgUpdatedAt === 'number' &&
+              userSync.customBgUpdatedAt > (Number(this.currentUser.customBgUpdatedAt) || 0) &&
+              this.authToken) {
+            this.currentUser.customBgUpdatedAt = userSync.customBgUpdatedAt;
+            this.apiRequest('/api/user/background-media')
+              .then((res) => {
+                if (!this.currentUser || !res) return;
+                this.currentUser.customBackgroundImage = res.customBackgroundImage || null;
+                this.currentUser.customBackgroundVideo = res.customBackgroundVideo || null;
+                if (this.currentBackgroundSkin && (this.currentBackgroundSkin.id === 'bg_custom_image' || this.currentBackgroundSkin.id === 'bg_custom_video') && typeof this.applyBackgroundVisualsOnly === 'function') {
+                  this.applyBackgroundVisualsOnly(this.currentBackgroundSkin);
+                }
+                if (this.currentAppView === 'skins' && this.currentLockerTab === 'bg') {
+                  this.renderBgSkinsGrid();
+                }
+              })
+              .catch(() => {});
+          }
+
           // 2. Sync admin locked skins
           if (Array.isArray(userSync.adminLockedSkins)) {
             const oldL = JSON.stringify(this.currentUser.adminLockedSkins || []);
             const newL = JSON.stringify(userSync.adminLockedSkins);
             if (oldL !== newL) {
               this.currentUser.adminLockedSkins = [...userSync.adminLockedSkins];
+              hasGridChanges = true;
+            }
+          }
+
+          // 2.5. Sync unlocked quest IDs from other devices/sessions (monotonically add only)
+          if (Array.isArray(userSync.unlockedQuestIds) && this.trollQuests) {
+            if (!this.trollQuests.unlockedIds || typeof this.trollQuests.unlockedIds !== 'object') {
+              this.trollQuests.unlockedIds = {};
+            }
+            let questAdded = false;
+            userSync.unlockedQuestIds.forEach((qid) => {
+              if (typeof qid === 'string' && qid && !this.trollQuests.unlockedIds[qid]) {
+                this.trollQuests.unlockedIds[qid] = true;
+                questAdded = true;
+              }
+            });
+            if (questAdded) {
+              this.saveTrollQuests();
               hasGridChanges = true;
             }
           }
@@ -3876,36 +4779,71 @@ class FlappyBirdUIAndProgression {
               if (typeof this.updateDuelShopCoinsUI === 'function') {
                 this.updateDuelShopCoinsUI(roundedCoins);
               }
+              if (typeof this.renderDuelCasesShop === 'function') {
+                this.renderDuelCasesShop();
+              }
             }
           }
           if (typeof userSync.duelElo === 'number') {
             this.currentUser.duelElo = userSync.duelElo;
           }
 
-          // 4. Sync equipped bird skin (never overwrite an in-flight or just-saved local skin change)
-          const targetBirdSkin = userSync.selectedSkin || 'classic';
-          const birdSaveGrace = this._pendingBirdSkinSave || (Date.now() - (this._lastLocalBirdSkinChangeAt || 0) < 5000);
-          if ((!birdSaveGrace || targetBirdSkin === this.selectedSkinId) &&
-              (this.currentUser.selectedSkin !== targetBirdSkin || this.selectedSkinId !== targetBirdSkin)) {
-            this.currentUser.selectedSkin = targetBirdSkin;
-            this.selectedSkinId = targetBirdSkin;
-            localStorage.setItem('flappy3d_skin', targetBirdSkin);
-            this.applySkin(targetBirdSkin, false, true, true);
-            hasVisualChanges = true;
-            hasGridChanges = true;
-          }
+          // 4-6. Sync equipped bird, pipe & background skins cleanly without reverting player's own recent choices
+          const srvCosmeticsVer = (typeof userSync.cosmeticsVersion === 'number' && Number.isFinite(userSync.cosmeticsVersion))
+            ? userSync.cosmeticsVersion
+            : null;
+          const localCosmeticsVer = typeof this._cosmeticsVersion === 'number' ? this._cosmeticsVersion : 0;
+          const isStaleCosmeticsSync = srvCosmeticsVer !== null && srvCosmeticsVer < localCosmeticsVer;
+          const isNewerCosmeticsFromServer = srvCosmeticsVer !== null && srvCosmeticsVer > localCosmeticsVer;
 
-          // 5. Sync equipped pipe skin (never overwrite an in-flight or just-saved local pipe skin change)
-          const targetPipeSkin = userSync.selectedPipeSkin || 'classic_pipe';
-          const pipeSaveGrace = this._pendingPipeSkinSave || (Date.now() - (this._lastLocalPipeSkinChangeAt || 0) < 5000);
-          if ((!pipeSaveGrace || targetPipeSkin === this.selectedPipeSkinId) &&
-              (this.currentUser.selectedPipeSkin !== targetPipeSkin || this.selectedPipeSkinId !== targetPipeSkin)) {
-            this.currentUser.selectedPipeSkin = targetPipeSkin;
-            this.selectedPipeSkinId = targetPipeSkin;
-            localStorage.setItem('flappy3d_pipe_skin', targetPipeSkin);
-            this.applyPipeSkin(targetPipeSkin, false, true, true);
-            hasVisualChanges = true;
-            hasGridChanges = true;
+          if (!isStaleCosmeticsSync) {
+            const targetBirdSkin = userSync.selectedSkin || 'classic';
+            const birdInFlight = Boolean(this._pendingBirdSkinSave);
+            const birdRecentGrace = (Date.now() - (this._lastLocalBirdSkinChangeAt || 0)) < 6000;
+            const allowBirdApply = !birdInFlight && (isNewerCosmeticsFromServer || !birdRecentGrace || targetBirdSkin === this.selectedSkinId);
+            if (allowBirdApply && (this.currentUser.selectedSkin !== targetBirdSkin || this.selectedSkinId !== targetBirdSkin)) {
+              this.currentUser.selectedSkin = targetBirdSkin;
+              this.selectedSkinId = targetBirdSkin;
+              this.previewSkinId = null;
+              try { localStorage.setItem('flappy3d_skin', targetBirdSkin); } catch (_) {}
+              this.applySkin(targetBirdSkin, false, true, true);
+              hasVisualChanges = true;
+              hasGridChanges = true;
+            }
+
+            const targetPipeSkin = userSync.selectedPipeSkin || 'classic_pipe';
+            const pipeInFlight = Boolean(this._pendingPipeSkinSave);
+            const pipeRecentGrace = (Date.now() - (this._lastLocalPipeSkinChangeAt || 0)) < 6000;
+            const allowPipeApply = !pipeInFlight && (isNewerCosmeticsFromServer || !pipeRecentGrace || targetPipeSkin === this.selectedPipeSkinId);
+            if (allowPipeApply && (this.currentUser.selectedPipeSkin !== targetPipeSkin || this.selectedPipeSkinId !== targetPipeSkin)) {
+              this.currentUser.selectedPipeSkin = targetPipeSkin;
+              this.selectedPipeSkinId = targetPipeSkin;
+              this.previewPipeSkinId = null;
+              try { localStorage.setItem('flappy3d_pipe_skin', targetPipeSkin); } catch (_) {}
+              this.applyPipeSkin(targetPipeSkin, false, true, true);
+              hasVisualChanges = true;
+              hasGridChanges = true;
+            }
+
+            const targetBgSkin = userSync.selectedBackground || 'bg_classic';
+            const bgInFlight = Boolean(this._pendingBgSkinSave);
+            const bgRecentGrace = (Date.now() - (this._lastLocalBgSkinChangeAt || 0)) < 6000;
+            const allowBgApply = !bgInFlight && (isNewerCosmeticsFromServer || !bgRecentGrace || targetBgSkin === this.selectedBackgroundId);
+            if (allowBgApply && (this.currentUser.selectedBackground !== targetBgSkin || this.selectedBackgroundId !== targetBgSkin)) {
+              this.currentUser.selectedBackground = targetBgSkin;
+              this.selectedBackgroundId = targetBgSkin;
+              this.previewBgSkinId = null;
+              try { localStorage.setItem('flappy3d_background_skin', targetBgSkin); } catch (_) {}
+              if (typeof this.applyBackgroundSkin === 'function') {
+                this.applyBackgroundSkin(targetBgSkin, false, true, true);
+              }
+              hasVisualChanges = true;
+              hasGridChanges = true;
+            }
+
+            if (isNewerCosmeticsFromServer && !birdInFlight && !pipeInFlight && !bgInFlight) {
+              this._cosmeticsVersion = srvCosmeticsVer;
+            }
           }
 
           if (hasGridChanges || hasVisualChanges) {
@@ -3916,9 +4854,14 @@ class FlappyBirdUIAndProgression {
             }
             this.updateProfileRecordPills();
             this.updateAllProfilePictures();
+            if (typeof this.updatePreviewBanner === 'function') {
+              this.updatePreviewBanner();
+            }
             if (this.currentAppView === 'skins') {
               if (this.currentLockerTab === 'pipes') {
                 this.renderPipeSkinsGrid();
+              } else if (this.currentLockerTab === 'bg' && typeof this.renderBgSkinsGrid === 'function') {
+                this.renderBgSkinsGrid();
               } else {
                 this.renderBirdSkinsGrid();
               }

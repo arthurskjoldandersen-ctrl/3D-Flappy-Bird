@@ -1012,6 +1012,17 @@
         </div>
       </div>
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+        <label style="display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:10px; border:1px solid rgba(56,189,248,0.45); background:rgba(15,23,42,0.78); font-size:0.78rem; font-weight:800; color:#bae6fd;" title="Default max accounts per player (stored in db.json; can be overridden per player below)">
+          <span>👥 Default Acct Limit:</span>
+          <select id="global-default-acct-limit" class="search-input" style="height:26px; padding:2px 8px; font-size:0.78rem; width:auto;">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5" selected>5 (Default)</option>
+            <option value="10">10</option>
+          </select>
+        </label>
         <button type="button" class="btn" id="btn-toggle-elo-150-block" style="padding:7px 14px; font-size:0.78rem; border-color:rgba(251,191,36,0.55); background:rgba(30,41,59,0.85); color:#fde68a;" title="Toggle whether players >150 ELO apart are blocked from battling each other in Ranked Duels">
           ⚖️ 150+ ELO Duel Block: Loading...
         </button>
@@ -1071,7 +1082,7 @@
               Manage player personal records, view equipped skins, or click <strong>📋 Inspect Runs</strong> to open the full pop-up run viewer!
             </div>
           </div>
-          <input type="text" id="player-search" class="search-input" placeholder="🔍 Search player by username or skin..." />
+          <input type="text" id="player-search" class="search-input" placeholder="🔍 Search player by username, skin, or ban status..." />
         </div>
 
         <!-- Quick Filter Chips -->
@@ -1079,6 +1090,8 @@
           <span style="font-size:0.76rem; font-weight:900; color:var(--cyan); text-transform:uppercase;">Quick Filter:</span>
           <button type="button" class="chip-btn active" data-chip="all">All Players</button>
           <button type="button" class="chip-btn" data-chip="alts">⚠️ Suspected Alts</button>
+          <button type="button" class="chip-btn" data-chip="over-limit">⏸️ Over Limit</button>
+          <button type="button" class="chip-btn" data-chip="banned">🔨 Banned</button>
           <button type="button" class="chip-btn" data-chip="active">⚡ Active Recently</button>
           <button type="button" class="chip-btn" data-chip="hidden">🚫 Has Hidden Runs</button>
           <button type="button" class="chip-btn" data-chip="locked-skins">🔒 Has Admin-Locked Skins</button>
@@ -1368,7 +1381,7 @@
         <!-- ROW 1: CHANGE CURRENTLY EQUIPPED SKINS -->
         <div style="background:rgba(15,23,42,0.65); border:1px solid var(--border); border-radius:12px; padding:10px 14px;">
           <div style="font-size:0.80rem; font-weight:800; color:#38bdf8; margin-bottom:6px;">⚡ Change Player's Equipped Loadout</div>
-          <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:flex-end;">
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:flex-end;">
             <div>
               <label style="font-size:0.70rem; color:var(--text-sub); display:block; margin-bottom:3px;">Equipped Bird Skin:</label>
               <select id="modal-equipped-bird-select" class="search-input" style="width:100%; padding:5px 8px; font-size:0.78rem; height:32px;"></select>
@@ -1377,9 +1390,18 @@
               <label style="font-size:0.70rem; color:var(--text-sub); display:block; margin-bottom:3px;">Equipped Pipe Skin:</label>
               <select id="modal-equipped-pipe-select" class="search-input" style="width:100%; padding:5px 8px; font-size:0.78rem; height:32px;"></select>
             </div>
+            <div>
+              <label style="font-size:0.70rem; color:var(--text-sub); display:block; margin-bottom:3px;">Equipped Background Skin:</label>
+              <select id="modal-equipped-bg-select" class="search-input" style="width:100%; padding:5px 8px; font-size:0.78rem; height:32px;"></select>
+            </div>
             <button type="button" class="btn btn-primary" id="modal-save-equipped-btn" style="padding:5px 14px; font-size:0.78rem; height:32px; white-space:nowrap;">
               💾 Save Equipped
             </button>
+          </div>
+          <div id="modal-custom-bg-mod-row" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:0.72rem; font-weight:800; color:#f472b6;">🖼️ Uploaded Custom Background Moderation:</span>
+            <button type="button" class="btn btn-danger" id="modal-clear-custom-image-btn" style="padding:4px 10px; font-size:0.72rem; display:none;">🗑️ Clear Uploaded Picture</button>
+            <button type="button" class="btn btn-danger" id="modal-clear-custom-video-btn" style="padding:4px 10px; font-size:0.72rem; display:none;">🗑️ Clear Uploaded Video</button>
           </div>
         </div>
 
@@ -1454,12 +1476,16 @@
         <div style="text-align:center; color:var(--text-sub); padding:28px;">Loading...</div>
       </div>
 
-      <div class="modal-footer">
+      <div class="modal-footer" style="flex-wrap:wrap; gap:10px; justify-content:space-between;">
         <label style="display:inline-flex; align-items:center; gap:6px; font-size:0.76rem; font-weight:800; color:#fda4af; cursor:pointer;">
           <input type="checkbox" id="modal-fast-delete-cb" style="width:14px; height:14px; cursor:pointer;" />
           ⚡ 1-Click Fast Delete (skip confirmation popup)
         </label>
-        <button type="button" class="btn" id="modal-alts-footer-close-btn">Close</button>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn btn-danger" id="modal-alts-ban-group-btn" style="display:none; padding:7px 14px; font-size:0.78rem;">🔨 Ban Target + All Alts</button>
+          <button type="button" class="btn btn-success" id="modal-alts-unban-group-btn" style="display:none; padding:7px 14px; font-size:0.78rem;">✅ Unban Target + Alts</button>
+          <button type="button" class="btn" id="modal-alts-footer-close-btn">Close</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1686,6 +1712,18 @@
     });
 
     function updateEloBlockToggleBtn(adminSettings = {}) {
+      const globalLimSel = document.getElementById('global-default-acct-limit');
+      if (globalLimSel && document.activeElement !== globalLimSel) {
+        const defLim = Math.max(1, Math.min(50, Math.floor(Number(adminSettings && adminSettings.defaultMaxAccounts) || 5)));
+        const hasOpt = Array.from(globalLimSel.options).some(o => Number(o.value) === defLim);
+        if (!hasOpt) {
+          const opt = document.createElement('option');
+          opt.value = String(defLim);
+          opt.textContent = String(defLim);
+          globalLimSel.appendChild(opt);
+        }
+        globalLimSel.value = String(defLim);
+      }
       const btn = document.getElementById('btn-toggle-elo-150-block');
       if (!btn) return;
       const isOn = Boolean(adminSettings && adminSettings.blockDuelEloGapOver150);
@@ -1702,6 +1740,37 @@
         btn.style.color = '#bbf7d0';
       }
     }
+
+    document.getElementById('global-default-acct-limit')?.addEventListener('change', async (e) => {
+      const sel = e.target;
+      const val = Math.max(1, Math.min(50, Math.floor(Number(sel.value) || 5)));
+      sel.disabled = true;
+      try {
+        const res = await fetch('/api/database/admin-settings', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ defaultMaxAccounts: val })
+        });
+        const upd = await res.json();
+        if (res.ok && upd.ok) {
+          if (currentDbData) {
+            if (upd.adminSettings) currentDbData.adminSettings = upd.adminSettings;
+            if (upd.databaseStatus) currentDbData.databaseStatus = upd.databaseStatus;
+            if (upd.playerRecordsOverview) currentDbData.playerRecordsOverview = upd.playerRecordsOverview;
+            if (Array.isArray(upd.activityFeed)) currentDbData.activityFeed = upd.activityFeed;
+            if (upd.leaderboards) currentDbData.leaderboards = upd.leaderboards;
+          }
+          renderDashboard(currentDbData || upd);
+          showToast(`👥 Global Default Account Limit set to ${val} account(s) per player!`);
+        } else {
+          showToast('❌ ' + (upd.error || 'Could not update default limit'));
+        }
+      } catch (err) {
+        showToast('❌ Network error updating global account limit');
+      } finally {
+        sel.disabled = false;
+      }
+    });
 
     document.getElementById('btn-toggle-elo-150-block')?.addEventListener('click', async () => {
       const btn = document.getElementById('btn-toggle-elo-150-block');
@@ -1822,6 +1891,8 @@
           p.username.toLowerCase().includes(query) ||
           (p.selectedSkin && p.selectedSkin.toLowerCase().includes(query)) ||
           (p.selectedPipeSkin && p.selectedPipeSkin.toLowerCase().includes(query)) ||
+          (p.selectedBackground && p.selectedBackground.toLowerCase().includes(query)) ||
+          (query === 'banned' && Boolean(p.banned)) ||
           (p.lastIp && p.lastIp.toLowerCase().includes(query))
         );
       });
@@ -1833,6 +1904,10 @@
           ((Number(b.highConfidenceAltCount) || 0) - (Number(a.highConfidenceAltCount) || 0)) ||
           ((Number(b.altAccountCount) || 0) - (Number(a.altAccountCount) || 0))
         );
+      } else if (activePlayerChip === 'over-limit') {
+        players = players.filter(p => Boolean(p.overAccountLimit));
+      } else if (activePlayerChip === 'banned') {
+        players = players.filter(p => Boolean(p.banned));
       } else if (activePlayerChip === 'hidden') {
         players = players.filter(p => (p.leaderboardPlacements && p.leaderboardPlacements.hiddenRuns > 0));
       } else if (activePlayerChip === 'top') {
@@ -1871,22 +1946,50 @@
         const hiddenRuns = (p.leaderboardPlacements && p.leaderboardPlacements.hiddenRuns) || 0;
         const visibleRuns = Math.max(0, totalRuns - hiddenRuns);
         const isMeDonut = p.username.toLowerCase() === 'medonut';
+        const isBanned = Boolean(p.banned);
+        const isOverLimit = Boolean(p.overAccountLimit);
+        const isPrimaryBest = Boolean(p.isPrimaryBestAccount);
+        const clusterCount = Number(p.clusterAccountCount) || 1;
+        const clusterRank = Number(p.clusterRank) || 1;
+        const effMax = Number(p.effectiveMaxAccounts) || 5;
+        const explicitMax = (typeof p.maxAccounts === 'number' && p.maxAccounts >= 1) ? p.maxAccounts : null;
+        const banReason = (p.banInfo && p.banInfo.reason) ? p.banInfo.reason : '';
         const lastIp = p.lastIp || '';
         const altCount = Number(p.altAccountCount) || 0;
         const highAltCount = Number(p.highConfidenceAltCount) || 0;
 
+        const limitPresets = [1, 2, 3, 4, 5, 10];
+        if (explicitMax !== null && !limitPresets.includes(explicitMax)) {
+          limitPresets.push(explicitMax);
+          limitPresets.sort((a, b) => a - b);
+        }
+        const globalDef = Number(currentDbData?.adminSettings?.defaultMaxAccounts) || 5;
+        const limitOptionsHtml = `<option value="default" ${explicitMax === null ? 'selected' : ''}>Default (${globalDef})</option>` +
+          limitPresets.map(n => `<option value="${n}" ${explicitMax === n ? 'selected' : ''}>Max ${n}</option>`).join('');
+
         const tr = document.createElement('tr');
         tr.setAttribute('data-player-row', p.username.toLowerCase());
+        if (isBanned) {
+          tr.style.background = 'rgba(127, 29, 29, 0.18)';
+        } else if (isOverLimit) {
+          tr.style.background = 'rgba(217, 119, 6, 0.14)';
+        }
         tr.innerHTML = `
           <td>
             <div class="player-name">
               <span>👤 ${escapeHtml(p.username)}</span>
               ${isMeDonut ? '<span style="font-size:0.64rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:1px 7px; border-radius:999px;">ADMIN</span>' : ''}
+              ${isBanned ? `<span title="${escapeHtml(banReason || 'Account Banned')}" style="font-size:0.64rem; background:#dc2626; color:#fff; padding:1px 7px; border-radius:999px; font-weight:900;">🔨 BANNED</span>` : ''}
+              ${isOverLimit ? `<span title="Paused because ${clusterRank} > Limit ${effMax} (Primary: ${escapeHtml(p.primaryBestUsername || '')})" style="font-size:0.64rem; background:#d97706; color:#fff; padding:1px 7px; border-radius:999px; font-weight:900;">⏸️ OVER LIMIT (${clusterRank}/${effMax})</span>` : ''}
+              ${(!isOverLimit && clusterCount > 1 && isPrimaryBest) ? `<span title="Highest highscores + ELO + activity in alt group" style="font-size:0.62rem; background:rgba(16,185,129,0.25); color:#6ee7b7; border:1px solid rgba(16,185,129,0.55); padding:1px 6px; border-radius:999px; font-weight:800;">⭐ #1 BEST (${clusterCount} accts)</span>` : ''}
             </div>
-            <div class="player-meta">🐦 ${escapeHtml(p.selectedSkin)} • 🏗️ ${escapeHtml(p.selectedPipeSkin)} • 📊 ${totalRuns} runs (${visibleRuns} vis${hiddenRuns > 0 ? `, 🚫${hiddenRuns}` : ''})</div>
+            <div class="player-meta">🐦 ${escapeHtml(p.selectedSkin)} • 🏗️ ${escapeHtml(p.selectedPipeSkin)} • 🌄 ${escapeHtml(p.selectedBackground || 'bg_classic')} • 🪙 ${Number(p.duelCoins) || 0} • 📊 ${totalRuns} runs (${visibleRuns} vis${hiddenRuns > 0 ? `, 🚫${hiddenRuns}` : ''})</div>
             <div class="player-meta" style="display:flex; gap:5px; flex-wrap:wrap; margin-top:3px; align-items:center;">
               <span class="ip-chip" title="Latest IP address seen for this account${(p.ips && p.ips.length > 1) ? ` (${p.ips.length} IPs total)` : ''}">🌐 ${lastIp ? escapeHtml(lastIp) : 'No IP'}</span>
+              ${!isMeDonut ? `<label style="display:inline-flex; align-items:center; gap:4px; font-size:0.68rem; color:#bae6fd; background:rgba(15,23,42,0.85); border:1px solid rgba(56,189,248,0.45); padding:1px 6px; border-radius:8px;" title="Account limit for this player & linked alts (stored in db.json)"><span>Accts:</span><select class="acct-limit-select" data-user="${escapeHtml(p.username)}" style="background:#0f172a; color:#f8fafc; border:none; font-size:0.68rem; font-weight:800; cursor:pointer; outline:none;">${limitOptionsHtml}</select></label>` : ''}
               ${altCount > 0 ? `<span class="alt-warn-pill ${highAltCount > 0 ? 'high-conf' : ''}" title="Click Find Alts to inspect all 80%+ alt matches">${highAltCount > 0 ? `⚠️ ${highAltCount} Alt(s)` : `🔍 ${altCount} Alt(s)`}</span>` : ''}
+              ${p.hasCustomImage ? '<span style="font-size:0.66rem; background:rgba(244,114,182,0.22); color:#f9a8d4; padding:1px 6px; border-radius:999px; border:1px solid rgba(244,114,182,0.5);">🖼️ Custom Pic</span>' : ''}
+              ${p.hasCustomVideo ? '<span style="font-size:0.66rem; background:rgba(245,158,11,0.22); color:#fde047; padding:1px 6px; border-radius:999px; border:1px solid rgba(245,158,11,0.5);">🎬 15f Video</span>' : ''}
               ${(p.adminLockedSkins && p.adminLockedSkins.length > 0) ? `<span style="font-size:0.66rem; background:rgba(239,68,68,0.22); color:#fca5a5; padding:1px 6px; border-radius:999px; border:1px solid rgba(239,68,68,0.5);">🔒${p.adminLockedSkins.length}</span>` : ''}
               ${(p.grantedSkins && p.grantedSkins.length > 0) ? `<span style="font-size:0.66rem; background:rgba(168,85,247,0.22); color:#d8b4fe; padding:1px 6px; border-radius:999px; border:1px solid rgba(168,85,247,0.5);">🎁${p.grantedSkins.length}</span>` : ''}
             </div>
@@ -1924,6 +2027,9 @@
               <button type="button" class="btn db-act-btn find-player-alts-btn" data-user="${escapeHtml(p.username)}" title="Find Alt Accounts & IP" style="border-color:rgba(251,146,60,0.55); color:#fdba74; background:rgba(234,88,12,0.16);">
                 🔍 Alts${altCount > 0 ? ` (${altCount})` : ''}
               </button>
+              ${!isMeDonut ? (isBanned
+                ? `<button type="button" class="btn btn-success db-act-btn unban-player-btn" data-user="${escapeHtml(p.username)}" title="Unban Player & Linked Alts">✅ Unban</button>`
+                : `<button type="button" class="btn btn-danger db-act-btn ban-player-btn" data-user="${escapeHtml(p.username)}" title="Ban Player + All Alts (blocks new accounts)">🔨 Ban+Alts</button>`) : ''}
               ${!isMeDonut ? `<button type="button" class="btn btn-danger db-act-btn delete-player-account-btn" data-user="${escapeHtml(p.username)}" title="Permanently Delete Account">🗑️ Delete</button>` : '<span style="font-size:0.68rem; color:var(--text-sub); display:flex; align-items:center; justify-content:center;">👑 Protected</span>'}
             </div>
           </td>
@@ -1931,9 +2037,16 @@
         tbody.appendChild(tr);
       });
 
-      tbody.querySelectorAll('.score-input').forEach(inp => {
+      tbody.querySelectorAll('.score-input, .acct-limit-select').forEach(inp => {
         inp.addEventListener('focus', () => { isEditingInput = true; });
         inp.addEventListener('blur', () => { setTimeout(() => { isEditingInput = false; }, 300); });
+      });
+
+      tbody.querySelectorAll('.acct-limit-select').forEach(sel => {
+        sel.addEventListener('change', () => {
+          const username = sel.getAttribute('data-user');
+          setPlayerAccountLimitFromAdmin(username, sel.value, sel);
+        });
       });
 
       // Hook up Manage Skins button -> Opens dedicated Player Skins Modal!
@@ -1965,6 +2078,21 @@
         btn.addEventListener('click', () => {
           const username = btn.getAttribute('data-user');
           openPlayerAltsModal(username);
+        });
+      });
+
+      // Hook up Ban+Alts & Unban buttons
+      tbody.querySelectorAll('.ban-player-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const username = btn.getAttribute('data-user');
+          banPlayerFromAdmin(username, btn);
+        });
+      });
+
+      tbody.querySelectorAll('.unban-player-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const username = btn.getAttribute('data-user');
+          unbanPlayerFromAdmin(username, btn);
         });
       });
 
@@ -2819,10 +2947,13 @@
     function getSkinLabel(skinId) {
       const birdList = (typeof BIRD_SKINS !== 'undefined' && Array.isArray(BIRD_SKINS)) ? BIRD_SKINS : [];
       const pipeList = (typeof PIPE_SKINS !== 'undefined' && Array.isArray(PIPE_SKINS)) ? PIPE_SKINS : [];
+      const bgList = (typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS)) ? BACKGROUND_SKINS : [];
       const bird = birdList.find(s => s.id === skinId);
       if (bird) return `${bird.emoji || '🐤'} ${bird.name} (${bird.rarity})`;
       const pipe = pipeList.find(p => p.id === skinId);
       if (pipe) return `${pipe.emoji || '🟢'} ${pipe.name} (${pipe.rarity})`;
+      const bg = bgList.find(b => b.id === skinId);
+      if (bg) return `${bg.emoji || '🌄'} ${bg.name} (${bg.rarity || 'Background'})`;
       return skinId;
     }
 
@@ -2836,17 +2967,27 @@
         return false;
       }
 
-      // 2. Admin-granted skins or currently equipped skins are owned
+      // 2. Admin-granted skins, unlocked backgrounds, or currently equipped skins are owned
       const grantedList = Array.isArray(p.grantedSkins) ? p.grantedSkins : [];
       if (grantedList.includes(skinId)) {
         return true;
       }
-      if (p.selectedSkin === skinId || p.selectedPipeSkin === skinId) {
+      const unlockedBgs = Array.isArray(p.unlockedBackgrounds) ? p.unlockedBackgrounds : [];
+      if (unlockedBgs.includes(skinId)) {
+        return true;
+      }
+      if (p.selectedSkin === skinId || p.selectedPipeSkin === skinId || p.selectedBackground === skinId) {
         return true;
       }
 
       // 3. Default starting cosmetics are always owned
-      if (item.reqScore <= 0 || skinId === 'classic' || skinId === 'classic_pipe') {
+      if (skinId === 'classic' || skinId === 'classic_pipe' || skinId === 'bg_classic' || item.isStarter) {
+        return true;
+      }
+      if (item.reqMode === 'case') {
+        return false;
+      }
+      if (typeof item.reqScore === 'number' && item.reqScore <= 0) {
         return true;
       }
 
@@ -2904,46 +3045,68 @@
     function populateSkinsDropdowns(p) {
       const birdSelect = document.getElementById('modal-equipped-bird-select');
       const pipeSelect = document.getElementById('modal-equipped-pipe-select');
+      const bgSelect = document.getElementById('modal-equipped-bg-select');
       const grantSelect = document.getElementById('modal-grant-skin-select');
       const lockSelect = document.getElementById('modal-lock-skin-select');
+      const modRow = document.getElementById('modal-custom-bg-mod-row');
+      const clearImgBtn = document.getElementById('modal-clear-custom-image-btn');
+      const clearVidBtn = document.getElementById('modal-clear-custom-video-btn');
 
       const birdList = (typeof BIRD_SKINS !== 'undefined' && Array.isArray(BIRD_SKINS)) ? BIRD_SKINS : [];
       const pipeList = (typeof PIPE_SKINS !== 'undefined' && Array.isArray(PIPE_SKINS)) ? PIPE_SKINS : [];
+      const bgList = (typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS)) ? BACKGROUND_SKINS : [];
 
-      // 1. EQUIPPED BIRDS: Only bird skins the player owns
+      // 1. EQUIPPED BIRDS: Only bird skins the player owns (never mutate p in place)
       const ownedBirds = birdList.filter(s => isSkinOwnedByPlayer(s, p));
-      if (p.selectedSkin && !ownedBirds.some(s => s.id === p.selectedSkin)) {
-        p.selectedSkin = 'classic';
-      }
+      const curBird = (p.selectedSkin && ownedBirds.some(s => s.id === p.selectedSkin)) ? p.selectedSkin : 'classic';
       if (birdSelect) {
         if (ownedBirds.length > 0) {
           birdSelect.innerHTML = ownedBirds.map(s => `
-            <option value="${s.id}" ${s.id === p.selectedSkin ? 'selected' : ''}>${s.emoji || '🐤'} ${s.name} (${s.rarity})</option>
+            <option value="${s.id}" ${s.id === curBird ? 'selected' : ''}>${s.emoji || '🐤'} ${s.name} (${s.rarity})</option>
           `).join('');
         } else {
           birdSelect.innerHTML = `<option value="classic">🐤 Classic (Default)</option>`;
         }
       }
 
-      // 2. EQUIPPED PIPES: Only pipe skins the player owns
+      // 2. EQUIPPED PIPES: Only pipe skins the player owns (never mutate p in place)
       const ownedPipes = pipeList.filter(pSkin => isSkinOwnedByPlayer(pSkin, p));
-      if (p.selectedPipeSkin && !ownedPipes.some(pSkin => pSkin.id === p.selectedPipeSkin)) {
-        p.selectedPipeSkin = 'classic_pipe';
-      }
+      const curPipe = (p.selectedPipeSkin && ownedPipes.some(pSkin => pSkin.id === p.selectedPipeSkin)) ? p.selectedPipeSkin : 'classic_pipe';
       if (pipeSelect) {
         if (ownedPipes.length > 0) {
           pipeSelect.innerHTML = ownedPipes.map(pSkin => `
-            <option value="${pSkin.id}" ${pSkin.id === p.selectedPipeSkin ? 'selected' : ''}>${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})</option>
+            <option value="${pSkin.id}" ${pSkin.id === curPipe ? 'selected' : ''}>${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})</option>
           `).join('');
         } else {
           pipeSelect.innerHTML = `<option value="classic_pipe">🟢 Classic Green (Default)</option>`;
         }
       }
 
-      // Full list of all cosmetics (Birds + Pipes)
+      // 3. EQUIPPED BACKGROUNDS: Only background skins the player owns (never mutate p in place)
+      const ownedBgs = bgList.filter(b => isSkinOwnedByPlayer(b, p));
+      const curBg = (p.selectedBackground && ownedBgs.some(b => b.id === p.selectedBackground)) ? p.selectedBackground : 'bg_classic';
+      if (bgSelect) {
+        if (ownedBgs.length > 0) {
+          bgSelect.innerHTML = ownedBgs.map(b => `
+            <option value="${b.id}" ${b.id === curBg ? 'selected' : ''}>${b.emoji || '🌄'} ${b.name} (${b.rarity || 'BG'})</option>
+          `).join('');
+        } else {
+          bgSelect.innerHTML = `<option value="bg_classic">🌤️ Classic Sky (Default)</option>`;
+        }
+      }
+
+      // Uploaded Custom Background moderation buttons
+      const hasImg = Boolean(p.hasCustomImage);
+      const hasVid = Boolean(p.hasCustomVideo);
+      if (modRow) modRow.style.display = (hasImg || hasVid) ? 'flex' : 'none';
+      if (clearImgBtn) clearImgBtn.style.display = hasImg ? 'inline-flex' : 'none';
+      if (clearVidBtn) clearVidBtn.style.display = hasVid ? 'inline-flex' : 'none';
+
+      // Full list of all cosmetics (Birds + Pipes + Backgrounds)
       const allSkins = [
         ...birdList.map(s => ({ item: s, id: s.id, name: `[Bird] ${s.emoji || '🐤'} ${s.name} (${s.rarity})` })),
-        ...pipeList.map(pSkin => ({ item: pSkin, id: pSkin.id, name: `[Pipe] ${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})` }))
+        ...pipeList.map(pSkin => ({ item: pSkin, id: pSkin.id, name: `[Pipe] ${pSkin.emoji || '🟢'} ${pSkin.name} (${pSkin.rarity})` })),
+        ...bgList.map(b => ({ item: b, id: b.id, name: `[BG] ${b.emoji || '🌄'} ${b.name} (${b.rarity || 'Case Drop'})` }))
       ];
 
       // 3. GRANT SKIN: Can ONLY choose skins the player does NOT already have
@@ -3066,11 +3229,16 @@
             const p = currentDbData.playerRecordsOverview[username];
             if (skinData.grantedSkins) p.grantedSkins = skinData.grantedSkins;
             if (skinData.adminLockedSkins) p.adminLockedSkins = skinData.adminLockedSkins;
+            if (skinData.unlockedBackgrounds) p.unlockedBackgrounds = skinData.unlockedBackgrounds;
             if (skinData.selectedSkin) p.selectedSkin = skinData.selectedSkin;
             if (skinData.selectedPipeSkin) p.selectedPipeSkin = skinData.selectedPipeSkin;
+            if (skinData.selectedBackground) p.selectedBackground = skinData.selectedBackground;
+            if (skinData.hasCustomImage !== undefined) p.hasCustomImage = skinData.hasCustomImage;
+            if (skinData.hasCustomVideo !== undefined) p.hasCustomVideo = skinData.hasCustomVideo;
           }
           if (currentDbData && currentDbData.playerRecordsOverview && currentDbData.playerRecordsOverview[username]) {
             populateSkinsDropdowns(currentDbData.playerRecordsOverview[username]);
+            renderModalSkins();
           }
           renderDashboard(currentDbData);
         } else {
@@ -3085,7 +3253,20 @@
       if (!modalSkinsActivePlayer) return;
       const selectedSkin = document.getElementById('modal-equipped-bird-select')?.value;
       const selectedPipeSkin = document.getElementById('modal-equipped-pipe-select')?.value;
-      await updatePlayerSkinsApi(modalSkinsActivePlayer, { selectedSkin, selectedPipeSkin });
+      const selectedBackground = document.getElementById('modal-equipped-bg-select')?.value;
+      await updatePlayerSkinsApi(modalSkinsActivePlayer, { selectedSkin, selectedPipeSkin, selectedBackground });
+    });
+
+    document.getElementById('modal-clear-custom-image-btn')?.addEventListener('click', async () => {
+      if (!modalSkinsActivePlayer) return;
+      if (!window.confirm(`Clear uploaded custom background picture for "${modalSkinsActivePlayer}"?`)) return;
+      await updatePlayerSkinsApi(modalSkinsActivePlayer, { clearCustomImage: true });
+    });
+
+    document.getElementById('modal-clear-custom-video-btn')?.addEventListener('click', async () => {
+      if (!modalSkinsActivePlayer) return;
+      if (!window.confirm(`Clear uploaded 15-frame custom video background for "${modalSkinsActivePlayer}"?`)) return;
+      await updatePlayerSkinsApi(modalSkinsActivePlayer, { clearCustomVideo: true });
     });
 
     document.getElementById('modal-grant-skin-btn')?.addEventListener('click', async () => {
@@ -3271,6 +3452,61 @@
       }
     }
 
+    function buildAccountLimitOptionsHtml(explicitMax, defaultMax) {
+      const defLim = Math.max(1, Math.min(50, Math.floor(Number(defaultMax) || 5)));
+      const presets = [1, 2, 3, 4, 5, 10];
+      const hasExplicit = explicitMax !== null && explicitMax !== undefined && explicitMax !== '';
+      const expNum = hasExplicit ? Math.max(1, Math.min(50, Math.floor(Number(explicitMax)))) : null;
+      if (expNum !== null && Number.isFinite(expNum) && !presets.includes(expNum)) {
+        presets.push(expNum);
+        presets.sort((a, b) => a - b);
+      }
+      const opts = [`<option value="default" ${expNum === null ? 'selected' : ''}>Default (${defLim})</option>`];
+      for (const num of presets) {
+        opts.push(`<option value="${num}" ${expNum === num ? 'selected' : ''}>${num}</option>`);
+      }
+      return opts.join('');
+    }
+
+    async function setPlayerAccountLimitFromAdmin(username, rawVal, ctrlEl = null) {
+      if (!username) return;
+      const isDefault = rawVal === null || rawVal === undefined || rawVal === '' || String(rawVal).toLowerCase() === 'default';
+      const parsedVal = isDefault ? 'default' : Math.max(1, Math.min(50, Math.floor(Number(rawVal) || 1)));
+      if (ctrlEl) ctrlEl.disabled = true;
+      try {
+        const res = await fetch('/api/database/set-account-limit', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ username, maxAccounts: parsedVal })
+        });
+        const updated = await res.json();
+        if (res.ok && updated.ok) {
+          if (updated.playerRecordsOverview) {
+            currentDbData = updated;
+          }
+          renderDashboard(currentDbData);
+          const pausedCount = Array.isArray(updated.pausedAlts) ? updated.pausedAlts.length : 0;
+          const limLabel = parsedVal === 'default' ? `Default (${updated.effectiveMaxAccounts})` : `${updated.effectiveMaxAccounts}`;
+          const bestTxt = updated.primaryBestUsername ? ` • Best kept: ⭐ ${updated.primaryBestUsername}` : '';
+          const pausedTxt = pausedCount > 0 ? ` • ${pausedCount} alt(s) paused (not deleted)` : '';
+          showToast(`👥 Account limit for ${username} set to ${limLabel}${bestTxt}${pausedTxt}`);
+          if (modalAltsTargetUsername) {
+            await openPlayerAltsModal(modalAltsTargetUsername);
+          }
+        } else {
+          showToast(`❌ Error: ${updated.error || 'Failed to update account limit'}`);
+          if (currentDbData) renderPlayersTable();
+        }
+      } catch (err) {
+        showToast('❌ Network error updating account limit: ' + err.message);
+        if (currentDbData) renderPlayersTable();
+      } finally {
+        if (ctrlEl && ctrlEl.isConnected) {
+          ctrlEl.disabled = false;
+        }
+      }
+    }
+
     async function openPlayerAltsModal(username) {
       modalAltsTargetUsername = username;
       const modal = document.getElementById('player-alts-modal');
@@ -3304,6 +3540,14 @@
           metaEl.textContent = `${matches.length} 80%+ matching account(s) found for ${t.username || username}`;
         }
 
+        const isMeDonutTarget = (t.username || username).toLowerCase() === 'medonut';
+        const targetOverview = currentDbData?.playerRecordsOverview?.[t.username || username] || null;
+        const targetBanned = Boolean(t.banned || (targetOverview && targetOverview.banned));
+        const banGroupBtn = document.getElementById('modal-alts-ban-group-btn');
+        const unbanGroupBtn = document.getElementById('modal-alts-unban-group-btn');
+        if (banGroupBtn) banGroupBtn.style.display = (!isMeDonutTarget && !targetBanned) ? 'inline-flex' : 'none';
+        if (unbanGroupBtn) unbanGroupBtn.style.display = (!isMeDonutTarget && targetBanned) ? 'inline-flex' : 'none';
+
         const devsText = (t.deviceIds && t.deviceIds.length > 0)
           ? t.deviceIds.map(d => escapeHtml(d.slice(0, 14) + '…')).join(', ')
           : 'None recorded yet';
@@ -3315,12 +3559,46 @@
           const cookieBadge = t.cookieAccepted
             ? `<span style="color:#86efac;">🍪 Cookie Accepted${t.lastCookieId ? ` (<code>${escapeHtml(t.lastCookieId.slice(0, 12))}…</code>)` : ''}</span>`
             : `<span style="color:#fde047;">🍪 Cookie Pending Next Visit</span>`;
+          const defaultLim = currentDbData?.adminSettings?.defaultMaxAccounts ?? 5;
+          const tExplicitMax = (t.maxAccounts !== undefined && t.maxAccounts !== null) ? t.maxAccounts : (targetOverview?.maxAccounts ?? null);
+          const tEffMax = t.effectiveMaxAccounts ?? targetOverview?.effectiveMaxAccounts ?? defaultLim;
+          const tIsPrimary = Boolean(t.isPrimaryBestAccount ?? targetOverview?.isPrimaryBestAccount);
+          const tIsOverLimit = Boolean(t.overAccountLimit ?? targetOverview?.overAccountLimit);
+          const tPrimaryBest = t.primaryBestUsername || targetOverview?.primaryBestUsername || t.username || username;
+          const tRank = Number(t.clusterRank || targetOverview?.clusterRank || 1);
+          const tClusterCount = Number(t.clusterAccountCount || targetOverview?.clusterAccountCount || (matches.length + 1));
+          const tPrioScore = Math.round(Number(t.priorityScore ?? targetOverview?.priorityScore ?? 0));
+          const tLimitOpts = buildAccountLimitOptionsHtml(tExplicitMax, defaultLim);
           targetSumEl.innerHTML = `
             <div style="display:flex; flex-direction:column; gap:6px;">
-              <div><strong>Target Account:</strong> 👤 ${escapeHtml(t.username || username)} • Best: 🟢 ${t.records?.easy || 0} / 🟡 ${t.records?.medium || 0} / 🔴 ${t.records?.hard || 0} • 🏆 ${t.duelElo ?? 1000} ELO • ${cookieBadge}</div>
-              <div style="color:#cbd5e1; font-size:0.74rem;"><strong>Browser Device IDs:</strong> <code>${devsText}</code> &nbsp;|&nbsp; <strong>Switch History:</strong> <code>${linkedText}</code></div>
+              <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                <span><strong>Target Account:</strong> 👤 ${escapeHtml(t.username || username)}</span>
+                ${targetBanned ? '<span style="background:#dc2626;color:#fff;padding:1px 6px;border-radius:999px;font-size:0.68rem;font-weight:900;">🔨 BANNED</span>' : ''}
+                ${(!isMeDonutTarget && tIsPrimary) ? '<span style="background:rgba(250,204,21,0.22);color:#fde047;border:1px solid rgba(250,204,21,0.55);padding:1px 7px;border-radius:999px;font-size:0.68rem;font-weight:900;">⭐ #1 BEST ACCOUNT</span>' : ''}
+                ${(!isMeDonutTarget && tIsOverLimit) ? '<span style="background:rgba(217,119,6,0.28);color:#fdba74;border:1px solid rgba(245,158,11,0.65);padding:1px 7px;border-radius:999px;font-size:0.68rem;font-weight:900;">⏸️ OVER LIMIT (PAUSED)</span>' : ''}
+                ${(!isMeDonutTarget && tClusterCount > 1) ? `<span style="background:rgba(56,189,248,0.18);color:#bae6fd;border:1px solid rgba(56,189,248,0.45);padding:1px 7px;border-radius:999px;font-size:0.68rem;font-weight:800;">Rank #${tRank}/${tClusterCount}${tPrioScore > 0 ? ` • Score ${tPrioScore}` : ''}</span>` : ''}
+                <span>• Best: 🟢 ${t.records?.easy || 0} / 🟡 ${t.records?.medium || 0} / 🔴 ${t.records?.hard || 0} • 🏆 ${t.duelElo ?? 1000} ELO • ${cookieBadge}</span>
+              </div>
+              <div style="color:#cbd5e1; font-size:0.74rem; display:flex; align-items:center; flex-wrap:wrap; gap:10px;">
+                <span><strong>Browser Device IDs:</strong> <code>${devsText}</code> &nbsp;|&nbsp; <strong>Switch History:</strong> <code>${linkedText}</code></span>
+                ${!isMeDonutTarget ? `
+                  <label style="display:inline-flex; align-items:center; gap:6px; color:#bae6fd; background:rgba(15,23,42,0.9); border:1px solid rgba(56,189,248,0.5); padding:2px 8px; border-radius:8px; font-weight:800;" title="Maximum active accounts allowed for this player cluster (stored in db.json)">
+                    <span>Account Limit:</span>
+                    <select id="modal-alts-acct-limit-select" style="background:#0f172a; color:#f8fafc; border:none; font-size:0.74rem; font-weight:800; cursor:pointer; outline:none;">${tLimitOpts}</select>
+                    <span style="color:#94a3b8; font-weight:700;">(Active: ${tEffMax}, Best: ⭐ ${escapeHtml(tPrimaryBest)})</span>
+                  </label>
+                ` : ''}
+              </div>
             </div>
           `;
+          const modalLimSel = document.getElementById('modal-alts-acct-limit-select');
+          if (modalLimSel) {
+            modalLimSel.addEventListener('focus', () => { isEditingInput = true; });
+            modalLimSel.addEventListener('blur', () => { setTimeout(() => { isEditingInput = false; }, 300); });
+            modalLimSel.addEventListener('change', () => {
+              setPlayerAccountLimitFromAdmin(t.username || username, modalLimSel.value, modalLimSel);
+            });
+          }
         }
 
         if (!bodyEl) return;
@@ -3336,6 +3614,13 @@
 
         bodyEl.innerHTML = matches.map(m => {
           const isMeDonutMatch = m.username && m.username.toLowerCase() === 'medonut';
+          const altOverview = currentDbData?.playerRecordsOverview?.[m.username] || null;
+          const isAltBanned = Boolean(m.banned || (altOverview && altOverview.banned));
+          const isAltPrimaryBest = Boolean(m.isPrimaryBestAccount ?? altOverview?.isPrimaryBestAccount);
+          const isAltOverLimit = Boolean(m.overAccountLimit ?? altOverview?.overAccountLimit);
+          const altRank = Number(m.clusterRank || altOverview?.clusterRank || 0);
+          const altClusterCount = Number(m.clusterAccountCount || altOverview?.clusterAccountCount || (matches.length + 1));
+          const altPriorityScore = Math.round(Number(m.priorityScore ?? altOverview?.priorityScore ?? 0));
           const signals = [];
           if (m.sharedCookieIds && m.sharedCookieIds.length > 0) {
             signals.push(`<span class="ip-chip" style="border-color:rgba(248,113,113,0.9); color:#fecaca; background:rgba(127,29,29,0.55);">🍪 Same Accepted Cookie (${escapeHtml(m.sharedCookieIds[0].slice(0, 12))}…)</span>`);
@@ -3355,9 +3640,13 @@
           return `
             <div class="alt-match-card tier-${escapeHtml(m.confidenceTier || 'high')}" data-alt-card="${escapeHtml(m.username.toLowerCase())}">
               <div style="flex:1; min-width:240px;">
-                <div style="font-size:0.96rem; font-weight:900; color:#fff;">
-                  👤 ${escapeHtml(m.username)}
-                  ${isMeDonutMatch ? '<span style="font-size:0.68rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:2px 8px; border-radius:999px; margin-left:6px;">ADMIN</span>' : ''}
+                <div style="font-size:0.96rem; font-weight:900; color:#fff; display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+                  <span>👤 ${escapeHtml(m.username)}</span>
+                  ${isMeDonutMatch ? '<span style="font-size:0.68rem; background:linear-gradient(135deg,#a855f7,#ec4899); color:#fff; padding:2px 8px; border-radius:999px;">ADMIN</span>' : ''}
+                  ${isAltBanned ? '<span style="font-size:0.66rem; background:#dc2626; color:#fff; padding:2px 7px; border-radius:999px; font-weight:900;">🔨 BANNED</span>' : ''}
+                  ${(!isMeDonutMatch && isAltPrimaryBest) ? '<span style="font-size:0.66rem; background:rgba(250,204,21,0.22); color:#fde047; border:1px solid rgba(250,204,21,0.55); padding:2px 7px; border-radius:999px; font-weight:900;">⭐ #1 BEST</span>' : ''}
+                  ${(!isMeDonutMatch && isAltOverLimit) ? '<span style="font-size:0.66rem; background:rgba(217,119,6,0.28); color:#fdba74; border:1px solid rgba(245,158,11,0.65); padding:2px 7px; border-radius:999px; font-weight:900;">⏸️ OVER LIMIT</span>' : ''}
+                  ${(!isMeDonutMatch && altRank > 0) ? `<span style="font-size:0.66rem; background:rgba(56,189,248,0.16); color:#bae6fd; border:1px solid rgba(56,189,248,0.45); padding:2px 7px; border-radius:999px; font-weight:800;">#${altRank}/${altClusterCount}${altPriorityScore > 0 ? ` • Score ${altPriorityScore}` : ''}</span>` : ''}
                 </div>
                 <div><span class="alt-conf-badge tier-${escapeHtml(m.confidenceTier || 'high')}">${escapeHtml(m.confidenceLabel || 'Matched')} (${m.confidenceScore || 0}%)</span></div>
                 <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">${signals.join(' ')}</div>
@@ -3369,11 +3658,28 @@
                 </div>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                ${!isMeDonutMatch ? (isAltBanned
+                  ? `<button type="button" class="btn btn-success modal-unban-alt-btn" data-user="${escapeHtml(m.username)}" style="padding:6px 12px; font-size:0.76rem;">✅ Unban</button>`
+                  : `<button type="button" class="btn btn-danger modal-ban-alt-btn" data-user="${escapeHtml(m.username)}" style="padding:6px 12px; font-size:0.76rem;">🔨 Ban+Alts</button>`) : ''}
                 ${!isMeDonutMatch ? `<button type="button" class="btn btn-danger modal-delete-alt-btn" data-user="${escapeHtml(m.username)}" style="padding:7px 14px; font-size:0.78rem;">🗑️ Delete Account</button>` : '<span style="font-size:0.74rem; color:var(--text-sub);">Protected Admin</span>'}
               </div>
             </div>
           `;
         }).join('');
+
+        bodyEl.querySelectorAll('.modal-ban-alt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const targetBan = btn.getAttribute('data-user');
+            banPlayerFromAdmin(targetBan, btn, true);
+          });
+        });
+
+        bodyEl.querySelectorAll('.modal-unban-alt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const targetUnban = btn.getAttribute('data-user');
+            unbanPlayerFromAdmin(targetUnban, btn, true);
+          });
+        });
 
         bodyEl.querySelectorAll('.modal-delete-alt-btn').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -3505,6 +3811,103 @@
         }
       }
     }
+
+    async function banPlayerFromAdmin(username, btnEl = null, includeAlts = true) {
+      if (!username) return;
+      if (username.toLowerCase() === 'medonut') {
+        showToast('❌ Cannot ban the MeDonut admin account.');
+        return;
+      }
+      const reasonInput = window.prompt(
+        `Ban "${username}" AND all linked alt accounts? (This blocks them even if they create a new account)\n\nEnter ban reason (or Cancel to abort):`,
+        'Rule violation / Cheating'
+      );
+      if (reasonInput === null) return;
+      const reason = String(reasonInput).trim() || 'Rule violation';
+
+      const origText = btnEl ? btnEl.textContent : '';
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = '⏳...';
+      }
+
+      try {
+        const res = await fetch('/api/database/ban-user', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ username, includeAlts: Boolean(includeAlts), reason })
+        });
+        const updated = await res.json();
+        if (res.ok && updated.ok) {
+          if (updated.playerRecordsOverview) {
+            currentDbData = updated;
+          }
+          const bannedList = Array.isArray(updated.bannedUsernames) ? updated.bannedUsernames : [username];
+          showToast(`🔨 Banned ${bannedList.length} account(s): ${bannedList.join(', ')}`);
+          renderDashboard(currentDbData);
+          if (modalAltsTargetUsername) {
+            await openPlayerAltsModal(modalAltsTargetUsername);
+          }
+        } else {
+          showToast(`❌ Error: ${updated.error || 'Failed to ban user'}`);
+        }
+      } catch (err) {
+        showToast('❌ Network error banning player: ' + err.message);
+      } finally {
+        if (btnEl && btnEl.isConnected) {
+          btnEl.disabled = false;
+          btnEl.textContent = origText;
+        }
+      }
+    }
+
+    async function unbanPlayerFromAdmin(username, btnEl = null, includeAlts = true) {
+      if (!username) return;
+      const confirmed = window.confirm(`Unban "${username}" and all linked accounts in their ban group?`);
+      if (!confirmed) return;
+
+      const origText = btnEl ? btnEl.textContent : '';
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = '⏳...';
+      }
+
+      try {
+        const res = await fetch('/api/database/unban-user', {
+          method: 'POST',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ username, includeAlts: Boolean(includeAlts) })
+        });
+        const updated = await res.json();
+        if (res.ok && updated.ok) {
+          if (updated.playerRecordsOverview) {
+            currentDbData = updated;
+          }
+          const unbannedList = Array.isArray(updated.unbannedUsernames) ? updated.unbannedUsernames : [username];
+          showToast(`✅ Unbanned ${unbannedList.length} account(s): ${unbannedList.join(', ')}`);
+          renderDashboard(currentDbData);
+          if (modalAltsTargetUsername) {
+            await openPlayerAltsModal(modalAltsTargetUsername);
+          }
+        } else {
+          showToast(`❌ Error: ${updated.error || 'Failed to unban user'}`);
+        }
+      } catch (err) {
+        showToast('❌ Network error unbanning player: ' + err.message);
+      } finally {
+        if (btnEl && btnEl.isConnected) {
+          btnEl.disabled = false;
+          btnEl.textContent = origText;
+        }
+      }
+    }
+
+    document.getElementById('modal-alts-ban-group-btn')?.addEventListener('click', () => {
+      if (modalAltsTargetUsername) banPlayerFromAdmin(modalAltsTargetUsername, document.getElementById('modal-alts-ban-group-btn'), true);
+    });
+    document.getElementById('modal-alts-unban-group-btn')?.addEventListener('click', () => {
+      if (modalAltsTargetUsername) unbanPlayerFromAdmin(modalAltsTargetUsername, document.getElementById('modal-alts-unban-group-btn'), true);
+    });
 
     // Initialize Database
     fetchDatabase();

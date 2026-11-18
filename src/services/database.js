@@ -37,11 +37,160 @@ if (!fs.existsSync(BACKUPS_DIR)) {
 
 let BIRD_SKINS = [];
 let PIPE_SKINS = [];
+let BACKGROUND_SKINS = [];
+let BACKGROUND_CASES = [];
+const BACKGROUND_SKIN_IDS = new Set();
+const VALID_QUEST_IDS = new Set();
 try {
   const skinsModule = require(path.join(__dirname, '..', '..', 'public', 'js', 'skins-data.js'));
   BIRD_SKINS = skinsModule.BIRD_SKINS || [];
   PIPE_SKINS = skinsModule.PIPE_SKINS || [];
+  BACKGROUND_SKINS = skinsModule.BACKGROUND_SKINS || [];
+  BACKGROUND_CASES = skinsModule.BACKGROUND_CASES || [];
+  for (const b of BACKGROUND_SKINS) {
+    if (b && b.id) BACKGROUND_SKIN_IDS.add(String(b.id));
+  }
+  for (const s of [...BIRD_SKINS, ...PIPE_SKINS]) {
+    if (s && s.pokeQuestId) VALID_QUEST_IDS.add(String(s.pokeQuestId));
+    if (s && s.trollQuestId) VALID_QUEST_IDS.add(String(s.trollQuestId));
+  }
 } catch (_) {}
+
+/**
+ * Safely merges client-synced Career Stats & Meme/Pokémon Quest progress onto a user record
+ * using monotonic max/union so quest-unlocked skins persist across devices & /api/skin validation.
+ * Never alters verified `user.records` best scores.
+ */
+function mergeUserProgressionData(user, payload = {}, shouldSave = false) {
+  if (!user || !payload || typeof payload !== 'object') return false;
+  let changed = false;
+
+  if (payload.careerStats && typeof payload.careerStats === 'object') {
+    const src = payload.careerStats;
+    if (!user.careerStats || typeof user.careerStats !== 'object') {
+      user.careerStats = {
+        totalRuns: 0,
+        totalScore: 0,
+        totalFlaps: 0,
+        lastScore: 0,
+        lastMode: 'medium',
+        modes: {
+          easy: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 },
+          medium: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 },
+          hard: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 }
+        }
+      };
+      changed = true;
+    }
+    const cs = user.careerStats;
+    const clampInt = (v, maxVal = 10000000) => Math.max(0, Math.min(maxVal, Math.floor(Number(v) || 0)));
+    for (const k of ['totalRuns', 'totalScore', 'totalFlaps']) {
+      const nextVal = clampInt(src[k]);
+      if (nextVal > (Number(cs[k]) || 0)) {
+        cs[k] = nextVal;
+        changed = true;
+      }
+    }
+    if (src.lastScore !== undefined && Number.isFinite(Number(src.lastScore))) {
+      const ls = clampInt(src.lastScore, 10000);
+      if (cs.lastScore !== ls) { cs.lastScore = ls; changed = true; }
+    }
+    if (typeof src.lastMode === 'string' && ['easy', 'medium', 'hard'].includes(src.lastMode) && cs.lastMode !== src.lastMode) {
+      cs.lastMode = src.lastMode;
+      changed = true;
+    }
+    if (src.modes && typeof src.modes === 'object') {
+      if (!cs.modes || typeof cs.modes !== 'object') cs.modes = {};
+      for (const dk of ['easy', 'medium', 'hard']) {
+        const sm = src.modes[dk];
+        if (!sm || typeof sm !== 'object') continue;
+        if (!cs.modes[dk] || typeof cs.modes[dk] !== 'object') {
+          cs.modes[dk] = { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 };
+        }
+        const dm = cs.modes[dk];
+        for (const mk of ['runs', 'totalScore', 'totalFlaps']) {
+          const v = clampInt(sm[mk]);
+          if (v > (Number(dm[mk]) || 0)) { dm[mk] = v; changed = true; }
+        }
+        if (sm.lastScore !== undefined && Number.isFinite(Number(sm.lastScore))) {
+          const lms = clampInt(sm.lastScore, 10000);
+          if (dm.lastScore !== lms) { dm.lastScore = lms; changed = true; }
+        }
+      }
+    }
+  }
+
+  if (payload.trollQuests && typeof payload.trollQuests === 'object') {
+    const src = payload.trollQuests;
+    if (!user.trollQuests || typeof user.trollQuests !== 'object') {
+      user.trollQuests = {
+        unlockedIds: {},
+        scoreDeaths: {},
+        recentScores: [],
+        recentModes: [],
+        zeroFlapDeaths: 0,
+        chokeMilestones: 0,
+        bestFlapsUnder5: 0,
+        bestFlapsUnder8: 0,
+        bestFlapsSingleRun: 0,
+        totalBonks: 0
+      };
+      changed = true;
+    }
+    const tq = user.trollQuests;
+    if (!tq.unlockedIds || typeof tq.unlockedIds !== 'object') tq.unlockedIds = {};
+    if (!tq.scoreDeaths || typeof tq.scoreDeaths !== 'object') tq.scoreDeaths = {};
+
+    if (src.unlockedIds && typeof src.unlockedIds === 'object') {
+      for (const [qid, val] of Object.entries(src.unlockedIds)) {
+        if (val && VALID_QUEST_IDS.has(qid) && !tq.unlockedIds[qid]) {
+          tq.unlockedIds[qid] = true;
+          changed = true;
+        }
+      }
+    }
+
+    if (src.scoreDeaths && typeof src.scoreDeaths === 'object') {
+      const entries = Object.entries(src.scoreDeaths).slice(0, 400);
+      for (const [scoreKey, cnt] of entries) {
+        const sInt = Math.floor(Number(scoreKey));
+        const cInt = Math.max(0, Math.min(100000, Math.floor(Number(cnt) || 0)));
+        if (Number.isInteger(sInt) && sInt >= 0 && sInt <= 1000 && cInt > (Number(tq.scoreDeaths[sInt]) || 0)) {
+          tq.scoreDeaths[sInt] = cInt;
+          changed = true;
+        }
+      }
+    }
+
+    for (const nk of ['zeroFlapDeaths', 'chokeMilestones', 'bestFlapsUnder5', 'bestFlapsUnder8', 'bestFlapsSingleRun', 'totalBonks']) {
+      const nVal = Math.max(0, Math.min(1000000, Math.floor(Number(src[nk]) || 0)));
+      if (nVal > (Number(tq[nk]) || 0)) {
+        tq[nk] = nVal;
+        changed = true;
+      }
+    }
+
+    if (Array.isArray(src.recentScores) && src.recentScores.length > 0) {
+      const cleanRS = src.recentScores.slice(-10).map(n => Math.max(0, Math.min(10000, Math.floor(Number(n) || 0))));
+      if (JSON.stringify(tq.recentScores || []) !== JSON.stringify(cleanRS)) {
+        tq.recentScores = cleanRS;
+        changed = true;
+      }
+    }
+    if (Array.isArray(src.recentModes) && src.recentModes.length > 0) {
+      const cleanRM = src.recentModes.slice(-10).filter(m => m === 'easy' || m === 'medium' || m === 'hard');
+      if (cleanRM.length > 0 && JSON.stringify(tq.recentModes || []) !== JSON.stringify(cleanRM)) {
+        tq.recentModes = cleanRM;
+        changed = true;
+      }
+    }
+  }
+
+  if (changed && shouldSave) {
+    saveDatabase(false);
+  }
+  return changed;
+}
 
 /**
  * Checks whether a skin is naturally unlocked by the user's score records, quests, or default status
@@ -70,8 +219,15 @@ function isSkinNaturallyUnlockedForUser(skinId, user) {
   if (item.reqMode === 'medium') return medBest >= item.reqScore;
   if (item.reqMode === 'hard') return hardBest >= item.reqScore;
 
+  const tq = user.trollQuests || {};
+  const tqUnlocked = (tq.unlockedIds && typeof tq.unlockedIds === 'object') ? tq.unlockedIds : {};
+  const sd = (tq.scoreDeaths && typeof tq.scoreDeaths === 'object') ? tq.scoreDeaths : {};
+  const careerPipes = Number(user.careerStats && user.careerStats.totalScore) || 0;
+  const bestFlapsUnder8 = Number(tq.bestFlapsUnder8) || 0;
+
   if (item.reqMode === 'pokemon' && item.pokeQuestId) {
     const qid = item.pokeQuestId;
+    if (tqUnlocked[qid]) return true;
     const checkPoke = (mReq, eReq, hReq) => (medBest >= mReq || easyBest >= eReq || hardBest >= hReq);
     switch (qid) {
       case 'poke_pikachu': return checkPoke(50, 95, 32);
@@ -88,11 +244,11 @@ function isSkinNaturallyUnlockedForUser(skinId, user) {
       case 'poke_greninja': return checkPoke(56, 108, 35);
       case 'poke_mewtwo': return checkPoke(72, 140, 48);
       case 'poke_rayquaza': return checkPoke(80, 155, 55);
-      case 'poke_snorlax': return checkPoke(52, 100, 34);
-      case 'poke_bidoof': return checkPoke(45, 85, 28);
-      case 'poke_jigglypuff': return checkPoke(44, 85, 28);
-      case 'poke_magikarp': return checkPoke(46, 88, 29);
-      case 'poke_meowth': return checkPoke(50, 95, 32);
+      case 'poke_snorlax': return careerPipes >= 500 || checkPoke(52, 100, 34);
+      case 'poke_bidoof': return (Number(sd[15]) || 0) >= 4 || checkPoke(45, 85, 28);
+      case 'poke_jigglypuff': return (Number(sd[39]) || 0) >= 2 || checkPoke(44, 85, 28);
+      case 'poke_magikarp': return bestFlapsUnder8 >= 50 || checkPoke(46, 88, 29);
+      case 'poke_meowth': return careerPipes >= 350 || checkPoke(50, 95, 32);
       default:
         if (item.reqScore) return checkPoke(item.reqScore, Math.round(item.reqScore * 1.9), Math.round(item.reqScore * 0.65));
         return checkPoke(50, 95, 32);
@@ -111,7 +267,7 @@ function isSkinNaturallyUnlockedForUser(skinId, user) {
  * admin-granted status, or admin-locked status.
  */
 function isSkinUnlockedForUser(skinId, user) {
-  if (!skinId || skinId === 'classic' || skinId === 'classic_pipe') return true;
+  if (!skinId || skinId === 'classic' || skinId === 'classic_pipe' || skinId === 'bg_classic') return true;
   if (!user) return false;
 
   // 1. Admin-locked skins are strictly locked
@@ -122,8 +278,13 @@ function isSkinUnlockedForUser(skinId, user) {
   const grantedList = Array.isArray(user.grantedSkins) ? user.grantedSkins : [];
   if (grantedList.includes(skinId)) return true;
 
-  // 2.5. Any skin currently equipped by database/admin is unlocked
-  if (user.selectedSkin === skinId || user.selectedPipeSkin === skinId) return true;
+  // 2.5. Any case-unlocked background or currently equipped skin is unlocked
+  if (Array.isArray(user.unlockedBackgrounds) && user.unlockedBackgrounds.includes(skinId)) return true;
+  if (user.selectedSkin === skinId || user.selectedPipeSkin === skinId || user.selectedBackground === skinId) return true;
+
+  if (BACKGROUND_SKIN_IDS.has(skinId)) {
+    return false;
+  }
 
   return isSkinNaturallyUnlockedForUser(skinId, user);
 }
@@ -414,6 +575,7 @@ function hashPassword(password, salt) {
 
 let isInternalWrite = false;
 let lastInternalSavedMtime = 0;
+let lastInternalWriteAt = 0;
 let cachedLeaderboards = null;
 let cachedAllLeaderboards = null;
 
@@ -422,7 +584,8 @@ let db = {
   playerRecordsOverview: {},
   activityFeed: [],
   loginHistory: [],
-  adminSettings: {},
+  adminSettings: { defaultMaxAccounts: 5 },
+  banRegistry: { groups: {} },
   users: {},
   runs: { easy: [], medium: [], hard: [] },
   sessions: {},
@@ -791,6 +954,8 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
 
     if (!u.grantedSkins) u.grantedSkins = [];
     if (!u.adminLockedSkins) u.adminLockedSkins = [];
+    if (!Array.isArray(u.unlockedBackgrounds)) u.unlockedBackgrounds = [];
+    if (!u.selectedBackground || typeof u.selectedBackground !== 'string') u.selectedBackground = 'bg_classic';
     if (!u.loginHistory) u.loginHistory = [];
     if (typeof u.duelElo !== 'number' || Number.isNaN(u.duelElo)) u.duelElo = 1000;
     if (typeof u.duelWins !== 'number' || Number.isNaN(u.duelWins)) u.duelWins = 0;
@@ -803,14 +968,17 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     if (u.duelBestMatchBreakdown && typeof u.duelBestMatchBreakdown !== 'object') u.duelBestMatchBreakdown = null;
 
     // Clean grantedSkins: never count default skins or skins the player already naturally unlocked via their scores!
-    u.grantedSkins = u.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && !isSkinNaturallyUnlockedForUser(id, u));
+    u.grantedSkins = u.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && id !== 'bg_classic' && !isSkinNaturallyUnlockedForUser(id, u));
 
-    // Ensure equipped skins are strictly valid for current records or granted status
+    // Ensure equipped skins are strictly valid for current records or granted/case status
     if (u.selectedSkin && !isSkinUnlockedForUser(u.selectedSkin, u)) {
       u.selectedSkin = 'classic';
     }
     if (u.selectedPipeSkin && !isSkinUnlockedForUser(u.selectedPipeSkin, u)) {
       u.selectedPipeSkin = 'classic_pipe';
+    }
+    if (u.selectedBackground && !isSkinUnlockedForUser(u.selectedBackground, u)) {
+      u.selectedBackground = 'bg_classic';
     }
 
     overview[u.username] = {
@@ -844,8 +1012,22 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       },
       selectedSkin: u.selectedSkin || 'classic',
       selectedPipeSkin: u.selectedPipeSkin || 'classic_pipe',
+      selectedBackground: u.selectedBackground || 'bg_classic',
+      cosmeticsVersion: Number(u.cosmeticsVersion) || 0,
+      unlockedBackgrounds: Array.isArray(u.unlockedBackgrounds) ? u.unlockedBackgrounds : [],
+      hasCustomImage: Boolean(u.customBackgroundImage),
+      hasCustomVideo: Boolean(u.customBackgroundVideo && Array.isArray(u.customBackgroundVideo.frames) && u.customBackgroundVideo.frames.length > 0),
       grantedSkins: u.grantedSkins || [],
       adminLockedSkins: u.adminLockedSkins || [],
+      banned: Boolean(u.banned),
+      banInfo: u.banInfo || null,
+      maxAccounts: (typeof u.maxAccounts === 'number' && u.maxAccounts >= 1) ? Math.floor(u.maxAccounts) : null,
+      effectiveMaxAccounts: Math.max(1, Math.min(50, Math.floor(Number(u.maxAccounts || (db.adminSettings && db.adminSettings.defaultMaxAccounts) || 5)))),
+      overAccountLimit: Boolean(u.overAccountLimit),
+      isPrimaryBestAccount: u.isPrimaryBestAccount !== undefined ? Boolean(u.isPrimaryBestAccount) : true,
+      primaryBestUsername: u.primaryBestUsername || u.username,
+      clusterRank: Number(u.clusterRank) || 1,
+      clusterAccountCount: Number(u.clusterAccountCount) || 1,
       loginHistory: (u.loginHistory || []).slice(0, 30),
       loginCount: u.loginCount || 0,
       lastLoginAtReadable: formatReadableTimestamp(u.lastLoginAt),
@@ -935,6 +1117,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       hard: hardChamp
     },
     totalRegisteredPlayers: sortedUsers.length,
+    defaultMaxAccounts: Math.max(1, Math.min(50, Math.floor(Number(db.adminSettings && db.adminSettings.defaultMaxAccounts) || 5))),
     totalLeaderboardRuns: {
       easy: db.runs.easy.length,
       medium: db.runs.medium.length,
@@ -991,6 +1174,9 @@ function loadDatabase(fromWatcher = false) {
         activityFeed: Array.isArray(parsed.activityFeed) ? parsed.activityFeed : [],
         loginHistory: Array.isArray(parsed.loginHistory) ? parsed.loginHistory : [],
         adminSettings: (parsed.adminSettings && typeof parsed.adminSettings === 'object') ? parsed.adminSettings : {},
+        banRegistry: (parsed.banRegistry && typeof parsed.banRegistry === 'object' && typeof parsed.banRegistry.groups === 'object')
+          ? parsed.banRegistry
+          : { groups: {} },
         users: parsed.users || {},
         runs: parsed.runs || { easy: [], medium: [], hard: [] },
         duelMatchHighScores: Array.isArray(parsed.duelMatchHighScores) ? parsed.duelMatchHighScores : [],
@@ -998,6 +1184,16 @@ function loadDatabase(fromWatcher = false) {
         sessions: parsed.sessions || {},
         chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : []
       };
+    }
+
+    if (!db.banRegistry || typeof db.banRegistry !== 'object' || typeof db.banRegistry.groups !== 'object') {
+      db.banRegistry = { groups: {} };
+    }
+    if (!db.adminSettings || typeof db.adminSettings !== 'object') {
+      db.adminSettings = {};
+    }
+    if (typeof db.adminSettings.defaultMaxAccounts !== 'number' || !Number.isFinite(db.adminSettings.defaultMaxAccounts) || db.adminSettings.defaultMaxAccounts < 1) {
+      db.adminSettings.defaultMaxAccounts = 5;
     }
 
     // Guarantee runs structure exists
@@ -1034,12 +1230,14 @@ let pendingSaveTimer = null;
 function writeOrderedDbToDisk(forceBackup = false) {
   try {
     isInternalWrite = true;
+    lastInternalWriteAt = Date.now();
     const orderedDb = {
       databaseStatus: db.databaseStatus,
       playerRecordsOverview: db.playerRecordsOverview,
       activityFeed: db.activityFeed,
       loginHistory: db.loginHistory || [],
       adminSettings: db.adminSettings || {},
+      banRegistry: db.banRegistry || { groups: {} },
       users: db.users,
       runs: db.runs,
       duelMatchHighScores: db.duelMatchHighScores || [],
@@ -1075,7 +1273,7 @@ function writeOrderedDbToDisk(forceBackup = false) {
       }
     }
 
-    setTimeout(() => { isInternalWrite = false; }, 500);
+    setTimeout(() => { isInternalWrite = false; }, 1200);
   } catch (err) {
     isInternalWrite = false;
     console.error('Error saving database:', err.message);
@@ -1084,6 +1282,7 @@ function writeOrderedDbToDisk(forceBackup = false) {
 
 function saveDatabase(forceBackup = false) {
   try {
+    lastInternalWriteAt = Date.now();
     cachedLeaderboards = null;
     cachedAllLeaderboards = null;
     cachedAllRunsAdmin = null;
@@ -1124,8 +1323,9 @@ function resetAllRecordsAdmin() {
 
 // Watch `data/db.json` so if the owner edits & saves `db.json` in a text editor, changes apply live!
 fs.watchFile(DB_FILE, { interval: 2500, persistent: false }, (curr, prev) => {
-  if (isInternalWrite) return;
-  if (lastInternalSavedMtime && Math.abs(curr.mtimeMs - lastInternalSavedMtime) < 150) return;
+  if (isInternalWrite || pendingSaveTimer !== null) return;
+  if (lastInternalWriteAt && (Date.now() - lastInternalWriteAt < 4000)) return;
+  if (lastInternalSavedMtime && Math.abs(curr.mtimeMs - lastInternalSavedMtime) < 250) return;
   if (curr.mtimeMs !== prev.mtimeMs) {
     console.log('🔄 Detected genuine external edit to data/db.json — reloading & syncing records...');
     loadDatabase(true);
@@ -1154,6 +1354,8 @@ function buildLeaderboards(limit = 100, timeframe = 'all', nowMs = Date.now()) {
     let filtered = runsList
       .filter(entry => {
         if (!entry || typeof entry.score !== 'number' || entry.score <= 0 || entry.hidden) return false;
+        const usr = entry.username && db.users && db.users[String(entry.username).toLowerCase()];
+        if (usr && (usr.banned || usr.overAccountLimit)) return false;
         if (minCreatedAt > 0 && (!entry.createdAt || entry.createdAt < minCreatedAt)) return false;
         if (entry.adminOverride) return true;
         if (entry.isWithinDanishWindow !== undefined) return entry.isWithinDanishWindow;
@@ -1614,8 +1816,20 @@ function adminUpdateUserSkins(username, options = {}) {
 
   if (!user.grantedSkins) user.grantedSkins = [];
   if (!user.adminLockedSkins) user.adminLockedSkins = [];
+  if (!Array.isArray(user.unlockedBackgrounds)) user.unlockedBackgrounds = [];
+  if (!user.selectedBackground) user.selectedBackground = 'bg_classic';
 
-  const { grantSkinId, revokeSkinId, lockSkinId, unlockSkinId, selectedSkin, selectedPipeSkin } = options;
+  const {
+    grantSkinId,
+    revokeSkinId,
+    lockSkinId,
+    unlockSkinId,
+    selectedSkin,
+    selectedPipeSkin,
+    selectedBackground,
+    clearCustomImage,
+    clearCustomVideo
+  } = options;
   let changed = false;
   const actionLog = [];
 
@@ -1623,6 +1837,9 @@ function adminUpdateUserSkins(username, options = {}) {
     const skinId = String(grantSkinId).trim();
     if (!isSkinNaturallyUnlockedForUser(skinId, user) && !user.grantedSkins.includes(skinId)) {
       user.grantedSkins.push(skinId);
+    }
+    if (BACKGROUND_SKIN_IDS.has(skinId) && skinId !== 'bg_classic' && !user.unlockedBackgrounds.includes(skinId)) {
+      user.unlockedBackgrounds.push(skinId);
     }
     user.adminLockedSkins = user.adminLockedSkins.filter(id => id !== skinId);
     actionLog.push(`Granted skin "${skinId}"`);
@@ -1632,6 +1849,10 @@ function adminUpdateUserSkins(username, options = {}) {
   if (revokeSkinId) {
     const skinId = String(revokeSkinId).trim();
     user.grantedSkins = user.grantedSkins.filter(id => id !== skinId);
+    if (BACKGROUND_SKIN_IDS.has(skinId)) {
+      user.unlockedBackgrounds = user.unlockedBackgrounds.filter(id => id !== skinId);
+      if (user.selectedBackground === skinId) user.selectedBackground = 'bg_classic';
+    }
     actionLog.push(`Revoked skin "${skinId}"`);
     changed = true;
   }
@@ -1642,6 +1863,10 @@ function adminUpdateUserSkins(username, options = {}) {
       user.adminLockedSkins.push(skinId);
     }
     user.grantedSkins = user.grantedSkins.filter(id => id !== skinId);
+    if (BACKGROUND_SKIN_IDS.has(skinId)) {
+      user.unlockedBackgrounds = user.unlockedBackgrounds.filter(id => id !== skinId);
+      if (user.selectedBackground === skinId) user.selectedBackground = 'bg_classic';
+    }
     if (user.selectedSkin === skinId) user.selectedSkin = 'classic';
     if (user.selectedPipeSkin === skinId) user.selectedPipeSkin = 'classic_pipe';
     actionLog.push(`Admin-locked skin "${skinId}" (player cannot unlock)`);
@@ -1658,7 +1883,7 @@ function adminUpdateUserSkins(username, options = {}) {
   if (typeof selectedSkin === 'string' && selectedSkin.trim()) {
     user.selectedSkin = selectedSkin.trim();
     // Do NOT add equipped skin to grantedSkins!
-    user.grantedSkins = user.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && !isSkinNaturallyUnlockedForUser(id, user));
+    user.grantedSkins = user.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && id !== 'bg_classic' && !isSkinNaturallyUnlockedForUser(id, user));
     actionLog.push(`Set bird skin to "${user.selectedSkin}"`);
     changed = true;
   }
@@ -1666,12 +1891,38 @@ function adminUpdateUserSkins(username, options = {}) {
   if (typeof selectedPipeSkin === 'string' && selectedPipeSkin.trim()) {
     user.selectedPipeSkin = selectedPipeSkin.trim();
     // Do NOT add equipped pipe skin to grantedSkins!
-    user.grantedSkins = user.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && !isSkinNaturallyUnlockedForUser(id, user));
+    user.grantedSkins = user.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && id !== 'bg_classic' && !isSkinNaturallyUnlockedForUser(id, user));
     actionLog.push(`Set pipe skin to "${user.selectedPipeSkin}"`);
     changed = true;
   }
 
+  if (typeof selectedBackground === 'string' && selectedBackground.trim()) {
+    const bgId = selectedBackground.trim();
+    if (BACKGROUND_SKIN_IDS.has(bgId) || bgId === 'bg_classic') {
+      user.selectedBackground = bgId;
+      actionLog.push(`Set background skin to "${bgId}"`);
+      changed = true;
+    }
+  }
+
+  if (clearCustomImage) {
+    user.customBackgroundImage = null;
+    user.customBgUpdatedAt = Date.now();
+    if (user.selectedBackground === 'bg_custom_image') user.selectedBackground = 'bg_classic';
+    actionLog.push('Cleared uploaded custom picture');
+    changed = true;
+  }
+
+  if (clearCustomVideo) {
+    user.customBackgroundVideo = null;
+    user.customBgUpdatedAt = Date.now();
+    if (user.selectedBackground === 'bg_custom_video') user.selectedBackground = 'bg_classic';
+    actionLog.push('Cleared uploaded custom video');
+    changed = true;
+  }
+
   if (changed) {
+    user.cosmeticsVersion = (Number(user.cosmeticsVersion) || 0) + 1;
     syncAndRebuildOverview();
     logDatabaseEvent(
       'ADMIN_SKIN_CHANGE',
@@ -1687,8 +1938,13 @@ function adminUpdateUserSkins(username, options = {}) {
     username: user.username,
     grantedSkins: user.grantedSkins,
     adminLockedSkins: user.adminLockedSkins,
+    unlockedBackgrounds: user.unlockedBackgrounds,
     selectedSkin: user.selectedSkin,
     selectedPipeSkin: user.selectedPipeSkin,
+    selectedBackground: user.selectedBackground,
+    cosmeticsVersion: Number(user.cosmeticsVersion) || 0,
+    hasCustomImage: Boolean(user.customBackgroundImage),
+    hasCustomVideo: Boolean(user.customBackgroundVideo && Array.isArray(user.customBackgroundVideo.frames) && user.customBackgroundVideo.frames.length > 0),
     user
   };
 }
@@ -1845,6 +2101,21 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
 
   const eloA = (userA && typeof userA.duelElo === 'number') ? userA.duelElo : 1000;
   const eloB = (userB && typeof userB.duelElo === 'number') ? userB.duelElo : 1000;
+
+  if (details && details.isFriendly) {
+    return {
+      oldEloA: eloA,
+      newEloA: eloA,
+      deltaA: 0,
+      oldEloB: eloB,
+      newEloB: eloB,
+      deltaB: 0,
+      coinsEarnedA: 0,
+      coinsEarnedB: 0,
+      newCoinsA: userA ? Math.round(Number(userA.duelCoins) || 0) : 0,
+      newCoinsB: userB ? Math.round(Number(userB.duelCoins) || 0) : 0
+    };
+  }
 
   const eloRes = calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB);
 
@@ -2105,7 +2376,7 @@ function buildDuelHighScoreLeaderboard(uniqueOnly = false, limit = 100) {
 
   if (db.users && typeof db.users === 'object') {
     for (const u of Object.values(db.users)) {
-      if (!u || !u.username) continue;
+      if (!u || !u.username || u.banned || u.overAccountLimit) continue;
       const pts = Math.max(0, Math.floor(Number(u.duelBestMatchPoints) || 0));
       if (pts > 0 && !seenBestByUser.has(u.username.toLowerCase())) {
         const bd = u.duelBestMatchBreakdown || {};
@@ -2134,11 +2405,12 @@ function buildDuelHighScoreLeaderboard(uniqueOnly = false, limit = 100) {
   const uniqueUsers = new Set();
   for (const e of sorted) {
     const uKey = String(e.username).toLowerCase();
+    const usr = db.users && db.users[uKey];
+    if (usr && (usr.banned || usr.overAccountLimit)) continue;
     if (uniqueOnly) {
       if (uniqueUsers.has(uKey)) continue;
       uniqueUsers.add(uKey);
     }
-    const usr = db.users && db.users[uKey];
     finalItems.push({
       rank: finalItems.length + 1,
       id: e.id || '',
@@ -2167,7 +2439,7 @@ function buildDuelRankedLeaderboard() {
   const list = [];
 
   for (const u of Object.values(db.users)) {
-    if (!u || !u.username) continue;
+    if (!u || !u.username || u.banned || u.overAccountLimit) continue;
     const uKey = String(u.username).toLowerCase();
     if (seenKeys.has(uKey)) continue;
     seenKeys.add(uKey);
@@ -2540,20 +2812,28 @@ function computeAltAccountMatches(targetUser, allUsersObj, forensicCtx = null) {
       loginCount: oLoginCount,
       duelElo: typeof other.duelElo === 'number' ? other.duelElo : 1000,
       records: other.records || { easy: 0, medium: 0, hard: 0 },
-      duelCoins: Math.round(Number(other.duelCoins) || 0)
+      duelCoins: Math.round(Number(other.duelCoins) || 0),
+      banned: Boolean(other.banned),
+      overAccountLimit: Boolean(other.overAccountLimit),
+      isPrimaryBestAccount: Boolean(other.isPrimaryBestAccount),
+      clusterRank: Number(other.clusterRank) || 1,
+      effectiveMaxAccounts: Number(other.effectiveMaxAccounts) || 5,
+      priorityScore: scoreUserAccountPriority(other)
     });
   }
 
-  matches.sort((a, b) => (b.confidenceScore - a.confidenceScore) || ((b.lastLoginAt || 0) - (a.lastLoginAt || 0)));
+  matches.sort((a, b) => (b.confidenceScore - a.confidenceScore) || ((b.priorityScore || 0) - (a.priorityScore || 0)) || ((b.lastLoginAt || 0) - (a.lastLoginAt || 0)));
   return { matches, sameNetworkUsers: [] };
 }
 
 /**
- * Enriches `db.playerRecordsOverview` entries with browser/cookie & 80%+ alt counts.
+ * Enriches `db.playerRecordsOverview` entries with browser/cookie & 80%+ alt counts
+ * and enforces per-player / global account limit rules cleanly without auto-deleting accounts.
  */
 function enrichOverviewWithClientSignals() {
   if (!db || !db.playerRecordsOverview || !db.users) return;
   const forensicCtx = buildAltForensicContext(db.users);
+  enforceAllClusterAccountLimits(forensicCtx);
   for (const [ovName, ovData] of Object.entries(db.playerRecordsOverview)) {
     if (!ovData || typeof ovData !== 'object') continue;
     const uKey = String(ovData.username || ovName).toLowerCase();
@@ -2579,6 +2859,13 @@ function enrichOverviewWithClientSignals() {
     ovData.altAccountCount = matches.length;
     ovData.highConfidenceAltCount = matches.filter(m => m.confidenceScore >= MIN_ALT_CONFIDENCE).length;
     ovData.sameNetworkCount = 0;
+    ovData.maxAccounts = (typeof user.maxAccounts === 'number' && user.maxAccounts >= 1) ? Math.floor(user.maxAccounts) : null;
+    ovData.effectiveMaxAccounts = Number(user.effectiveMaxAccounts) || Math.max(1, Math.min(50, Math.floor(Number(db.adminSettings && db.adminSettings.defaultMaxAccounts) || 5)));
+    ovData.overAccountLimit = Boolean(user.overAccountLimit);
+    ovData.isPrimaryBestAccount = user.isPrimaryBestAccount !== undefined ? Boolean(user.isPrimaryBestAccount) : true;
+    ovData.primaryBestUsername = user.primaryBestUsername || user.username;
+    ovData.clusterRank = Number(user.clusterRank) || 1;
+    ovData.clusterAccountCount = Number(user.clusterAccountCount) || 1;
   }
 }
 
@@ -2594,7 +2881,8 @@ function findAltAccountsForUser(username) {
   if (!user) {
     throw new Error(`Player "${cleanName}" not found in database.`);
   }
-  const { matches } = computeAltAccountMatches(user, db.users, buildAltForensicContext(db.users));
+  const forensicCtx = buildAltForensicContext(db.users);
+  const { matches } = computeAltAccountMatches(user, db.users, forensicCtx);
   return {
     target: {
       username: user.username,
@@ -2610,6 +2898,15 @@ function findAltAccountsForUser(username) {
       lastLoginReadable: user.lastLoginReadable || formatReadableTimestamp(user.lastLoginAt) || 'Unknown',
       records: user.records || { easy: 0, medium: 0, hard: 0 },
       duelElo: typeof user.duelElo === 'number' ? user.duelElo : 1000,
+      banned: Boolean(user.banned),
+      maxAccounts: (typeof user.maxAccounts === 'number' && user.maxAccounts >= 1) ? Math.floor(user.maxAccounts) : null,
+      effectiveMaxAccounts: Number(user.effectiveMaxAccounts) || 5,
+      overAccountLimit: Boolean(user.overAccountLimit),
+      isPrimaryBestAccount: user.isPrimaryBestAccount !== undefined ? Boolean(user.isPrimaryBestAccount) : true,
+      primaryBestUsername: user.primaryBestUsername || user.username,
+      clusterRank: Number(user.clusterRank) || 1,
+      clusterAccountCount: Number(user.clusterAccountCount) || (1 + matches.length),
+      priorityScore: scoreUserAccountPriority(user),
       sameNetworkUsers: []
     },
     matches,
@@ -2699,6 +2996,806 @@ function deletePlayerAccountAdmin(username) {
   };
 }
 
+function pickWeightedCaseItem(pool) {
+  let totalWeight = 0;
+  for (const item of pool) {
+    totalWeight += Math.max(1, Math.round(Number(item.weight) || 0));
+  }
+  if (totalWeight <= 0) return pool[0];
+  let roll = crypto.randomInt(0, totalWeight);
+  for (const item of pool) {
+    const w = Math.max(1, Math.round(Number(item.weight) || 0));
+    if (roll < w) return item;
+    roll -= w;
+  }
+  return pool[pool.length - 1];
+}
+
+/**
+ * Authoritative server-side RNG case opening for the 250 / 500 / 1000 Duel Coins cases.
+ */
+function openBackgroundCaseForUser(username, caseId) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  const user = db.users && db.users[uKey];
+  if (!user) throw new Error('Player account not found.');
+  if (user.banned) throw new Error('Banned accounts cannot open cases.');
+
+  const caseObj = (BACKGROUND_CASES || []).find(c => c.id === caseId);
+  if (!caseObj) throw new Error('Invalid case selected.');
+
+  const price = Math.max(1, Math.round(Number(caseObj.price) || 0));
+  const currentCoins = Math.max(0, Math.round(Number(user.duelCoins) || 0));
+  if (currentCoins < price) {
+    throw new Error(`Not enough Duel Coins! Need ${price} 🪙 (you have ${currentCoins} 🪙). Play Ranked Duels to earn coins!`);
+  }
+
+  const allCaseItems = (BACKGROUND_SKINS || []).filter(b => b.caseId === caseId && (Number(b.weight) || 0) > 0);
+  if (allCaseItems.length === 0) throw new Error('No background skins configured in this case.');
+
+  const lockedList = Array.isArray(user.adminLockedSkins) ? user.adminLockedSkins : [];
+  const eligiblePool = allCaseItems.filter(b => !lockedList.includes(b.id));
+  const pool = eligiblePool.length > 0 ? eligiblePool : allCaseItems;
+
+  const wonItem = pickWeightedCaseItem(pool);
+  user.duelCoins = currentCoins - price;
+
+  if (!Array.isArray(user.unlockedBackgrounds)) user.unlockedBackgrounds = [];
+  if (!Array.isArray(user.grantedSkins)) user.grantedSkins = [];
+
+  const alreadyOwned = user.unlockedBackgrounds.includes(wonItem.id) || user.grantedSkins.includes(wonItem.id);
+  let refundCoins = 0;
+  if (alreadyOwned) {
+    refundCoins = Math.round(price * 0.5);
+    user.duelCoins += refundCoins;
+  } else if (!lockedList.includes(wonItem.id)) {
+    user.unlockedBackgrounds.push(wonItem.id);
+  }
+  user.cosmeticsVersion = (Number(user.cosmeticsVersion) || 0) + 1;
+
+  // Build 45-slot CS:GO-style weighted roulette strip with wonItem pinned cleanly at index 38
+  const WIN_INDEX = 38;
+  const TOTAL_SLOTS = 45;
+  const spinReel = [];
+  for (let i = 0; i < TOTAL_SLOTS; i++) {
+    const pick = (i === WIN_INDEX) ? wonItem : pickWeightedCaseItem(allCaseItems);
+    spinReel.push({
+      id: pick.id,
+      name: pick.name,
+      emoji: pick.emoji,
+      rarity: pick.rarity,
+      dropPct: pick.dropPct,
+      colors: pick.colors,
+      pattern: pick.pattern,
+      specialType: pick.specialType || null
+    });
+  }
+
+  const extraMsg = alreadyOwned
+    ? ` (duplicate -> +${refundCoins} 🪙 refund)`
+    : (wonItem.dropPct <= 1 ? ` 🎉 RARE ${wonItem.dropPct}% DROP!` : '');
+  logDatabaseEvent(
+    'CASE_OPENED',
+    user.username,
+    `📦 ${user.username} opened "${caseObj.name}" (${price} 🪙) and unboxed ${wonItem.emoji} ${wonItem.name} (${wonItem.dropPct}%)${extraMsg}`,
+    { caseId, price, wonId: wonItem.id, isDuplicate: alreadyOwned, refundCoins, newBalance: user.duelCoins }
+  );
+  saveDatabase(false);
+
+  return {
+    ok: true,
+    caseId: caseObj.id,
+    caseName: caseObj.name,
+    price,
+    wonItem: {
+      id: wonItem.id,
+      name: wonItem.name,
+      emoji: wonItem.emoji,
+      rarity: wonItem.rarity,
+      dropPct: wonItem.dropPct,
+      desc: wonItem.desc,
+      colors: wonItem.colors,
+      pattern: wonItem.pattern,
+      specialType: wonItem.specialType || null
+    },
+    isDuplicate: alreadyOwned,
+    refundCoins,
+    newBalance: Math.round(Number(user.duelCoins) || 0),
+    unlockedBackgrounds: user.unlockedBackgrounds,
+    spinReel,
+    winIndex: WIN_INDEX
+  };
+}
+
+/**
+ * Validates and persists a user's Custom Picture (`bg_custom_image`) or automatically
+ * sliced 15-frame Custom Video (`bg_custom_video`). Forces strict <= 15 frames server-side.
+ */
+function saveUserCustomBackgroundMedia(username, payload = {}) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  const user = db.users && db.users[uKey];
+  if (!user) throw new Error('Player account not found.');
+  if (user.banned) throw new Error('Banned accounts cannot upload custom backgrounds.');
+
+  const mediaType = payload.mediaType === 'video' ? 'video' : 'image';
+  const now = Date.now();
+  const validImageUrl = (s) => (
+    typeof s === 'string' &&
+    s.length >= 32 &&
+    s.length <= 750000 &&
+    /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(s)
+  );
+
+  if (mediaType === 'image') {
+    if (!isSkinUnlockedForUser('bg_custom_image', user)) {
+      throw new Error('You must unlock "Custom Picture Background" (1% drop in the 1000 🪙 Case) first!');
+    }
+    const img = payload.imageDataUrl;
+    if (!validImageUrl(img)) {
+      throw new Error('Invalid or oversized image file (must be compressed PNG/JPG/WebP under 550 KB).');
+    }
+    user.customBackgroundImage = img;
+    user.customBgUpdatedAt = now;
+    user.cosmeticsVersion = (Number(user.cosmeticsVersion) || 0) + 1;
+    if (payload.autoEquip !== false) {
+      user.selectedBackground = 'bg_custom_image';
+    }
+    logDatabaseEvent('CUSTOM_BG_UPLOAD', user.username, `🖼️ ${user.username} uploaded a Custom Picture Background!`);
+    saveDatabase(false);
+    return {
+      ok: true,
+      mediaType: 'image',
+      selectedBackground: user.selectedBackground,
+      customBackgroundImage: user.customBackgroundImage,
+      customBgUpdatedAt: user.customBgUpdatedAt
+    };
+  }
+
+  // Video -> strictly 1..15 pre-extracted frames so gameplay never lags
+  if (!isSkinUnlockedForUser('bg_custom_video', user)) {
+    throw new Error('You must unlock "Custom Video (15-Frame Loop)" (0.1% drop in the 1000 🪙 Case) first!');
+  }
+  if (!Array.isArray(payload.frames) || payload.frames.length === 0) {
+    throw new Error('Video frame extraction produced no frames. Please pick another video file.');
+  }
+  const cappedFrames = payload.frames.slice(0, 15).filter(f => validImageUrl(f));
+  if (cappedFrames.length === 0) {
+    throw new Error('Invalid video frame data received.');
+  }
+  const totalChars = cappedFrames.reduce((sum, f) => sum + f.length, 0);
+  if (totalChars > 2800000) {
+    throw new Error('Extracted 15-frame video exceeds maximum compressed size. Please try a shorter/smaller clip.');
+  }
+
+  user.customBackgroundVideo = {
+    frames: cappedFrames,
+    frameCount: cappedFrames.length,
+    fps: 7.5,
+    updatedAt: now
+  };
+  user.customBgUpdatedAt = now;
+  user.cosmeticsVersion = (Number(user.cosmeticsVersion) || 0) + 1;
+  if (payload.autoEquip !== false) {
+    user.selectedBackground = 'bg_custom_video';
+  }
+  logDatabaseEvent(
+    'CUSTOM_BG_UPLOAD',
+    user.username,
+    `🎬 ${user.username} uploaded a Custom Video Background (auto-cut to ${cappedFrames.length} lag-free frames)!`
+  );
+  saveDatabase(false);
+  return {
+    ok: true,
+    mediaType: 'video',
+    frameCount: cappedFrames.length,
+    selectedBackground: user.selectedBackground,
+    customBackgroundVideo: user.customBackgroundVideo,
+    customBgUpdatedAt: user.customBgUpdatedAt
+  };
+}
+
+function ensureBanRegistry() {
+  if (!db.banRegistry || typeof db.banRegistry !== 'object') {
+    db.banRegistry = { groups: {} };
+  }
+  if (!db.banRegistry.groups || typeof db.banRegistry.groups !== 'object') {
+    db.banRegistry.groups = {};
+  }
+  return db.banRegistry;
+}
+
+/**
+ * Checks if a request/client/account belongs to an active Ban Group
+ * (via HttpOnly ban token, accepted cookieId, persistent browser deviceId, or browser account history).
+ * Strictly exempts MeDonut Admin and ignores shared WiFi/IP or shared laptop hardware specs.
+ */
+function checkBanForSignals(clientInfo = {}, extraUsernameKey = null, reqBanToken = '') {
+  const cleanExtraKey = (typeof extraUsernameKey === 'string' && extraUsernameKey.trim())
+    ? extraUsernameKey.trim().toLowerCase()
+    : '';
+  if (cleanExtraKey === 'medonut') {
+    return { banned: false };
+  }
+
+  const registry = ensureBanRegistry();
+  const cookieId = typeof clientInfo.cookieId === 'string' ? clientInfo.cookieId.trim() : '';
+  const deviceId = typeof clientInfo.deviceId === 'string' ? clientInfo.deviceId.trim() : '';
+  const banToken = typeof reqBanToken === 'string' ? reqBanToken.trim() : '';
+  const known = Array.isArray(clientInfo.knownAccounts)
+    ? clientInfo.knownAccounts.map(n => String(n || '').trim().toLowerCase()).filter(k => k && k !== 'medonut')
+    : [];
+
+  // Direct account ban flag check
+  if (cleanExtraKey && db.users && db.users[cleanExtraKey] && db.users[cleanExtraKey].banned) {
+    const u = db.users[cleanExtraKey];
+    const bInfo = u.banInfo || {};
+    const grp = (bInfo.banId && registry.groups[bInfo.banId]) || null;
+    if (!grp || grp.active !== false) {
+      return {
+        banned: true,
+        matchedBy: 'account',
+        banId: bInfo.banId || (grp && grp.id) || 'banned',
+        banToken: (grp && Array.isArray(grp.banTokens) && grp.banTokens[0]) || '',
+        reason: bInfo.reason || (grp && grp.reason) || 'Banned by Administrator.',
+        bannedAt: bInfo.bannedAt || (grp && grp.bannedAt) || Date.now(),
+        readableAt: bInfo.readableAt || (grp && grp.readableAt) || '',
+        rootUsername: bInfo.rootUsername || u.username
+      };
+    }
+  }
+
+  for (const grp of Object.values(registry.groups)) {
+    if (!grp || grp.active === false) continue;
+    const gUsers = Array.isArray(grp.usernames) ? grp.usernames : [];
+    const gCookies = Array.isArray(grp.cookieIds) ? grp.cookieIds : [];
+    const gDevices = Array.isArray(grp.deviceIds) ? grp.deviceIds : [];
+    const gTokens = Array.isArray(grp.banTokens) ? grp.banTokens : [];
+
+    let matchedBy = '';
+    if (banToken && gTokens.includes(banToken)) matchedBy = 'ban_token';
+    else if (cookieId && gCookies.includes(cookieId)) matchedBy = 'cookie_id';
+    else if (deviceId && gDevices.includes(deviceId)) matchedBy = 'device_id';
+    else if (cleanExtraKey && gUsers.includes(cleanExtraKey)) matchedBy = 'account';
+    else if (known.some(k => gUsers.includes(k))) matchedBy = 'known_account_history';
+
+    if (matchedBy) {
+      let dirty = false;
+      if (cookieId && !gCookies.includes(cookieId)) {
+        grp.cookieIds.unshift(cookieId);
+        if (grp.cookieIds.length > 50) grp.cookieIds.length = 50;
+        dirty = true;
+      }
+      if (deviceId && !gDevices.includes(deviceId)) {
+        grp.deviceIds.unshift(deviceId);
+        if (grp.deviceIds.length > 50) grp.deviceIds.length = 50;
+        dirty = true;
+      }
+      if (dirty) saveDatabase(false);
+      return {
+        banned: true,
+        matchedBy,
+        banId: grp.id,
+        banToken: gTokens[0] || '',
+        reason: grp.reason || 'Banned by Administrator.',
+        bannedAt: grp.bannedAt || Date.now(),
+        readableAt: grp.readableAt || formatReadableTimestamp(grp.bannedAt || Date.now()),
+        rootUsername: grp.rootUsername || gUsers[0] || ''
+      };
+    }
+  }
+
+  return { banned: false };
+}
+
+/**
+ * Bans a player AND all their confirmed 80%+ alt accounts, plus records persistent browser/cookie/device identifiers
+ * to block evasion and prevent creating new accounts. Never affects MeDonut or unrelated schoolmates on same WiFi/PC specs.
+ */
+function banPlayerAndAltsAdmin(username, options = {}) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const rootKey = cleanName.toLowerCase();
+  if (!rootKey || !db.users || !db.users[rootKey]) {
+    throw new Error(`Player "${cleanName}" not found in database.`);
+  }
+  if (rootKey === 'medonut') {
+    throw new Error('Cannot ban the primary MeDonut admin account.');
+  }
+
+  const includeAlts = options.includeAlts !== false;
+  const reason = (typeof options.reason === 'string' && options.reason.trim())
+    ? options.reason.trim().slice(0, 160)
+    : 'Breaking game rules (banned by MeDonut)';
+
+  const targetUser = db.users[rootKey];
+  const targetKeys = new Set([rootKey]);
+  if (includeAlts) {
+    try {
+      const altRes = findAltAccountsForUser(targetUser.username);
+      if (altRes && Array.isArray(altRes.matches)) {
+        for (const m of altRes.matches) {
+          const mKey = String(m.usernameKey || m.username || '').toLowerCase();
+          if (mKey && mKey !== 'medonut' && db.users[mKey]) {
+            targetKeys.add(mKey);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  const registry = ensureBanRegistry();
+  const now = Date.now();
+  const readableAt = formatReadableTimestamp(now);
+  const banId = 'ban_' + crypto.randomBytes(6).toString('hex');
+  const banToken = 'bantok_' + crypto.randomBytes(16).toString('hex');
+
+  const cookieSet = new Set();
+  const deviceSet = new Set();
+  const bannedDisplayNames = [];
+
+  for (const uk of targetKeys) {
+    const u = db.users[uk];
+    if (!u || uk === 'medonut') continue;
+    u.banned = true;
+    u.banInfo = {
+      banId,
+      reason,
+      bannedAt: now,
+      readableAt,
+      bannedBy: 'MeDonut',
+      rootUsername: targetUser.username
+    };
+    bannedDisplayNames.push(u.username);
+    const cList = Array.isArray(u.cookieIds) ? u.cookieIds : (u.lastCookieId ? [u.lastCookieId] : []);
+    for (const c of cList) if (c) cookieSet.add(String(c));
+    const dList = Array.isArray(u.deviceIds) ? u.deviceIds : (u.lastDeviceId ? [u.lastDeviceId] : []);
+    for (const d of dList) if (d) deviceSet.add(String(d));
+  }
+
+  registry.groups[banId] = {
+    id: banId,
+    active: true,
+    rootUsername: targetUser.username,
+    reason,
+    bannedAt: now,
+    readableAt,
+    bannedBy: 'MeDonut',
+    usernames: Array.from(targetKeys),
+    cookieIds: Array.from(cookieSet).slice(0, 50),
+    deviceIds: Array.from(deviceSet).slice(0, 50),
+    banTokens: [banToken]
+  };
+
+  let kickedSessions = 0;
+  if (db.sessions && typeof db.sessions === 'object') {
+    for (const [tok, sess] of Object.entries(db.sessions)) {
+      const sKey = sess && (sess.usernameKey || sess.username || '').toLowerCase();
+      if (sKey && targetKeys.has(sKey)) {
+        delete db.sessions[tok];
+        kickedSessions++;
+      }
+    }
+  }
+
+  logDatabaseEvent(
+    'PLAYER_BANNED',
+    targetUser.username,
+    `🔨 MeDonut banned ${bannedDisplayNames.join(', ')} (${bannedDisplayNames.length} account${bannedDisplayNames.length === 1 ? '' : 's'} — blocks new account creation) • Reason: ${reason}`,
+    { banId, bannedUsernames: bannedDisplayNames, includeAlts, reason, kickedSessions }
+  );
+  saveDatabase(false);
+
+  return {
+    ok: true,
+    banId,
+    reason,
+    bannedUsernames: bannedDisplayNames,
+    kickedSessions
+  };
+}
+
+/**
+ * Unbans a player (and optionally all linked accounts in their ban group) so they and their browser can play again.
+ */
+function unbanPlayerAdmin(username, options = {}) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  if (!uKey || !db.users || !db.users[uKey]) {
+    throw new Error(`Player "${cleanName}" not found in database.`);
+  }
+
+  const includeAlts = options.includeAlts !== false;
+  const registry = ensureBanRegistry();
+  const matchedGroupIds = new Set();
+
+  if (db.users[uKey].banInfo && db.users[uKey].banInfo.banId) {
+    matchedGroupIds.add(db.users[uKey].banInfo.banId);
+  }
+  for (const [gid, grp] of Object.entries(registry.groups)) {
+    if (!grp || grp.active === false) continue;
+    if (Array.isArray(grp.usernames) && grp.usernames.includes(uKey)) {
+      matchedGroupIds.add(gid);
+    }
+  }
+
+  const unbanKeys = new Set([uKey]);
+  if (includeAlts) {
+    for (const gid of matchedGroupIds) {
+      const grp = registry.groups[gid];
+      if (grp && Array.isArray(grp.usernames)) {
+        grp.usernames.forEach(k => unbanKeys.add(String(k).toLowerCase()));
+      }
+    }
+    for (const [uk, u] of Object.entries(db.users)) {
+      if (u && u.banInfo && u.banInfo.banId && matchedGroupIds.has(u.banInfo.banId)) {
+        unbanKeys.add(uk);
+      }
+    }
+  }
+
+  const now = Date.now();
+  const unbannedNames = [];
+  for (const uk of unbanKeys) {
+    const u = db.users[uk];
+    if (!u) continue;
+    if (u.banned || uk === uKey) {
+      u.banned = false;
+      delete u.banInfo;
+      unbannedNames.push(u.username);
+    }
+  }
+
+  for (const gid of matchedGroupIds) {
+    const grp = registry.groups[gid];
+    if (!grp) continue;
+    if (includeAlts) {
+      grp.active = false;
+      grp.unbannedAt = now;
+    } else {
+      grp.usernames = (grp.usernames || []).filter(k => !unbanKeys.has(k));
+      if (grp.usernames.length === 0) {
+        grp.active = false;
+        grp.unbannedAt = now;
+      }
+    }
+  }
+
+  logDatabaseEvent(
+    'PLAYER_UNBANNED',
+    db.users[uKey].username,
+    `✅ MeDonut unbanned ${unbannedNames.join(', ')} (${unbannedNames.length} account${unbannedNames.length === 1 ? '' : 's'} restored)`,
+    { unbannedUsernames: unbannedNames, includeAlts }
+  );
+  saveDatabase(false);
+
+  return {
+    ok: true,
+    unbannedUsernames: unbannedNames
+  };
+}
+
+/**
+ * Ranks an account to select the best/most-played primary account in a cluster:
+ * 1) Higher weighted highscores (Easy 1x + Med 2x + Hard 3x) & highest single best
+ * 2) Higher Ranked Duel ELO
+ * 3) Most total playtime/activity (duel matches, career runs, login count)
+ */
+function scoreUserAccountPriority(user) {
+  if (!user) return 0;
+  const rec = user.records || {};
+  const e = Number(rec.easy) || 0;
+  const m = Number(rec.medium) || 0;
+  const h = Number(rec.hard) || 0;
+  const weightedHigh = e + m * 2 + h * 3;
+  const maxSingle = Math.max(e, m, h);
+  const elo = typeof user.duelElo === 'number' && !Number.isNaN(user.duelElo) ? user.duelElo : 1000;
+  const duelMatches = Number(user.duelMatches) || 0;
+  const careerRuns = Number(user.careerStats && user.careerStats.totalRuns) || 0;
+  const logins = Number(user.loginCount) || 0;
+  const playScore = duelMatches * 4 + careerRuns + logins;
+
+  return (weightedHigh * 1000000) + (maxSingle * 50000) + (elo * 100) + Math.min(99999, playScore);
+}
+
+function compareUserAccountsByPriority(a, b) {
+  const aIsAdmin = String(a.username || '').toLowerCase() === 'medonut';
+  const bIsAdmin = String(b.username || '').toLowerCase() === 'medonut';
+  if (aIsAdmin !== bIsAdmin) return aIsAdmin ? -1 : 1;
+
+  const aBan = Boolean(a.banned);
+  const bBan = Boolean(b.banned);
+  if (aBan !== bBan) return aBan ? 1 : -1;
+
+  const sDiff = scoreUserAccountPriority(b) - scoreUserAccountPriority(a);
+  if (sDiff !== 0) return sDiff;
+
+  const logDiff = (Number(b.lastLoginAt) || 0) - (Number(a.lastLoginAt) || 0);
+  if (logDiff !== 0) return logDiff;
+
+  return (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0);
+}
+
+function getDefaultMaxAccountsLimit() {
+  const raw = Number(db && db.adminSettings && db.adminSettings.defaultMaxAccounts);
+  return (Number.isFinite(raw) && raw >= 1) ? Math.min(50, Math.floor(raw)) : 5;
+}
+
+function resolveClusterEffectiveLimit(memberUsers) {
+  let chosenLimit = null;
+  let chosenUpdatedAt = -1;
+  for (const u of memberUsers) {
+    if (!u || typeof u.maxAccounts !== 'number' || !Number.isFinite(u.maxAccounts) || u.maxAccounts < 1) continue;
+    const updAt = Number(u.maxAccountsUpdatedAt) || 0;
+    if (updAt > chosenUpdatedAt || (updAt === chosenUpdatedAt && (chosenLimit === null || u.maxAccounts < chosenLimit))) {
+      chosenLimit = Math.min(50, Math.floor(u.maxAccounts));
+      chosenUpdatedAt = updAt;
+    }
+  }
+  return chosenLimit !== null ? chosenLimit : getDefaultMaxAccountsLimit();
+}
+
+function enforceAllClusterAccountLimits(forensicCtx = null) {
+  if (!db || !db.users || typeof db.users !== 'object') return;
+  const ctx = forensicCtx || buildAltForensicContext(db.users);
+  const clusters = new Map(); // clusterKey -> User[]
+
+  for (const [uKey, u] of Object.entries(db.users)) {
+    if (!u || !u.username) continue;
+    const low = String(u.username || uKey).toLowerCase();
+    const cid = ctx.browserClusterId ? ctx.browserClusterId.get(low) : null;
+    const cKey = cid ? `cluster_${cid}` : `single_${low}`;
+    if (!clusters.has(cKey)) clusters.set(cKey, []);
+    clusters.get(cKey).push(u);
+  }
+
+  const nowSuspendedKeys = new Set();
+  for (const members of clusters.values()) {
+    const nonAdmin = members.filter(m => String(m.username).toLowerCase() !== 'medonut');
+    const sortedAll = members.slice().sort(compareUserAccountsByPriority);
+    const sortedNonAdmin = nonAdmin.slice().sort(compareUserAccountsByPriority);
+    const effectiveLimit = resolveClusterEffectiveLimit(members);
+    const primaryUser = sortedNonAdmin[0] || sortedAll[0] || null;
+    const primaryName = primaryUser ? primaryUser.username : '';
+
+    for (const u of members) {
+      const low = String(u.username).toLowerCase();
+      if (low === 'medonut') {
+        u.overAccountLimit = false;
+        u.isPrimaryBestAccount = true;
+        u.primaryBestUsername = u.username;
+        u.clusterRank = 1;
+        u.clusterAccountCount = members.length;
+        u.effectiveMaxAccounts = effectiveLimit;
+        continue;
+      }
+      const rankIdx = sortedNonAdmin.indexOf(u);
+      const rank = rankIdx >= 0 ? (rankIdx + 1) : 1;
+      const isOver = rank > effectiveLimit;
+      u.overAccountLimit = isOver;
+      u.isPrimaryBestAccount = rank === 1;
+      u.primaryBestUsername = primaryName;
+      u.clusterRank = rank;
+      u.clusterAccountCount = nonAdmin.length;
+      u.effectiveMaxAccounts = effectiveLimit;
+      if (isOver) {
+        nowSuspendedKeys.add(low);
+      }
+    }
+  }
+
+  if (nowSuspendedKeys.size > 0 && db.sessions && typeof db.sessions === 'object') {
+    for (const [tok, sess] of Object.entries(db.sessions)) {
+      if (sess && sess.usernameKey && nowSuspendedKeys.has(String(sess.usernameKey).toLowerCase())) {
+        delete db.sessions[tok];
+      }
+    }
+  }
+}
+
+function getClusterUsersForClientSignals(clientInfo = {}, extraUserKeys = []) {
+  const ctx = buildAltForensicContext(db.users || {});
+  const matchedKeys = new Set();
+  const cCookie = String(clientInfo.cookieId || '').trim();
+  const cDevice = String(clientInfo.deviceId || '').trim();
+  const knownLower = new Set(
+    (Array.isArray(clientInfo.knownAccounts) ? clientInfo.knownAccounts : [])
+      .map(n => String(n || '').trim().toLowerCase())
+      .filter(Boolean)
+  );
+  for (const ek of (Array.isArray(extraUserKeys) ? extraUserKeys : [extraUserKeys])) {
+    if (ek) knownLower.add(String(ek).trim().toLowerCase());
+  }
+
+  for (const [uKey, u] of Object.entries(db.users || {})) {
+    if (!u || !u.username) continue;
+    const low = String(u.username || uKey).toLowerCase();
+    const uCookies = Array.isArray(u.cookieIds) ? u.cookieIds : (u.lastCookieId ? [u.lastCookieId] : []);
+    const uDevices = Array.isArray(u.deviceIds) ? u.deviceIds : (u.lastDeviceId ? [u.lastDeviceId] : []);
+    const uLinked = Array.isArray(u.linkedAccounts) ? u.linkedAccounts : [];
+    const hit =
+      (cCookie && uCookies.includes(cCookie)) ||
+      (cDevice && uDevices.includes(cDevice)) ||
+      knownLower.has(low) ||
+      uLinked.some(lk => knownLower.has(String(lk).toLowerCase()));
+    if (hit) matchedKeys.add(low);
+  }
+
+  // Transitively expand to whole linked cluster
+  const expanded = new Set(matchedKeys);
+  const seedClusters = new Set();
+  for (const k of matchedKeys) {
+    const cid = ctx.browserClusterId ? ctx.browserClusterId.get(k) : null;
+    if (cid) seedClusters.add(cid);
+  }
+  if (seedClusters.size > 0 && ctx.browserClusterId) {
+    for (const [uKey, cid] of ctx.browserClusterId.entries()) {
+      if (seedClusters.has(cid)) expanded.add(uKey);
+    }
+  }
+
+  const members = [];
+  for (const k of expanded) {
+    if (db.users[k]) members.push(db.users[k]);
+  }
+  members.sort(compareUserAccountsByPriority);
+  return members;
+}
+
+/**
+ * Checks if a browser/person is allowed to register another account under their Account Limit.
+ */
+function checkAccountRegistrationAllowance(clientInfo = {}) {
+  const members = getClusterUsersForClientSignals(clientInfo);
+  const nonAdminMembers = members.filter(u => u && String(u.username).toLowerCase() !== 'medonut');
+  const effectiveMaxAccounts = resolveClusterEffectiveLimit(members);
+  const currentCount = nonAdminMembers.length;
+  const primary = nonAdminMembers[0] || members[0] || null;
+
+  if (currentCount >= effectiveMaxAccounts) {
+    return {
+      allowed: false,
+      currentCount,
+      effectiveMaxAccounts,
+      primaryUsername: primary ? primary.username : ''
+    };
+  }
+  return {
+    allowed: true,
+    currentCount,
+    effectiveMaxAccounts,
+    inheritedLimit: members.some(u => typeof u.maxAccounts === 'number' && u.maxAccounts >= 1) ? effectiveMaxAccounts : null,
+    primaryUsername: primary ? primary.username : ''
+  };
+}
+
+/**
+ * Allows MeDonut Admin to change how many accounts a player / alt group is allowed to have,
+ * storing it in `db.json` and automatically keeping only the best/most-played N account(s) active.
+ */
+function adminSetUserAccountLimit(username, limitValue) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  const user = db.users && db.users[uKey];
+  if (!user) {
+    throw new Error(`Player "${cleanName}" not found in database.`);
+  }
+  if (uKey === 'medonut') {
+    throw new Error('MeDonut admin account limit cannot be restricted.');
+  }
+
+  const useDefault = limitValue === null || limitValue === undefined || limitValue === '' || String(limitValue).toLowerCase() === 'default';
+  const cleanLimit = useDefault ? null : Math.max(1, Math.min(50, Math.floor(Number(limitValue) || 1)));
+  const now = Date.now();
+
+  const ctx = buildAltForensicContext(db.users);
+  const cid = ctx.browserClusterId ? ctx.browserClusterId.get(uKey) : null;
+  const affectedUsers = [user];
+  if (cid && ctx.browserClusterId) {
+    for (const [k, otherCid] of ctx.browserClusterId.entries()) {
+      if (otherCid === cid && k !== uKey && db.users[k] && k !== 'medonut') {
+        affectedUsers.push(db.users[k]);
+      }
+    }
+  }
+
+  for (const au of affectedUsers) {
+    if (cleanLimit === null) {
+      delete au.maxAccounts;
+      au.maxAccountsUpdatedAt = now;
+    } else {
+      au.maxAccounts = cleanLimit;
+      au.maxAccountsUpdatedAt = now;
+    }
+  }
+
+  syncAndRebuildOverview();
+  enrichOverviewWithClientSignals();
+
+  const effLimit = Number(user.effectiveMaxAccounts) || getDefaultMaxAccountsLimit();
+  const overList = affectedUsers.filter(u => u.overAccountLimit).map(u => u.username);
+  logDatabaseEvent(
+    'ACCOUNT_LIMIT_UPDATED',
+    user.username,
+    `👥 MeDonut set account limit for ${user.username} (${affectedUsers.length} linked account(s)) to ${cleanLimit === null ? `Default (${effLimit})` : effLimit}${overList.length > 0 ? ` — kept best ${effLimit}, paused: ${overList.join(', ')}` : ''}`,
+    { username: user.username, maxAccounts: cleanLimit, effectiveMaxAccounts: effLimit, pausedAlts: overList }
+  );
+  saveDatabase(true);
+
+  return {
+    ok: true,
+    username: user.username,
+    maxAccounts: cleanLimit,
+    effectiveMaxAccounts: effLimit,
+    affectedUsernames: affectedUsers.map(u => u.username),
+    pausedAlts: overList,
+    primaryBestUsername: user.primaryBestUsername || user.username
+  };
+}
+
+/**
+ * Checks whether two Duel participants are the same user or linked alt accounts (80%+ cookie/device/history),
+ * strictly ignoring shared school Wi-Fi IP addresses and identical shared laptop hardware specs.
+ */
+function areUsersAltLinked(uKeyA, uKeyB, clientInfoA = null, clientInfoB = null) {
+  const kA = String(uKeyA || '').trim().toLowerCase();
+  const kB = String(uKeyB || '').trim().toLowerCase();
+  if (kA && kB && kA === kB) {
+    return { isAlt: true, reason: 'Same account cannot duel itself' };
+  }
+
+  const userA = kA && db.users ? db.users[kA] : null;
+  const userB = kB && db.users ? db.users[kB] : null;
+
+  if (userA && userB) {
+    const ctx = buildAltForensicContext(db.users);
+    const cA = ctx.browserClusterId ? ctx.browserClusterId.get(kA) : null;
+    const cB = ctx.browserClusterId ? ctx.browserClusterId.get(kB) : null;
+    if (cA && cB && cA === cB) {
+      return { isAlt: true, reason: 'Confirmed Alt Cluster (Cookie / Browser ID / Account History)' };
+    }
+  }
+
+  const collectSignals = (usr, info, selfKey) => {
+    const cookies = new Set(Array.isArray(usr && usr.cookieIds) ? usr.cookieIds : ((usr && usr.lastCookieId) ? [usr.lastCookieId] : []));
+    const devices = new Set(Array.isArray(usr && usr.deviceIds) ? usr.deviceIds : ((usr && usr.lastDeviceId) ? [usr.lastDeviceId] : []));
+    const known = new Set((Array.isArray(usr && usr.linkedAccounts) ? usr.linkedAccounts : []).map(x => String(x).toLowerCase()));
+    if (selfKey) known.add(selfKey);
+    if (info && info.cookieId) cookies.add(String(info.cookieId).trim());
+    if (info && info.deviceId) devices.add(String(info.deviceId).trim());
+    if (info && Array.isArray(info.knownAccounts)) {
+      info.knownAccounts.forEach(x => {
+        const clean = String(x || '').trim().toLowerCase();
+        if (clean) known.add(clean);
+      });
+    }
+    return { cookies, devices, known };
+  };
+
+  const sA = collectSignals(userA, clientInfoA, kA);
+  const sB = collectSignals(userB, clientInfoB, kB);
+
+  for (const ck of sA.cookies) {
+    if (ck && sB.cookies.has(ck)) {
+      return { isAlt: true, reason: 'Same Browser Cookie ID' };
+    }
+  }
+  for (const dev of sA.devices) {
+    if (dev && sB.devices.has(dev)) {
+      return { isAlt: true, reason: 'Same Browser Device ID' };
+    }
+  }
+  if ((kB && sA.known.has(kB)) || (kA && sB.known.has(kA))) {
+    return { isAlt: true, reason: 'Same Browser Account History' };
+  }
+  for (const acct of sA.known) {
+    if (acct && acct !== 'guestpilot' && sB.known.has(acct)) {
+      return { isAlt: true, reason: 'Shared Browser Known Accounts' };
+    }
+  }
+
+  return { isAlt: false, reason: '' };
+}
+
 loadDatabase(false);
 
 module.exports = {
@@ -2730,6 +3827,12 @@ module.exports = {
   pruneBackups,
   isSkinUnlockedForUser,
   isSkinNaturallyUnlockedForUser,
+  mergeUserProgressionData,
+  openBackgroundCaseForUser,
+  saveUserCustomBackgroundMedia,
+  checkBanForSignals,
+  banPlayerAndAltsAdmin,
+  unbanPlayerAdmin,
   getChatMessages,
   addChatMessage,
   calculateDuelEloUpdate,
@@ -2740,5 +3843,9 @@ module.exports = {
   trackUserClientSignals,
   enrichOverviewWithClientSignals,
   findAltAccountsForUser,
-  deletePlayerAccountAdmin
+  deletePlayerAccountAdmin,
+  scoreUserAccountPriority,
+  checkAccountRegistrationAllowance,
+  adminSetUserAccountLimit,
+  areUsersAltLinked
 };

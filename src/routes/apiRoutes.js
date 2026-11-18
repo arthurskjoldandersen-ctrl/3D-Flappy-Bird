@@ -32,6 +32,12 @@ const {
   resetAllRecordsAdmin,
   formatReadableTimestamp,
   isSkinUnlockedForUser,
+  mergeUserProgressionData,
+  openBackgroundCaseForUser,
+  saveUserCustomBackgroundMedia,
+  checkBanForSignals,
+  banPlayerAndAltsAdmin,
+  unbanPlayerAdmin,
   isWithinDanishWindow,
   getChatMessages,
   addChatMessage,
@@ -41,8 +47,12 @@ const {
   buildDuelRankedLeaderboard,
   buildDuelHighScoreLeaderboard,
   trackUserClientSignals,
+  enrichOverviewWithClientSignals,
   findAltAccountsForUser,
-  deletePlayerAccountAdmin
+  deletePlayerAccountAdmin,
+  checkAccountRegistrationAllowance,
+  adminSetUserAccountLimit,
+  areUsersAltLinked
 } = require('../services/database');
 
 function parseCookies(req) {
@@ -62,6 +72,15 @@ function parseCookies(req) {
     }
   });
   return cookies;
+}
+
+function buildBanSetCookie(banToken) {
+  if (!banToken) return '';
+  return `f3d_ban=${encodeURIComponent(banToken)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax`;
+}
+
+function buildClearBanCookie() {
+  return 'f3d_ban=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax';
 }
 
 function buildUserAccountSetCookies(req, usernameKey = null, bodyKnown = null, forceIssueUid = false) {
@@ -105,6 +124,7 @@ function extractClientInfo(req) {
   const hdrDeviceId = String(hdrs['x-device-id'] || '').trim();
   const deviceId = hdrDeviceId || cookieId;
   const fingerprint = String(hdrs['x-device-fingerprint'] || '').trim();
+  const banToken = String(hdrs['x-ban-token'] || cookies.f3d_ban || '').trim().slice(0, 100);
   const knownSet = new Set();
   const addKnown = (val) => {
     const clean = String(val || '').trim();
@@ -113,7 +133,7 @@ function extractClientInfo(req) {
   if (hdrs['x-known-accounts']) String(hdrs['x-known-accounts']).split(',').forEach(addKnown);
   if (cookies.f3d_accts) String(cookies.f3d_accts).split(',').forEach(addKnown);
   const knownAccounts = Array.from(knownSet).slice(0, 20);
-  return { ip, deviceId, cookieId, cookieAccepted, fingerprint, knownAccounts };
+  return { ip, deviceId, cookieId, cookieAccepted, fingerprint, banToken, knownAccounts };
 }
 
 let BIRD_SKINS_LIST = [];
@@ -151,7 +171,7 @@ function recomputeDuelPlayerPoints(p) {
   return p.totalPoints;
 }
 
-function createDuelPlayerSlot(identity, slotId) {
+function createDuelPlayerSlot(identity, slotId, clientInfo = null) {
   const now = Date.now();
   return {
     slotId: String(slotId || identity.clientId || identity.usernameKey || crypto.randomBytes(6).toString('hex')),
@@ -161,6 +181,11 @@ function createDuelPlayerSlot(identity, slotId) {
     selectedSkin: identity.selectedSkin || 'classic',
     selectedPipeSkin: identity.selectedPipeSkin || 'classic_pipe',
     avatarSkinId: identity.avatarSkinId || identity.selectedSkin || 'classic',
+    clientSignals: clientInfo ? {
+      cookieId: String(clientInfo.cookieId || ''),
+      deviceId: String(clientInfo.deviceId || ''),
+      knownAccounts: Array.isArray(clientInfo.knownAccounts) ? clientInfo.knownAccounts.slice(0, 20) : []
+    } : null,
     lastHeartbeat: now,
     rounds: {
       easy: { rawScore: 0, weightedScore: 0, multiplier: 1, finished: false },
@@ -241,7 +266,8 @@ function finalizeDuelLobbyMatch(lobby) {
   } else if (p1.usernameKey !== p2.usernameKey) {
     eloRes = recordDuelMatchResult(p1.username, p2.username, p1.totalPoints, p2.totalPoints, {
       roundsA: p1.rounds,
-      roundsB: p2.rounds
+      roundsB: p2.rounds,
+      isFriendly: Boolean(lobby.isFriendly)
     });
   } else {
     eloRes = calculateDuelEloUpdate(p1.elo, p2.elo, p1.totalPoints, p2.totalPoints);
@@ -727,12 +753,12 @@ function sendJSON(res, statusCode, payload, setCookies = null) {
   res.end(body);
 }
 
-function readJsonBody(req) {
+function readJsonBody(req, maxBytes = 512 * 1024) {
   return new Promise((resolve, reject) => {
     let raw = '';
     req.on('data', chunk => {
       raw += chunk;
-      if (raw.length > 512 * 1024) {
+      if (raw.length > maxBytes) {
         reject(new Error('Payload too large'));
         req.destroy();
       }
@@ -759,7 +785,7 @@ function getPermanentMeDonutToken(db) {
     .slice(0, 48);
 }
 
-function getAuthenticatedUser(req) {
+function getSessionUserEvenIfBanned(req) {
   const db = getDb();
   let token = '';
   const authHeader = req.headers['authorization'] || '';
@@ -784,8 +810,42 @@ function getAuthenticatedUser(req) {
   if (!session) return null;
   const user = db.users[session.usernameKey];
   if (!user) return null;
-  trackUserClientSignals(user, extractClientInfo(req), true);
   return { token, user, usernameKey: session.usernameKey };
+}
+
+function getAuthenticatedUser(req) {
+  const sess = getSessionUserEvenIfBanned(req);
+  if (!sess || !sess.user || sess.user.banned || sess.user.overAccountLimit) return null;
+  trackUserClientSignals(sess.user, extractClientInfo(req), true);
+  return sess;
+}
+
+function getRequestBanStatus(req, extraUsernameKey = null) {
+  const sess = getSessionUserEvenIfBanned(req);
+  if (sess && sess.usernameKey === 'medonut') {
+    return { banned: false };
+  }
+  const clientInfo = extractClientInfo(req);
+  const checkKey = extraUsernameKey || (sess ? sess.usernameKey : null);
+  return checkBanForSignals(clientInfo, checkKey, clientInfo.banToken);
+}
+
+function sendBanRejection(req, res, banStatus, customError = null) {
+  const setCookies = [];
+  if (banStatus && banStatus.banToken) {
+    const c = buildBanSetCookie(banStatus.banToken);
+    if (c) setCookies.push(c);
+  }
+  return sendJSON(res, 403, {
+    banned: true,
+    banId: (banStatus && banStatus.banId) || 'banned',
+    banToken: (banStatus && banStatus.banToken) || '',
+    banReason: (banStatus && banStatus.reason) || 'Banned by Administrator.',
+    bannedAt: (banStatus && banStatus.bannedAt) || Date.now(),
+    readableAt: (banStatus && banStatus.readableAt) || '',
+    rootUsername: (banStatus && banStatus.rootUsername) || '',
+    error: customError || `⛔ You are banned from this server (${(banStatus && banStatus.reason) || 'Rule violation'}).`
+  }, setCookies);
 }
 
 function isMeDonutAdmin(req) {
@@ -819,6 +879,36 @@ function getLocalAddresses() {
     }
   }
   return addresses;
+}
+
+function formatClientUserPayload(u) {
+  return {
+    username: u.username,
+    selectedSkin: u.selectedSkin || 'classic',
+    selectedPipeSkin: u.selectedPipeSkin || 'classic_pipe',
+    selectedBackground: u.selectedBackground || 'bg_classic',
+    cosmeticsVersion: Number(u.cosmeticsVersion) || 0,
+    unlockedBackgrounds: Array.isArray(u.unlockedBackgrounds) ? u.unlockedBackgrounds : [],
+    customBackgroundImage: u.customBackgroundImage || null,
+    customBackgroundVideo: u.customBackgroundVideo || null,
+    customBgUpdatedAt: Number(u.customBgUpdatedAt) || 0,
+    avatarSkinId: u.avatarSkinId || u.selectedSkin || 'classic',
+    grantedSkins: u.grantedSkins || [],
+    adminLockedSkins: u.adminLockedSkins || [],
+    maxAccounts: (typeof u.maxAccounts === 'number' && u.maxAccounts >= 1) ? u.maxAccounts : null,
+    effectiveMaxAccounts: Number(u.effectiveMaxAccounts) || 5,
+    overAccountLimit: Boolean(u.overAccountLimit),
+    isPrimaryBestAccount: u.isPrimaryBestAccount !== undefined ? Boolean(u.isPrimaryBestAccount) : true,
+    primaryBestUsername: u.primaryBestUsername || u.username,
+    duelElo: typeof u.duelElo === 'number' ? u.duelElo : 1000,
+    duelWins: u.duelWins || 0,
+    duelLosses: u.duelLosses || 0,
+    duelMatches: u.duelMatches || 0,
+    duelCoins: Math.round(Number(u.duelCoins) || 0),
+    records: u.records,
+    trollQuests: u.trollQuests || null,
+    careerStats: u.careerStats || null
+  };
 }
 
 function processVerifiedRunSubmission(user, diffKey, verifiedScore) {
@@ -1100,24 +1190,84 @@ async function handleApiRequest(req, res, pathname, port) {
   const query = Object.fromEntries(parsedUrl.searchParams.entries());
   parsedUrl.query = query;
 
+  // Global Ban Gate: Block banned users, banned alts, and banned browsers across gameplay & APIs
+  const banCheckExemptPaths = new Set([
+    '/api/server-info',
+    '/api/cookies/accept',
+    '/api/ban-status',
+    '/api/logout',
+    '/api/register',
+    '/api/login'
+  ]);
+  if (!pathname.startsWith('/api/database') && !banCheckExemptPaths.has(pathname)) {
+    const reqBan = getRequestBanStatus(req);
+    if (reqBan.banned) {
+      return sendBanRejection(req, res, reqBan);
+    }
+  }
+
   // 1. Server Info & Healthcheck (Used by Render healthCheckPath)
   if (req.method === 'GET' && pathname === '/api/server-info') {
+    const sess = getSessionUserEvenIfBanned(req);
+    const banStatus = getRequestBanStatus(req, sess ? sess.usernameKey : null);
+    const reqCookies = parseCookies(req);
+    const setCookies = [];
+    if (banStatus.banned && banStatus.banToken) {
+      const bc = buildBanSetCookie(banStatus.banToken);
+      if (bc) setCookies.push(bc);
+    } else if (!banStatus.banned && reqCookies.f3d_ban) {
+      setCookies.push(buildClearBanCookie());
+    }
     return sendJSON(res, 200, {
       status: 'ok',
       port,
       lanAddresses: getLocalAddresses(),
       difficulties: SIM_CONFIG.difficulties,
       databaseStatus: db.databaseStatus,
+      banned: Boolean(banStatus.banned),
+      banInfo: banStatus.banned ? {
+        banId: banStatus.banId,
+        banToken: banStatus.banToken,
+        banReason: banStatus.reason,
+        bannedAt: banStatus.bannedAt,
+        readableAt: banStatus.readableAt,
+        rootUsername: banStatus.rootUsername
+      } : null,
       adminSettings: {
         blockDuelEloGapOver150: Boolean(db.adminSettings && db.adminSettings.blockDuelEloGapOver150)
       }
-    });
+    }, setCookies);
+  }
+
+  if (req.method === 'GET' && pathname === '/api/ban-status') {
+    const sess = getSessionUserEvenIfBanned(req);
+    const banStatus = getRequestBanStatus(req, sess ? sess.usernameKey : null);
+    const reqCookies = parseCookies(req);
+    const setCookies = [];
+    if (banStatus.banned && banStatus.banToken) {
+      const bc = buildBanSetCookie(banStatus.banToken);
+      if (bc) setCookies.push(bc);
+    } else if (!banStatus.banned && reqCookies.f3d_ban) {
+      setCookies.push(buildClearBanCookie());
+    }
+    return sendJSON(res, 200, {
+      banned: Boolean(banStatus.banned),
+      banInfo: banStatus.banned ? {
+        banId: banStatus.banId,
+        banToken: banStatus.banToken,
+        banReason: banStatus.reason,
+        bannedAt: banStatus.bannedAt,
+        readableAt: banStatus.readableAt,
+        rootUsername: banStatus.rootUsername
+      } : null
+    }, setCookies);
   }
 
   // 1b. Persistent Identification Cookie Acceptance Gate (helps accurately verify player accounts)
   if (req.method === 'POST' && pathname === '/api/cookies/accept') {
     const body = await readJsonBody(req).catch(() => ({}));
-    const auth = getAuthenticatedUser(req);
+    const sess = getSessionUserEvenIfBanned(req);
+    const auth = (sess && sess.user && !sess.user.banned) ? sess : null;
     const setCookies = buildUserAccountSetCookies(
       req,
       auth ? auth.usernameKey : null,
@@ -1139,7 +1289,28 @@ async function handleApiRequest(req, res, pathname, port) {
       if (parsedUid) info.cookieId = parsedUid;
       trackUserClientSignals(auth.user, info, true);
     }
-    return sendJSON(res, 200, { ok: true, cookieAccepted: true, cookieId: parsedUid }, setCookies);
+    const banStatus = getRequestBanStatus(req, sess ? sess.usernameKey : null);
+    const reqCookies = parseCookies(req);
+    if (banStatus.banned && banStatus.banToken) {
+      const bc = buildBanSetCookie(banStatus.banToken);
+      if (bc) setCookies.push(bc);
+    } else if (!banStatus.banned && reqCookies.f3d_ban) {
+      setCookies.push(buildClearBanCookie());
+    }
+    return sendJSON(res, 200, {
+      ok: true,
+      cookieAccepted: true,
+      cookieId: parsedUid,
+      banned: Boolean(banStatus.banned),
+      banInfo: banStatus.banned ? {
+        banId: banStatus.banId,
+        banToken: banStatus.banToken,
+        banReason: banStatus.reason,
+        bannedAt: banStatus.bannedAt,
+        readableAt: banStatus.readableAt,
+        rootUsername: banStatus.rootUsername
+      } : null
+    }, setCookies);
   }
 
   // 2. Register Account
@@ -1162,9 +1333,45 @@ async function handleApiRequest(req, res, pathname, port) {
     }
 
     const usernameKey = cleanName.toLowerCase();
+    const regBan = getRequestBanStatus(req, usernameKey);
+    if (regBan.banned) {
+      logDatabaseEvent(
+        'BAN_EVASION_BLOCKED',
+        cleanName,
+        `🛡️ Blocked banned player (${regBan.rootUsername || 'banned user'}) from registering new account "${cleanName}"`,
+        { banId: regBan.banId, matchedBy: regBan.matchedBy }
+      );
+      saveDatabase(false);
+      return sendBanRejection(
+        req,
+        res,
+        regBan,
+        `⛔ You are banned from this server (${regBan.reason}) and cannot create a new account.`
+      );
+    }
+
     if (db.users[usernameKey]) {
       return sendJSON(res, 409, {
         error: 'That username is already taken. Try logging in or pick another name!'
+      });
+    }
+
+    const regSignals = extractClientInfo(req);
+    const allowance = checkAccountRegistrationAllowance(regSignals);
+    if (!allowance.allowed) {
+      logDatabaseEvent(
+        'ACCOUNT_LIMIT_BLOCKED',
+        cleanName,
+        `🛡️ Blocked new account "${cleanName}" — account limit reached (${allowance.currentCount}/${allowance.effectiveMaxAccounts}, Best: ${allowance.primaryUsername || 'None'})`,
+        { ...allowance }
+      );
+      saveDatabase(false);
+      return sendJSON(res, 403, {
+        error: `⛔ Account Limit Reached (max ${allowance.effectiveMaxAccounts} account${allowance.effectiveMaxAccounts === 1 ? '' : 's'}). Please log in to your best/main account "${allowance.primaryUsername}", or ask MeDonut to adjust your account limit.`,
+        accountLimitReached: true,
+        effectiveMaxAccounts: allowance.effectiveMaxAccounts,
+        currentCount: allowance.currentCount,
+        primaryUsername: allowance.primaryUsername
       });
     }
 
@@ -1190,8 +1397,12 @@ async function handleApiRequest(req, res, pathname, port) {
       lastNewBestText: 'Account created — no personal best set yet',
       selectedSkin: 'classic',
       selectedPipeSkin: 'classic_pipe',
+      selectedBackground: 'bg_classic',
+      cosmeticsVersion: 1,
+      unlockedBackgrounds: [],
       grantedSkins: [],
       adminLockedSkins: [],
+      ...(allowance.inheritedLimit !== null ? { maxAccounts: allowance.inheritedLimit, maxAccountsUpdatedAt: now } : {}),
       duelElo: 1000,
       duelWins: 0,
       duelLosses: 0,
@@ -1219,19 +1430,7 @@ async function handleApiRequest(req, res, pathname, port) {
     const regSetCookies = buildUserAccountSetCookies(req, usernameKey);
     return sendJSON(res, 201, {
       token,
-      user: {
-        username: cleanName,
-        selectedSkin: 'classic',
-        selectedPipeSkin: 'classic_pipe',
-        grantedSkins: db.users[usernameKey].grantedSkins || [],
-        adminLockedSkins: db.users[usernameKey].adminLockedSkins || [],
-        duelElo: db.users[usernameKey].duelElo || 1000,
-        duelWins: db.users[usernameKey].duelWins || 0,
-        duelLosses: db.users[usernameKey].duelLosses || 0,
-        duelMatches: db.users[usernameKey].duelMatches || 0,
-        duelCoins: Math.round(Number(db.users[usernameKey].duelCoins) || 0),
-        records: db.users[usernameKey].records
-      },
+      user: formatClientUserPayload(db.users[usernameKey]),
       leaderboards: buildLeaderboards(),
       timeframeLeaderboards: {
         all: buildLeaderboards(100, 'all'),
@@ -1263,29 +1462,53 @@ async function handleApiRequest(req, res, pathname, port) {
       return sendJSON(res, 401, { error: 'Incorrect password.' });
     }
 
+    if (usernameKey !== 'medonut') {
+      const loginBan = getRequestBanStatus(req, usernameKey);
+      if (loginBan.banned) {
+        logDatabaseEvent(
+          'BAN_EVASION_BLOCKED',
+          user.username,
+          `🛡️ Blocked banned login attempt for "${user.username}" (${loginBan.matchedBy})`,
+          { banId: loginBan.banId, matchedBy: loginBan.matchedBy }
+        );
+        saveDatabase(false);
+        return sendBanRejection(req, res, loginBan);
+      }
+      trackUserClientSignals(user, extractClientInfo(req), false);
+      enrichOverviewWithClientSignals();
+      if (user.overAccountLimit) {
+        logDatabaseEvent(
+          'ACCOUNT_LIMIT_LOGIN_BLOCKED',
+          user.username,
+          `⏸️ Blocked login for excess alt "${user.username}" (${user.clusterRank}/${user.effectiveMaxAccounts}; best account: ${user.primaryBestUsername})`,
+          { primaryUsername: user.primaryBestUsername, effectiveMaxAccounts: user.effectiveMaxAccounts }
+        );
+        saveDatabase(false);
+        return sendJSON(res, 403, {
+          error: `⛔ Account Limit Reached (max ${user.effectiveMaxAccounts || 5}). Please log in to your best/main account "${user.primaryBestUsername || ''}", or ask MeDonut to raise your account limit.`,
+          overAccountLimit: true,
+          effectiveMaxAccounts: user.effectiveMaxAccounts || 5,
+          primaryUsername: user.primaryBestUsername || ''
+        });
+      }
+    }
+
     const token = usernameKey === 'medonut'
       ? (getPermanentMeDonutToken(db) || crypto.randomBytes(24).toString('hex'))
       : crypto.randomBytes(24).toString('hex');
     db.sessions[token] = { usernameKey, username: user.username, createdAt: Date.now() };
-    trackUserClientSignals(user, extractClientInfo(req), false);
+    if (usernameKey === 'medonut') {
+      trackUserClientSignals(user, extractClientInfo(req), false);
+    }
     recordUserLogin(user, 'password');
 
     const loginSetCookies = buildUserAccountSetCookies(req, usernameKey);
+    if (parseCookies(req).f3d_ban) {
+      loginSetCookies.push(buildClearBanCookie());
+    }
     return sendJSON(res, 200, {
       token,
-      user: {
-        username: user.username,
-        selectedSkin: user.selectedSkin || 'classic',
-        selectedPipeSkin: user.selectedPipeSkin || 'classic_pipe',
-        grantedSkins: user.grantedSkins || [],
-        adminLockedSkins: user.adminLockedSkins || [],
-        duelElo: typeof user.duelElo === 'number' ? user.duelElo : 1000,
-        duelWins: user.duelWins || 0,
-        duelLosses: user.duelLosses || 0,
-        duelMatches: user.duelMatches || 0,
-        duelCoins: Math.round(Number(user.duelCoins) || 0),
-        records: user.records
-      },
+      user: formatClientUserPayload(user),
       leaderboards: buildLeaderboards(),
       timeframeLeaderboards: {
         all: buildLeaderboards(100, 'all'),
@@ -1314,20 +1537,7 @@ async function handleApiRequest(req, res, pathname, port) {
       return sendJSON(res, 401, { error: 'Not authenticated' });
     }
     return sendJSON(res, 200, {
-      user: {
-        username: auth.user.username,
-        selectedSkin: auth.user.selectedSkin || 'classic',
-        selectedPipeSkin: auth.user.selectedPipeSkin || 'classic_pipe',
-        avatarSkinId: auth.user.avatarSkinId || auth.user.selectedSkin || 'classic',
-        grantedSkins: auth.user.grantedSkins || [],
-        adminLockedSkins: auth.user.adminLockedSkins || [],
-        duelElo: typeof auth.user.duelElo === 'number' ? auth.user.duelElo : 1000,
-        duelWins: auth.user.duelWins || 0,
-        duelLosses: auth.user.duelLosses || 0,
-        duelMatches: auth.user.duelMatches || 0,
-        duelCoins: Math.round(Number(auth.user.duelCoins) || 0),
-        records: auth.user.records
-      },
+      user: formatClientUserPayload(auth.user),
       leaderboards: buildLeaderboards(),
       timeframeLeaderboards: {
         all: buildLeaderboards(100, 'all'),
@@ -1338,42 +1548,123 @@ async function handleApiRequest(req, res, pathname, port) {
     });
   }
 
-  // 7. Save Equipped Bird Skin & Pipe Skin
+  // 7. Save Equipped Bird Skin, Pipe Skin & Background Skin
   if (req.method === 'POST' && pathname === '/api/skin') {
     const auth = getAuthenticatedUser(req);
     if (!auth) {
       return sendJSON(res, 401, { error: 'Not authenticated' });
     }
-    const { skinId, pipeSkinId, avatarSkinId } = await readJsonBody(req);
+    const body = await readJsonBody(req);
+    const { skinId, pipeSkinId, backgroundSkinId, avatarSkinId, progression } = body;
+    if (progression && typeof progression === 'object') {
+      mergeUserProgressionData(auth.user, progression, false);
+    }
     const lockedSkins = auth.user.adminLockedSkins || [];
 
     if (typeof skinId === 'string' && skinId.length <= 40) {
-      if (lockedSkins.includes(skinId)) {
-        return sendJSON(res, 403, { error: `The skin "${skinId}" has been locked by Administrator and cannot be equipped.` });
+      const cleanSkinId = skinId.trim();
+      if (lockedSkins.includes(cleanSkinId)) {
+        return sendJSON(res, 403, { error: `The skin "${cleanSkinId}" has been locked by Administrator and cannot be equipped.` });
       }
-      if (!isSkinUnlockedForUser(skinId, auth.user)) {
-        return sendJSON(res, 403, { error: `The skin "${skinId}" is locked and cannot be equipped.` });
+      if (!isSkinUnlockedForUser(cleanSkinId, auth.user)) {
+        return sendJSON(res, 403, { error: `The skin "${cleanSkinId}" is locked and cannot be equipped.` });
       }
-      auth.user.selectedSkin = skinId;
+      auth.user.selectedSkin = cleanSkinId;
     }
     if (typeof pipeSkinId === 'string' && pipeSkinId.length <= 40) {
-      if (lockedSkins.includes(pipeSkinId)) {
-        return sendJSON(res, 403, { error: `The pipe skin "${pipeSkinId}" has been locked by Administrator and cannot be equipped.` });
+      const cleanPipeId = pipeSkinId.trim();
+      if (lockedSkins.includes(cleanPipeId)) {
+        return sendJSON(res, 403, { error: `The pipe skin "${cleanPipeId}" has been locked by Administrator and cannot be equipped.` });
       }
-      if (!isSkinUnlockedForUser(pipeSkinId, auth.user)) {
-        return sendJSON(res, 403, { error: `The pipe skin "${pipeSkinId}" is locked and cannot be equipped.` });
+      if (!isSkinUnlockedForUser(cleanPipeId, auth.user)) {
+        return sendJSON(res, 403, { error: `The pipe skin "${cleanPipeId}" is locked and cannot be equipped.` });
       }
-      auth.user.selectedPipeSkin = pipeSkinId;
+      auth.user.selectedPipeSkin = cleanPipeId;
+    }
+    if (typeof backgroundSkinId === 'string' && backgroundSkinId.length <= 48) {
+      const cleanBgId = backgroundSkinId.trim();
+      if (lockedSkins.includes(cleanBgId)) {
+        return sendJSON(res, 403, { error: `The background "${cleanBgId}" has been locked by Administrator and cannot be equipped.` });
+      }
+      if (!isSkinUnlockedForUser(cleanBgId, auth.user)) {
+        return sendJSON(res, 403, { error: `The background "${cleanBgId}" is locked — open Cases in the Duel Coins Shop or get an Admin grant to unlock it.` });
+      }
+      auth.user.selectedBackground = cleanBgId;
     }
     if (typeof avatarSkinId === 'string' && avatarSkinId.length <= 40) {
-      auth.user.avatarSkinId = avatarSkinId;
+      auth.user.avatarSkinId = avatarSkinId.trim();
     }
+    auth.user.cosmeticsVersion = (Number(auth.user.cosmeticsVersion) || 0) + 1;
     saveDatabase();
     return sendJSON(res, 200, {
       ok: true,
+      cosmeticsVersion: auth.user.cosmeticsVersion,
       selectedSkin: auth.user.selectedSkin || 'classic',
       selectedPipeSkin: auth.user.selectedPipeSkin || 'classic_pipe',
-      avatarSkinId: auth.user.avatarSkinId || auth.user.selectedSkin || 'classic'
+      selectedBackground: auth.user.selectedBackground || 'bg_classic',
+      unlockedBackgrounds: Array.isArray(auth.user.unlockedBackgrounds) ? auth.user.unlockedBackgrounds : [],
+      avatarSkinId: auth.user.avatarSkinId || auth.user.selectedSkin || 'classic',
+      trollQuests: auth.user.trollQuests || null,
+      careerStats: auth.user.careerStats || null
+    });
+  }
+
+  // 7a. Open Duel Coins Background Case (250 / 500 / 1000 coins)
+  if (req.method === 'POST' && pathname === '/api/shop/open-case') {
+    const auth = getAuthenticatedUser(req);
+    if (!auth) {
+      return sendJSON(res, 401, { error: 'Please log in to open Duel Coins Cases!' });
+    }
+    const { caseId } = await readJsonBody(req);
+    try {
+      const result = openBackgroundCaseForUser(auth.user.username, String(caseId || '').trim());
+      return sendJSON(res, 200, result);
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  // 7aa. Upload / Fetch Custom Picture (`1%`) or 15-Frame Video (`0.1%`) Background
+  if (req.method === 'POST' && pathname === '/api/user/background-media') {
+    const auth = getAuthenticatedUser(req);
+    if (!auth) {
+      return sendJSON(res, 401, { error: 'Please log in to upload custom background media!' });
+    }
+    try {
+      const body = await readJsonBody(req, 3 * 1024 * 1024);
+      const result = saveUserCustomBackgroundMedia(auth.user.username, body);
+      return sendJSON(res, 200, result);
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/user/background-media') {
+    const auth = getAuthenticatedUser(req);
+    if (!auth) {
+      return sendJSON(res, 401, { error: 'Not authenticated' });
+    }
+    return sendJSON(res, 200, {
+      ok: true,
+      selectedBackground: auth.user.selectedBackground || 'bg_classic',
+      customBackgroundImage: auth.user.customBackgroundImage || null,
+      customBackgroundVideo: auth.user.customBackgroundVideo || null,
+      customBgUpdatedAt: Number(auth.user.customBgUpdatedAt) || 0
+    });
+  }
+
+  // 7a. Sync Meme & Pokémon Quest Progression across devices
+  if (req.method === 'POST' && pathname === '/api/user/quests-sync') {
+    const auth = getAuthenticatedUser(req);
+    if (!auth) {
+      return sendJSON(res, 401, { error: 'Not authenticated' });
+    }
+    const body = await readJsonBody(req);
+    mergeUserProgressionData(auth.user, body, true);
+    return sendJSON(res, 200, {
+      ok: true,
+      trollQuests: auth.user.trollQuests || null,
+      careerStats: auth.user.careerStats || null
     });
   }
 
@@ -1560,11 +1851,16 @@ async function handleApiRequest(req, res, pathname, port) {
         username: auth.user.username,
         selectedSkin: auth.user.selectedSkin || 'classic',
         selectedPipeSkin: auth.user.selectedPipeSkin || 'classic_pipe',
+        selectedBackground: auth.user.selectedBackground || 'bg_classic',
+        cosmeticsVersion: Number(auth.user.cosmeticsVersion) || 0,
+        unlockedBackgrounds: Array.isArray(auth.user.unlockedBackgrounds) ? auth.user.unlockedBackgrounds : [],
+        customBgUpdatedAt: Number(auth.user.customBgUpdatedAt) || 0,
         grantedSkins: Array.isArray(auth.user.grantedSkins) ? auth.user.grantedSkins : [],
         adminLockedSkins: Array.isArray(auth.user.adminLockedSkins) ? auth.user.adminLockedSkins : [],
         duelCoins: Math.round(Number(auth.user.duelCoins) || 0),
         duelElo: typeof auth.user.duelElo === 'number' ? auth.user.duelElo : 1000,
-        records: auth.user.records || {}
+        records: auth.user.records || {},
+        unlockedQuestIds: Object.keys((auth.user.trollQuests && auth.user.trollQuests.unlockedIds) || {})
       };
     }
     return sendJSON(res, 200, {
@@ -1823,7 +2119,7 @@ async function handleApiRequest(req, res, pathname, port) {
         currentRoundNumber: 1,
         currentMultiplier: 1,
         roundSeed: crypto.randomInt(1, 0x7fffffff),
-        players: [createDuelPlayerSlot(caller, caller.clientId)],
+        players: [createDuelPlayerSlot(caller, caller.clientId, extractClientInfo(req))],
         spectators: new Map(),
         result: null
       };
@@ -1855,6 +2151,29 @@ async function handleApiRequest(req, res, pathname, port) {
           lobby: serializeDuelLobby(lobby, true),
           lobbies: getPublicDuelLobbiesList()
         });
+      }
+
+      const joinSignals = extractClientInfo(req);
+      if (lobby.players[0] && !lobby.players[0].isBot) {
+        const altCheck = areUsersAltLinked(
+          lobby.players[0].usernameKey,
+          caller.usernameKey,
+          lobby.players[0].clientSignals,
+          joinSignals
+        );
+        if (altCheck.isAlt) {
+          logDatabaseEvent(
+            'DUEL_ALT_BLOCKED',
+            caller.username,
+            `🛡️ Blocked alt-vs-alt duel between "${lobby.players[0].username}" and "${caller.username}" (${altCheck.reason})`,
+            { host: lobby.players[0].username, joiner: caller.username, reason: altCheck.reason }
+          );
+          saveDatabase(false);
+          return sendJSON(res, 403, {
+            error: `🛡️ Anti-Boosting: You cannot duel against your own alt account (${altCheck.reason})!`,
+            altBlocked: true
+          });
+        }
       }
 
       // If MeDonut's 150-ELO battle cap toggle is ON, prevent joining Ranked lobbies over 150 ELO apart
@@ -1894,7 +2213,7 @@ async function handleApiRequest(req, res, pathname, port) {
         p2Caller.username = `${p2Caller.username} (2)`;
       }
 
-      lobby.players.push(createDuelPlayerSlot(p2Caller, caller.clientId));
+      lobby.players.push(createDuelPlayerSlot(p2Caller, caller.clientId, joinSignals));
       startDuelCountdownForRound(lobby, 0); // Starts 3-second countdown for Round 1: Easy (1x)!
 
       return sendJSON(res, 200, {
@@ -1907,6 +2226,7 @@ async function handleApiRequest(req, res, pathname, port) {
     if (req.method === 'POST' && pathname === '/api/duels/quick-match') {
       const callerElo = typeof caller.duelElo === 'number' ? caller.duelElo : 1000;
       const blockOver150 = Boolean(db.adminSettings && db.adminSettings.blockDuelEloGapOver150);
+      const qmSignals = extractClientInfo(req);
       const joinable = [];
       for (const lobby of duelLobbies.values()) {
         advanceDuelLobbyClock(lobby);
@@ -1917,6 +2237,17 @@ async function handleApiRequest(req, res, pathname, port) {
           lobby.players.length === 1 &&
           lobby.players[0].slotId !== caller.clientId
         ) {
+          if (!lobby.players[0].isBot) {
+            const altCheck = areUsersAltLinked(
+              lobby.players[0].usernameKey,
+              caller.usernameKey,
+              lobby.players[0].clientSignals,
+              qmSignals
+            );
+            if (altCheck.isAlt) {
+              continue;
+            }
+          }
           const hostElo = typeof lobby.players[0].elo === 'number' ? lobby.players[0].elo : 1000;
           if (blockOver150 && Math.abs(hostElo - callerElo) > 150) {
             continue;
@@ -1947,7 +2278,7 @@ async function handleApiRequest(req, res, pathname, port) {
           p2Caller.username = `${p2Caller.username} (2)`;
         }
 
-        bestMatchLobby.players.push(createDuelPlayerSlot(p2Caller, caller.clientId));
+        bestMatchLobby.players.push(createDuelPlayerSlot(p2Caller, caller.clientId, qmSignals));
         startDuelCountdownForRound(bestMatchLobby, 0);
 
         return sendJSON(res, 200, {
@@ -1987,7 +2318,7 @@ async function handleApiRequest(req, res, pathname, port) {
         currentRoundNumber: 1,
         currentMultiplier: 1,
         roundSeed: crypto.randomInt(1, 0x7fffffff),
-        players: [createDuelPlayerSlot(caller, caller.clientId)],
+        players: [createDuelPlayerSlot(caller, caller.clientId, extractClientInfo(req))],
         spectators: new Map(),
         result: null
       };
@@ -2178,6 +2509,8 @@ async function handleApiRequest(req, res, pathname, port) {
         const botLobby = {
           id: lobbyId,
           name: `${botHost.username}'s Arena`,
+          isFriendly: false,
+          password: '',
           status: 'waiting',
           createdAt: Date.now(),
           currentRoundIndex: 0,
@@ -2204,6 +2537,8 @@ async function handleApiRequest(req, res, pathname, port) {
       const newLobby = {
         id: lobbyId,
         name: `${caller.username} vs ${botSlot.username}`,
+        isFriendly: false,
+        password: '',
         status: 'waiting',
         createdAt: Date.now(),
         currentRoundIndex: 0,
@@ -2440,7 +2775,18 @@ async function handleApiRequest(req, res, pathname, port) {
 
   // 12. Admin Skin Inventory & Lock Manager (Grant, Revoke, Lock, or Change Equipped)
   if (req.method === 'POST' && pathname === '/api/database/update-user-skins') {
-    const { username, grantSkinId, revokeSkinId, lockSkinId, unlockSkinId, selectedSkin, selectedPipeSkin } = await readJsonBody(req);
+    const {
+      username,
+      grantSkinId,
+      revokeSkinId,
+      lockSkinId,
+      unlockSkinId,
+      selectedSkin,
+      selectedPipeSkin,
+      selectedBackground,
+      clearCustomImage,
+      clearCustomVideo
+    } = await readJsonBody(req);
     if (!username) {
       return sendJSON(res, 400, { error: 'Username is required.' });
     }
@@ -2451,7 +2797,10 @@ async function handleApiRequest(req, res, pathname, port) {
         lockSkinId,
         unlockSkinId,
         selectedSkin,
-        selectedPipeSkin
+        selectedPipeSkin,
+        selectedBackground,
+        clearCustomImage: Boolean(clearCustomImage),
+        clearCustomVideo: Boolean(clearCustomVideo)
       });
       return sendJSON(res, 200, {
         ok: true,
@@ -2459,6 +2808,65 @@ async function handleApiRequest(req, res, pathname, port) {
         message: `Updated skins for ${result.username}!`,
         ...result,
         userSkins: result,
+        databaseStatus: db.databaseStatus,
+        playerRecordsOverview: db.playerRecordsOverview,
+        activityFeed: (db.activityFeed || []).slice(0, 100),
+        leaderboards: buildLeaderboards(),
+        allRuns: getAllRunsAdmin(),
+        loginHistory: (db.loginHistory || []).slice(0, 300)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  // 12b. Admin Ban Player + All Alts (Blocks existing & newly created accounts) & Unban
+  if (req.method === 'POST' && pathname === '/api/database/ban-user') {
+    const { username, includeAlts, reason } = await readJsonBody(req).catch(() => ({}));
+    if (!username) {
+      return sendJSON(res, 400, { error: 'Username is required.' });
+    }
+    try {
+      const result = banPlayerAndAltsAdmin(username, {
+        includeAlts: includeAlts !== false,
+        reason
+      });
+      const bannedSet = new Set((result.bannedUsernames || []).map(n => n.toLowerCase()));
+      for (const [lid, lobby] of duelLobbies.entries()) {
+        if (lobby && lobby.status === 'waiting' && Array.isArray(lobby.players) &&
+            lobby.players.some(p => p && bannedSet.has(String(p.usernameKey || p.username || '').toLowerCase()))) {
+          duelLobbies.delete(lid);
+        }
+      }
+      return sendJSON(res, 200, {
+        ok: true,
+        success: true,
+        ...result,
+        databaseStatus: db.databaseStatus,
+        playerRecordsOverview: db.playerRecordsOverview,
+        activityFeed: (db.activityFeed || []).slice(0, 100),
+        leaderboards: buildLeaderboards(),
+        allRuns: getAllRunsAdmin(),
+        loginHistory: (db.loginHistory || []).slice(0, 300)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/database/unban-user') {
+    const { username, includeAlts } = await readJsonBody(req).catch(() => ({}));
+    if (!username) {
+      return sendJSON(res, 400, { error: 'Username is required.' });
+    }
+    try {
+      const result = unbanPlayerAdmin(username, {
+        includeAlts: includeAlts !== false
+      });
+      return sendJSON(res, 200, {
+        ok: true,
+        success: true,
+        ...result,
         databaseStatus: db.databaseStatus,
         playerRecordsOverview: db.playerRecordsOverview,
         activityFeed: (db.activityFeed || []).slice(0, 100),
@@ -2513,12 +2921,13 @@ async function handleApiRequest(req, res, pathname, port) {
     });
   }
 
-  // 13c. Admin Global Settings Toggle (e.g. Block Ranked Duels Over 150 ELO Gap)
+  // 13c. Admin Global Settings Toggle (e.g. Block Ranked Duels Over 150 ELO Gap & Global Default Account Limit)
   if (req.method === 'POST' && pathname === '/api/database/admin-settings') {
     const body = await readJsonBody(req).catch(() => ({}));
     if (!db.adminSettings || typeof db.adminSettings !== 'object') {
       db.adminSettings = {};
     }
+    let settingsChanged = false;
     if (typeof body.blockDuelEloGapOver150 === 'boolean') {
       db.adminSettings.blockDuelEloGapOver150 = body.blockDuelEloGapOver150;
       const stateLabel = body.blockDuelEloGapOver150 ? 'ENABLED (blocked >150 ELO difference)' : 'DISABLED (reverted to >150/200/300 ELO scaling)';
@@ -2528,14 +2937,55 @@ async function handleApiRequest(req, res, pathname, port) {
         `⚖️ MeDonut ${stateLabel} for Ranked Duels matchmaking`,
         { blockDuelEloGapOver150: db.adminSettings.blockDuelEloGapOver150 }
       );
-      saveDatabase(false);
+      settingsChanged = true;
+    }
+    if (body.defaultMaxAccounts !== undefined && body.defaultMaxAccounts !== null) {
+      const cleanDef = Math.max(1, Math.min(50, Math.floor(Number(body.defaultMaxAccounts) || 5)));
+      db.adminSettings.defaultMaxAccounts = cleanDef;
+      logDatabaseEvent(
+        'SETTINGS_UPDATE',
+        'MeDonut',
+        `👥 MeDonut set global Default Account Limit to ${cleanDef} account(s) per player`,
+        { defaultMaxAccounts: cleanDef }
+      );
+      settingsChanged = true;
+    }
+    if (settingsChanged) {
+      saveDatabase(true);
     }
     return sendJSON(res, 200, {
       ok: true,
       adminSettings: db.adminSettings,
       databaseStatus: db.databaseStatus,
-      activityFeed: (db.activityFeed || []).slice(0, 100)
+      playerRecordsOverview: db.playerRecordsOverview,
+      activityFeed: (db.activityFeed || []).slice(0, 100),
+      leaderboards: buildLeaderboards(),
+      allRuns: getAllRunsAdmin(),
+      loginHistory: (db.loginHistory || []).slice(0, 300)
     });
+  }
+
+  // 13d. Admin Set Account Limit for a Player (+ linked alts, saved persistently in db.json)
+  if (req.method === 'POST' && pathname === '/api/database/set-account-limit') {
+    const { username, maxAccounts } = await readJsonBody(req).catch(() => ({}));
+    if (!username) {
+      return sendJSON(res, 400, { error: 'Username is required.' });
+    }
+    try {
+      const result = adminSetUserAccountLimit(username, maxAccounts);
+      return sendJSON(res, 200, {
+        ...result,
+        adminSettings: db.adminSettings,
+        databaseStatus: db.databaseStatus,
+        playerRecordsOverview: db.playerRecordsOverview,
+        activityFeed: (db.activityFeed || []).slice(0, 100),
+        leaderboards: buildLeaderboards(),
+        allRuns: getAllRunsAdmin(),
+        loginHistory: (db.loginHistory || []).slice(0, 300)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
   }
 
   // 14. Admin Permanent Player Account Deletion (lean fast response!)
