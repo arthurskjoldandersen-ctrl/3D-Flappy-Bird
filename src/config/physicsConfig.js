@@ -44,7 +44,7 @@ const SIM_CONFIG = Object.freeze({
       firstPipeDist: 6.2,
       initialPipeSpawnX: 18.9,
       lockFps60: true,
-      unlockReqs: Object.freeze({ easy: 100, medium: 40, hard: 25 })
+      unlockReqs: Object.freeze({ easy: 40, medium: 20, hard: 15 })
     })
   })
 });

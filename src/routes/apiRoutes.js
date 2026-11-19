@@ -29,6 +29,7 @@ const {
   deleteLeaderboardEntryAdmin,
   adminUpdateUserSkins,
   adminUpdatePlayerDuelElo,
+  adminUpdatePlayerDuelPoints,
   resetAllRecordsAdmin,
   formatReadableTimestamp,
   isSkinUnlockedForUser,
@@ -1856,7 +1857,7 @@ async function handleApiRequest(req, res, pathname, port) {
     if (diffKey === 'extreme' && !hasUnlockedExtremeMode(auth.user)) {
       const r = auth.user.records || {};
       return sendJSON(res, 403, {
-        error: `Extreme Mode Locked! Reach 100 Easy (${Number(r.easy) || 0}/100), 40 Medium (${Number(r.medium) || 0}/40), and 25 Hard (${Number(r.hard) || 0}/25) first.`,
+        error: `Extreme Mode Locked! Reach ${EXTREME_UNLOCK_REQS.easy} Easy (${Number(r.easy) || 0}/${EXTREME_UNLOCK_REQS.easy}), ${EXTREME_UNLOCK_REQS.medium} Medium (${Number(r.medium) || 0}/${EXTREME_UNLOCK_REQS.medium}), and ${EXTREME_UNLOCK_REQS.hard} Hard (${Number(r.hard) || 0}/${EXTREME_UNLOCK_REQS.hard}) first.`,
         extremeLocked: true,
         extremeUnlockReqs: EXTREME_UNLOCK_REQS
       });
@@ -1906,7 +1907,7 @@ async function handleApiRequest(req, res, pathname, port) {
 
     if (run.difficulty === 'extreme' && !hasUnlockedExtremeMode(auth.user)) {
       return sendJSON(res, 403, {
-        error: 'Extreme Mode Locked! Reach 100 Easy, 40 Medium, and 25 Hard first.',
+        error: `Extreme Mode Locked! Reach ${EXTREME_UNLOCK_REQS.easy} Easy, ${EXTREME_UNLOCK_REQS.medium} Medium, and ${EXTREME_UNLOCK_REQS.hard} Hard first.`,
         extremeLocked: true,
         extremeUnlockReqs: EXTREME_UNLOCK_REQS
       });
@@ -2701,6 +2702,46 @@ async function handleApiRequest(req, res, pathname, port) {
             duelMatches: myRankEntry.duelMatches,
             rank: myRankEntry.rank
           } : null
+        });
+      } catch (err) {
+        return sendJSON(res, 400, { error: err.message });
+      }
+    }
+
+    // POST /api/duels/admin-set-points (MeDonut Admin Action: Change any player's Duel Total Points leaderboard score)
+    if (req.method === 'POST' && pathname === '/api/duels/admin-set-points') {
+      const isAdmin = Boolean(isMeDonutAdmin(req)) || caller.usernameKey === 'medonut';
+      if (!isAdmin) {
+        return sendJSON(res, 403, { error: 'Only MeDonut can change player Duel Total Points.' });
+      }
+      const targetUsername = String(body.username || body.targetUsername || '').trim();
+      if (!targetUsername) {
+        return sendJSON(res, 400, { error: 'Target username is required.' });
+      }
+      try {
+        const result = adminUpdatePlayerDuelPoints(targetUsername, body.newPoints ?? body.points);
+        const rankedLeaderboard = buildDuelRankedLeaderboard();
+        const duelHighScoreLeaderboard = buildDuelHighScoreLeaderboard(true);
+        const duelHighScoreAllMatches = buildDuelHighScoreLeaderboard(false);
+        const myRankEntry = rankedLeaderboard.find(r => r.username.toLowerCase() === caller.usernameKey);
+        const myHighEntry = duelHighScoreLeaderboard.find(r => r.username.toLowerCase() === caller.usernameKey);
+        return sendJSON(res, 200, {
+          ok: true,
+          points: result.newPoints,
+          result,
+          duelHighScoreLeaderboard,
+          duelHighScoreAllMatches,
+          myDuelStats: {
+            username: caller.username,
+            duelElo: myRankEntry ? myRankEntry.duelElo : caller.duelElo,
+            duelWins: myRankEntry ? myRankEntry.duelWins : caller.duelWins,
+            duelLosses: myRankEntry ? myRankEntry.duelLosses : caller.duelLosses,
+            duelMatches: myRankEntry ? myRankEntry.duelMatches : caller.duelMatches,
+            duelCoins: Math.round(Number(caller.duelCoins) || 0),
+            rank: myRankEntry ? myRankEntry.rank : null,
+            duelBestMatchPoints: myHighEntry ? myHighEntry.points : 0,
+            highScoreRank: myHighEntry ? myHighEntry.rank : null
+          }
         });
       } catch (err) {
         return sendJSON(res, 400, { error: err.message });

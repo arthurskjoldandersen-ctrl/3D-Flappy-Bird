@@ -2210,12 +2210,19 @@ class FlappyBirdUIAndProgression {
           if (metaMed) metaMed.innerHTML = `🏆 Record: ${medRec} (${medRecUser}) • 👤 Best: ${medBest} • ${medBirdsCount + medPipesCount} Skins`;
           if (metaHard) metaHard.innerHTML = `🏆 Record: ${hardRec} (${hardRecUser}) • 👤 Best: ${hardBest} • ${hardBirdsCount + hardPipesCount} Skins`;
 
-          // Update Special EXTREME Mode Banner Card (100 Easy + 40 Medium + 25 Hard Gate)
+          // Update Special EXTREME Mode Banner Card (40 Easy + 20 Medium + 15 Hard Gate)
+          const extReqs = (typeof this.getExtremeUnlockReqs === 'function')
+            ? this.getExtremeUnlockReqs()
+            : ((typeof CONFIG !== 'undefined' && CONFIG.difficulties && CONFIG.difficulties.extreme && CONFIG.difficulties.extreme.unlockReqs) || { easy: 40, medium: 20, hard: 15 });
           const extProg = (typeof this.getExtremeUnlockProgress === 'function')
             ? this.getExtremeUnlockProgress()
-            : { easy: easyBest, medium: medBest, hard: hardBest, unlocked: easyBest >= 100 && medBest >= 40 && hardBest >= 25 };
+            : { easy: easyBest, medium: medBest, hard: hardBest, reqs: extReqs, unlocked: easyBest >= extReqs.easy && medBest >= extReqs.medium && hardBest >= extReqs.hard };
           const extUnlocked = Boolean(extProg.unlocked);
-          if (this.selectedDifficulty === 'extreme' && !extUnlocked) {
+          const inActiveDuelMatch = Boolean(
+            this.activeDuelLobbyId &&
+            (this.duelRoundPlaying || (this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting' && this.activeDuelLobby.status !== 'finished'))
+          );
+          if (this.selectedDifficulty === 'extreme' && !extUnlocked && !inActiveDuelMatch && this.state !== GAME_STATE.PLAYING) {
             this.selectedDifficulty = 'medium';
             document.querySelectorAll('#difficulty-selector .diff-btn').forEach(b => {
               b.classList.toggle('active', b.getAttribute('data-diff') === 'medium');
@@ -2236,28 +2243,28 @@ class FlappyBirdUIAndProgression {
             extTag.className = 'mode-tag-pill ' + (extUnlocked ? 'tag-extreme-open' : 'tag-extreme-locked');
           }
           if (extProgWrap) {
-            const cEasy = Math.min(100, extProg.easy);
-            const cMed = Math.min(40, extProg.medium);
-            const cHard = Math.min(25, extProg.hard);
-            const pctEasy = Math.min(1, cEasy / 100);
-            const pctMed = Math.min(1, cMed / 40);
-            const pctHard = Math.min(1, cHard / 25);
+            const cEasy = Math.min(extReqs.easy, extProg.easy);
+            const cMed = Math.min(extReqs.medium, extProg.medium);
+            const cHard = Math.min(extReqs.hard, extProg.hard);
+            const pctEasy = Math.min(1, cEasy / extReqs.easy);
+            const pctMed = Math.min(1, cMed / extReqs.medium);
+            const pctHard = Math.min(1, cHard / extReqs.hard);
             const totalPct = Math.round(((pctEasy + pctMed + pctHard) / 3) * 100);
             const eChip = document.getElementById('extreme-prog-easy');
             const mChip = document.getElementById('extreme-prog-med');
             const hChip = document.getElementById('extreme-prog-hard');
             const fillEl = document.getElementById('extreme-unlock-bar-fill');
             if (eChip) {
-              eChip.textContent = `${cEasy >= 100 ? '✓' : ''} Easy ${cEasy}/100`.trim();
-              eChip.classList.toggle('done', cEasy >= 100);
+              eChip.textContent = `${cEasy >= extReqs.easy ? '✓' : ''} Easy ${cEasy}/${extReqs.easy}`.trim();
+              eChip.classList.toggle('done', cEasy >= extReqs.easy);
             }
             if (mChip) {
-              mChip.textContent = `${cMed >= 40 ? '✓' : ''} Med ${cMed}/40`.trim();
-              mChip.classList.toggle('done', cMed >= 40);
+              mChip.textContent = `${cMed >= extReqs.medium ? '✓' : ''} Med ${cMed}/${extReqs.medium}`.trim();
+              mChip.classList.toggle('done', cMed >= extReqs.medium);
             }
             if (hChip) {
-              hChip.textContent = `${cHard >= 25 ? '✓' : ''} Hard ${cHard}/25`.trim();
-              hChip.classList.toggle('done', cHard >= 25);
+              hChip.textContent = `${cHard >= extReqs.hard ? '✓' : ''} Hard ${cHard}/${extReqs.hard}`.trim();
+              hChip.classList.toggle('done', cHard >= extReqs.hard);
             }
             if (fillEl) fillEl.style.width = `${totalPct}%`;
             extProgWrap.style.display = extUnlocked ? 'none' : 'flex';
@@ -2265,7 +2272,7 @@ class FlappyBirdUIAndProgression {
           if (metaExt) {
             metaExt.innerHTML = extUnlocked
               ? `🏆 Record: ${extRecText} • 👤 Best: ${extremeBest} • Exact 30-FP @ 60 FPS`
-              : `🔒 Reach 100 Easy, 40 Med & 25 Hard to Unlock • 🏆 #1: ${extRecText}`;
+              : `🔒 Reach ${extReqs.easy} Easy, ${extReqs.medium} Med & ${extReqs.hard} Hard to Unlock • 🏆 #1: ${extRecText}`;
           }
 
           // Update filter button counts for Bird Skins (Spacious 4x2 grid)

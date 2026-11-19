@@ -4135,12 +4135,24 @@ class FlappyBird3DModels {
         // ------------------------------------------------------------------------
         // DETERMINISTIC PIPE SPAWNING & 3D PIPE SKIN TRIM BUILDER
         // ------------------------------------------------------------------------
-        getDifficultyParams() {
-          if (typeof window.getDifficultyParamsFor === 'function') {
-            return window.getDifficultyParamsFor(this.score, this.selectedDifficulty, CONFIG);
+        getActiveDifficulty() {
+          if (this.activeDuelLobbyId && this.duelRoundPlaying) {
+            return this.duelRoundPlaying;
           }
-          const diff = CONFIG.difficulties[this.selectedDifficulty] || CONFIG.difficulties.medium;
-          if (this.selectedDifficulty === 'extreme' || (typeof diff.gravity === 'number' && typeof diff.flapImpulse === 'number')) {
+          if (this.activeDuelLobbyId && this.activeDuelLobby && this.activeDuelLobby.currentRound &&
+              (this.state === GAME_STATE.PLAYING || this.state === GAME_STATE.CRASHING)) {
+            return this.activeDuelLobby.currentRound;
+          }
+          return this.selectedDifficulty || 'medium';
+        }
+
+        getDifficultyParams() {
+          const activeDiff = this.getActiveDifficulty();
+          if (typeof window.getDifficultyParamsFor === 'function') {
+            return window.getDifficultyParamsFor(this.score, activeDiff, CONFIG);
+          }
+          const diff = CONFIG.difficulties[activeDiff] || CONFIG.difficulties.medium;
+          if (activeDiff === 'extreme' || (typeof diff.gravity === 'number' && typeof diff.flapImpulse === 'number')) {
             const speedProgress = Math.min(Math.max(0, Number(this.score) || 0) / (diff.speedRampScore || 45), 1.0);
             const minSpd = diff.baseSpeed || CONFIG.baseSpeed;
             const maxSpd = Math.min(diff.maxSpeed || CONFIG.maxSpeed, CONFIG.baseSpeed * 2.0);
@@ -4212,9 +4224,10 @@ class FlappyBird3DModels {
 
         spawnPipePair(spawnX = CONFIG.pipeSpawnX) {
           const diffParams = this.getDifficultyParams();
+          const activeDiff = this.getActiveDifficulty();
           let pipeGap = diffParams.pipeGap;
           let gapCenterY;
-          if (this.selectedDifficulty === 'extreme' && this.extremeSolver) {
+          if (activeDiff === 'extreme' && this.extremeSolver) {
             const solved = this.extremeSolver.nextPipe();
             pipeGap = solved.gapSize;
             gapCenterY = solved.gapCenterY;

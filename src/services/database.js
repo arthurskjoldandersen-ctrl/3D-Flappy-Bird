@@ -57,7 +57,7 @@ try {
 } catch (_) {}
 
 const ALL_MODES = ['easy', 'medium', 'hard', 'extreme'];
-const EXTREME_UNLOCK_REQS = { easy: 100, medium: 40, hard: 25 };
+const EXTREME_UNLOCK_REQS = { easy: 40, medium: 20, hard: 15 };
 
 function hasUnlockedExtremeMode(user) {
   if (!user || typeof user !== 'object') return false;
@@ -2549,6 +2549,101 @@ function adminUpdatePlayerDuelElo(username, newElo) {
   };
 }
 
+/**
+ * Allows MeDonut to manually update a player's Ranked Duels Total Points leaderboard score
+ * (duelBestMatchPoints + duelMatchHighScores) cleanly in both positive and negative directions.
+ */
+function adminUpdatePlayerDuelPoints(username, newPoints) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  if (!uKey) {
+    throw new Error('Target username is required.');
+  }
+  const user = db.users && db.users[uKey];
+  if (!Array.isArray(db.duelMatchHighScores)) {
+    db.duelMatchHighScores = [];
+  }
+  const existingEntries = db.duelMatchHighScores.filter(
+    e => e && e.username && String(e.username).toLowerCase() === uKey
+  );
+  if (!user && existingEntries.length === 0) {
+    throw new Error(`Player "${cleanName}" not found in database.`);
+  }
+
+  const displayName = user ? user.username : (existingEntries[0].username || cleanName);
+  const oldFromList = existingEntries.reduce(
+    (mx, e) => Math.max(mx, Math.floor(Number(e.points) || 0)),
+    0
+  );
+  const oldVal = user
+    ? Math.max(Math.floor(Number(user.duelBestMatchPoints) || 0), oldFromList)
+    : oldFromList;
+  const cleanVal = Math.max(0, Math.floor(Number(newPoints) || 0));
+  const now = Date.now();
+
+  // Remove old entries for this user first so syncAndRebuildOverview never restores an older higher score
+  db.duelMatchHighScores = db.duelMatchHighScores.filter(
+    e => e && e.username && String(e.username).toLowerCase() !== uKey
+  );
+
+  let nextBreakdown = null;
+  if (cleanVal > 0) {
+    nextBreakdown = {
+      easyRaw: 0,
+      mediumRaw: 0,
+      hardRaw: 0,
+      extremeRaw: 0,
+      easyPts: 0,
+      mediumPts: 0,
+      hardPts: 0,
+      extremePts: 0,
+      opponent: 'Admin Edited',
+      achievedAt: now
+    };
+    db.duelMatchHighScores.push({
+      id: 'admin_pts_' + crypto.randomBytes(6).toString('hex'),
+      username: displayName,
+      points: cleanVal,
+      easyRaw: 0,
+      mediumRaw: 0,
+      hardRaw: 0,
+      extremeRaw: 0,
+      easyPts: 0,
+      mediumPts: 0,
+      hardPts: 0,
+      extremePts: 0,
+      opponent: 'Admin Edited',
+      createdAt: now
+    });
+    db.duelMatchHighScores = db.duelMatchHighScores
+      .filter(e => e && e.username && Number(e.points) > 0)
+      .sort((a, b) => (b.points - a.points) || ((a.createdAt || 0) - (b.createdAt || 0)))
+      .slice(0, 200);
+  }
+
+  if (user) {
+    user.duelBestMatchPoints = cleanVal;
+    user.duelBestMatchBreakdown = nextBreakdown;
+  }
+  if (db.playerRecordsOverview && db.playerRecordsOverview[displayName]) {
+    db.playerRecordsOverview[displayName].duelBestMatchPoints = cleanVal;
+    db.playerRecordsOverview[displayName].duelBestMatchBreakdown = nextBreakdown;
+  }
+
+  logDatabaseEvent(
+    'ADMIN_DUEL_POINTS_CHANGE',
+    displayName,
+    `👑 MeDonut updated ${displayName}'s Duel Total Points: ${oldVal} -> ${cleanVal} pts`,
+    { oldPoints: oldVal, newPoints: cleanVal }
+  );
+  saveDatabase();
+  return {
+    username: displayName,
+    oldPoints: oldVal,
+    newPoints: cleanVal
+  };
+}
+
 function normalizeClientIp(rawIp) {
   if (!rawIp || typeof rawIp !== 'string') return '';
   let ip = rawIp.split(',')[0].trim();
@@ -3852,6 +3947,7 @@ module.exports = {
   deleteLeaderboardEntryAdmin,
   adminUpdateUserSkins,
   adminUpdatePlayerDuelElo,
+  adminUpdatePlayerDuelPoints,
   resetAllRecordsAdmin,
   BACKUPS_DIR,
   TEMPLATE_FILE,

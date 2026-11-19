@@ -4602,6 +4602,43 @@ body.in-game #top-app-bar,
   color: #ffffff !important;
 }
 
+.duel-points-quick-admin-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  margin-bottom: 8px !important;
+  border-radius: 10px !important;
+  border: 1px dashed rgba(251, 191, 36, 0.45) !important;
+  background: rgba(15, 23, 42, 0.72) !important;
+}
+
+.duel-points-quick-admin-label {
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+  color: #fbbf24 !important;
+}
+
+.duel-points-quick-admin-inputs {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-wrap: wrap !important;
+}
+
+.duel-points-admin-username {
+  width: 135px !important;
+  padding: 4px 8px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(168, 85, 247, 0.55) !important;
+  background: rgba(15, 23, 42, 0.88) !important;
+  color: #e2e8f0 !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+}
+
 .duel-countdown-matchup {
   font-size: 0.95rem !important;
   font-weight: 800 !important;

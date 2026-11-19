@@ -1254,8 +1254,14 @@
           return (this.currentUser && this.currentUser.records) ? this.currentUser.records : (this.localRecords || {});
         }
 
+        getExtremeUnlockReqs() {
+          const reqs = CONFIG.difficulties && CONFIG.difficulties.extreme && CONFIG.difficulties.extreme.unlockReqs;
+          return reqs || { easy: 40, medium: 20, hard: 15 };
+        }
+
         getExtremeUnlockProgress() {
           const rec = this.getEffectiveRecords();
+          const reqs = this.getExtremeUnlockReqs();
           const easy = Number(rec.easy) || 0;
           const medium = Number(rec.medium) || 0;
           const hard = Number(rec.hard) || 0;
@@ -1263,7 +1269,8 @@
             easy,
             medium,
             hard,
-            unlocked: easy >= 100 && medium >= 40 && hard >= 25
+            reqs,
+            unlocked: easy >= reqs.easy && medium >= reqs.medium && hard >= reqs.hard
           };
         }
 
@@ -1273,7 +1280,8 @@
 
         showExtremeLockNotice() {
           const p = this.getExtremeUnlockProgress();
-          const msg = `⚡ Extreme Mode Locked! Reach 100 Easy (${p.easy}/100), 40 Medium (${p.medium}/40) & 25 Hard (${p.hard}/25).`;
+          const reqs = p.reqs || { easy: 40, medium: 20, hard: 15 };
+          const msg = `⚡ Extreme Mode Locked! Reach ${reqs.easy} Easy (${p.easy}/${reqs.easy}), ${reqs.medium} Medium (${p.medium}/${reqs.medium}) & ${reqs.hard} Hard (${p.hard}/${reqs.hard}).`;
           if (typeof this.showLockerToast === 'function') {
             this.showLockerToast(msg, true);
           }
@@ -1907,7 +1915,10 @@
             }
           }
 
-          const isExtremeRun = (this.selectedDifficulty === 'extreme');
+          const activeDiffStep = (typeof this.getActiveDifficulty === 'function')
+            ? this.getActiveDifficulty()
+            : (this.selectedDifficulty || 'medium');
+          const isExtremeRun = (activeDiffStep === 'extreme');
           const activeSpawnDist = isExtremeRun
             ? (spawnDistance || CONFIG.difficulties.extreme.spawnDistance)
             : CONFIG.baseSpawnDistance;
@@ -1988,7 +1999,10 @@
             this.rightWingPivot.rotation.x = -flapAngle;
           } else if (this.state === GAME_STATE.PLAYING) {
             this.birdMeshGroup.rotation.y = 0;
-            if (this.selectedDifficulty === 'extreme') {
+            const activeDiffUpdate = (typeof this.getActiveDifficulty === 'function')
+              ? this.getActiveDifficulty()
+              : (this.selectedDifficulty || 'medium');
+            if (activeDiffUpdate === 'extreme') {
               this.physicsAccumulator = 0;
               this.stepPlayingPhysics();
               if (this.state === GAME_STATE.PLAYING) {
@@ -2171,8 +2185,11 @@
 
         animate(now) {
           requestAnimationFrame(this.animate);
+          const activeDiffAnim = (typeof this.getActiveDifficulty === 'function')
+            ? this.getActiveDifficulty()
+            : (this.selectedDifficulty || 'medium');
           const isExtremeLocked = (this.state === GAME_STATE.PLAYING || this.state === GAME_STATE.CRASHING)
-            && this.selectedDifficulty === 'extreme';
+            && activeDiffAnim === 'extreme';
           if (isExtremeLocked) {
             const EXTREME_FRAME_MS = 1000 / 60;
             if (!this.lastExtremeFrameTime) {
@@ -2430,6 +2447,39 @@
           }
         }
 
+        async handleDuelAdminSetPoints(targetUsername, newPoints) {
+          const cleanName = String(targetUsername || '').trim();
+          if (!this.isMeDonutUser() || !cleanName) return;
+          const cleanPts = Math.max(0, Math.floor(Number(newPoints) || 0));
+          try {
+            const res = await this.apiRequest('/api/duels/admin-set-points', 'POST', {
+              username: cleanName,
+              newPoints: cleanPts,
+              clientId: this.duelClientId
+            });
+            if (res && res.ok) {
+              if (Array.isArray(res.duelHighScoreLeaderboard)) {
+                this.duelHighScoreLeaderboard = res.duelHighScoreLeaderboard;
+              }
+              if (Array.isArray(res.duelHighScoreAllMatches)) {
+                this.duelHighScoreAllMatches = res.duelHighScoreAllMatches;
+              }
+              if (res.myDuelStats) {
+                this.myDuelStats = res.myDuelStats;
+              }
+              this.renderDuelRankedLeaderboard();
+              if (typeof this.showLockerToast === 'function') {
+                this.showLockerToast(`🔥 Updated ${cleanName}'s Duel Total Points to ${cleanPts} PTS`);
+              }
+            }
+          } catch (err) {
+            console.warn('Admin set duel points error:', err);
+            if (typeof this.showLockerToast === 'function') {
+              this.showLockerToast((err && err.message) || 'Could not update Duel Total Points.', true);
+            }
+          }
+        }
+
         async fetchDuelsState() {
           if (this._fetchingDuelState) return;
           this._fetchingDuelState = true;
@@ -2675,6 +2725,9 @@
           }
           this.exitSoloOpponentSpectate();
           this.hideAllDuelOverlays();
+          if (typeof this.updateProfileRecordPills === 'function') {
+            this.updateProfileRecordPills();
+          }
           if (returnToHub) {
             this.showLobbyScreen();
             this.switchView('duels');
@@ -2714,6 +2767,9 @@
             return;
           }
           this.hideAllDuelOverlays();
+          if (typeof this.updateProfileRecordPills === 'function') {
+            this.updateProfileRecordPills();
+          }
           this.showLobbyScreen();
           this.switchView('duels');
           if (typeof this.activateDuelTab === 'function') {
@@ -2856,6 +2912,8 @@
               // Start flying this round if not already started
               if (this.duelRoundPlaying !== rKey) {
                 this.startDuelRoundGameplay(rKey, lobby.roundSeed);
+              } else if (this.selectedDifficulty !== rKey) {
+                this.selectedDifficulty = rKey;
               }
               const backdrop = document.getElementById('duel-overlay-backdrop');
               if (backdrop) backdrop.style.display = 'none';
@@ -3893,8 +3951,13 @@
           const listEl = document.getElementById('duel-ranked-list');
           if (!listEl) return;
 
-          // If MeDonut is currently typing inside an Elo input in this list, don't wipe focus on background poll
-          if (!isPointsMode && document.activeElement && listEl.contains(document.activeElement) && document.activeElement.classList.contains('duel-elo-admin-input')) {
+          // If MeDonut is currently typing inside an Elo or Total Points admin input in this list, don't wipe focus on background poll
+          const activeEl = document.activeElement;
+          if (
+            activeEl &&
+            listEl.contains(activeEl) &&
+            (activeEl.classList.contains('duel-elo-admin-input') || activeEl.classList.contains('duel-points-admin-username'))
+          ) {
             return;
           }
 
@@ -3903,9 +3966,62 @@
           const myUKey = this.getDuelDisplayUsername().toLowerCase();
 
           if (isPointsMode) {
+            if (isMeDonut) {
+              const quickBar = document.createElement('div');
+              quickBar.className = 'duel-points-quick-admin-bar';
+
+              const qLabel = document.createElement('span');
+              qLabel.className = 'duel-points-quick-admin-label';
+              qLabel.textContent = '👑 MeDonut Admin: Set Player Total Points';
+
+              const qInputs = document.createElement('div');
+              qInputs.className = 'duel-points-quick-admin-inputs';
+
+              const userInp = document.createElement('input');
+              userInp.type = 'text';
+              userInp.placeholder = 'Player username';
+              userInp.className = 'duel-points-admin-username';
+              userInp.title = 'Target player username';
+              userInp.addEventListener('click', (e) => e.stopPropagation());
+              userInp.addEventListener('keydown', (e) => e.stopPropagation());
+
+              const ptsQuickInp = document.createElement('input');
+              ptsQuickInp.type = 'number';
+              ptsQuickInp.min = '0';
+              ptsQuickInp.step = '1';
+              ptsQuickInp.placeholder = 'Points';
+              ptsQuickInp.className = 'duel-elo-admin-input duel-points-admin-input';
+              ptsQuickInp.title = 'New Total Points score (0 removes from leaderboard)';
+              ptsQuickInp.addEventListener('click', (e) => e.stopPropagation());
+              ptsQuickInp.addEventListener('keydown', (e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  this.handleDuelAdminSetPoints(userInp.value, ptsQuickInp.value);
+                  ptsQuickInp.blur();
+                }
+              });
+
+              const quickSaveBtn = document.createElement('button');
+              quickSaveBtn.type = 'button';
+              quickSaveBtn.className = 'btn-duel-save-elo btn-duel-save-points';
+              quickSaveBtn.textContent = '💾 Set Pts';
+              quickSaveBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.handleDuelAdminSetPoints(userInp.value, ptsQuickInp.value);
+              });
+
+              qInputs.append(userInp, ptsQuickInp, quickSaveBtn);
+              quickBar.append(qLabel, qInputs);
+              listEl.appendChild(quickBar);
+            }
+
             const entries = Array.isArray(this.duelHighScoreLeaderboard) ? this.duelHighScoreLeaderboard : [];
             if (entries.length === 0) {
-              listEl.innerHTML = '<div class="lb-empty">No completed ranked matches recorded yet. Finish a 4-round duel to set a record!</div>';
+              const emptyEl = document.createElement('div');
+              emptyEl.className = 'lb-empty';
+              emptyEl.textContent = 'No completed ranked matches recorded yet. Finish a 4-round duel to set a record!';
+              listEl.appendChild(emptyEl);
               return;
             }
             for (const entry of entries) {
@@ -3945,6 +4061,41 @@
               ptsSpan.textContent = `🔥 ${entry.points} PTS`;
 
               rightDiv.append(bdSpan, ptsSpan);
+
+              if (isMeDonut) {
+                const editWrap = document.createElement('div');
+                editWrap.className = 'duel-elo-admin-edit-wrap';
+
+                const ptsInp = document.createElement('input');
+                ptsInp.type = 'number';
+                ptsInp.min = '0';
+                ptsInp.step = '1';
+                ptsInp.className = 'duel-elo-admin-input duel-points-admin-input';
+                ptsInp.value = String(entry.points || 0);
+                ptsInp.title = `Change ${entry.username}'s Total Points leaderboard score`;
+                ptsInp.addEventListener('click', (e) => e.stopPropagation());
+                ptsInp.addEventListener('keydown', (e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.handleDuelAdminSetPoints(entry.username, ptsInp.value);
+                    ptsInp.blur();
+                  }
+                });
+
+                const savePtsBtn = document.createElement('button');
+                savePtsBtn.type = 'button';
+                savePtsBtn.className = 'btn-duel-save-elo btn-duel-save-points';
+                savePtsBtn.textContent = '💾 Pts';
+                savePtsBtn.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  this.handleDuelAdminSetPoints(entry.username, ptsInp.value);
+                });
+
+                editWrap.append(ptsInp, savePtsBtn);
+                rightDiv.appendChild(editWrap);
+              }
+
               row.append(leftDiv, rightDiv);
               listEl.appendChild(row);
             }
