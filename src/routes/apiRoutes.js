@@ -7,7 +7,7 @@
 const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
-const { SIM_CONFIG, createSeededPRNG, getDifficultyParams } = require('../config/physicsConfig');
+const { SIM_CONFIG, createSeededPRNG, getDifficultyParams, collidesExtremePipe, createExtremePipeSolver } = require('../config/physicsConfig');
 const { verifyGameReplay } = require('../services/antiCheat');
 const { checkProhibitedLanguage } = require('../services/antiSlur');
 const {
@@ -52,7 +52,10 @@ const {
   deletePlayerAccountAdmin,
   checkAccountRegistrationAllowance,
   adminSetUserAccountLimit,
-  areUsersAltLinked
+  areUsersAltLinked,
+  ALL_MODES,
+  EXTREME_UNLOCK_REQS,
+  hasUnlockedExtremeMode
 } = require('../services/database');
 
 function parseCookies(req) {
@@ -155,19 +158,27 @@ const activeRuns = new Map(); // runId -> { runId, seed, difficulty, usernameKey
 const chatCooldowns = new Map(); // key -> lastSentTimestamp
 
 // ============================================================================
-// RANKED DUELS LOBBY & 3-ROUND MATCH ENGINE (Easy 1x -> Medium 2x -> Hard 3x)
+// RANKED DUELS LOBBY & 4-ROUND MATCH ENGINE (Easy 1x -> Medium 2x -> Hard 3x -> Extreme 10x)
 // ============================================================================
 const duelLobbies = new Map(); // lobbyId -> lobbyObj
-const DUEL_ROUNDS = ['easy', 'medium', 'hard'];
-const DUEL_MULTIPLIERS = { easy: 1, medium: 2, hard: 3 };
-const DUEL_ROUND_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const DUEL_ROUNDS = ['easy', 'medium', 'hard', 'extreme'];
+const DUEL_MULTIPLIERS = { easy: 1, medium: 2, hard: 3, extreme: 10 };
+const DUEL_ROUND_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard', extreme: 'Extreme' };
 
 function recomputeDuelPlayerPoints(p) {
   if (!p || !p.rounds) return 0;
+  if (!p.rounds.extreme) {
+    p.rounds.extreme = { rawScore: 0, weightedScore: 0, multiplier: 10, finished: false };
+  }
   p.rounds.easy.weightedScore = Math.max(0, Math.floor(Number(p.rounds.easy.rawScore) || 0)) * 1;
   p.rounds.medium.weightedScore = Math.max(0, Math.floor(Number(p.rounds.medium.rawScore) || 0)) * 2;
   p.rounds.hard.weightedScore = Math.max(0, Math.floor(Number(p.rounds.hard.rawScore) || 0)) * 3;
-  p.totalPoints = p.rounds.easy.weightedScore + p.rounds.medium.weightedScore + p.rounds.hard.weightedScore;
+  p.rounds.extreme.weightedScore = Math.max(0, Math.floor(Number(p.rounds.extreme.rawScore) || 0)) * 10;
+  p.totalPoints =
+    p.rounds.easy.weightedScore +
+    p.rounds.medium.weightedScore +
+    p.rounds.hard.weightedScore +
+    p.rounds.extreme.weightedScore;
   return p.totalPoints;
 }
 
@@ -190,7 +201,8 @@ function createDuelPlayerSlot(identity, slotId, clientInfo = null) {
     rounds: {
       easy: { rawScore: 0, weightedScore: 0, multiplier: 1, finished: false },
       medium: { rawScore: 0, weightedScore: 0, multiplier: 2, finished: false },
-      hard: { rawScore: 0, weightedScore: 0, multiplier: 3, finished: false }
+      hard: { rawScore: 0, weightedScore: 0, multiplier: 3, finished: false },
+      extreme: { rawScore: 0, weightedScore: 0, multiplier: 10, finished: false }
     },
     totalPoints: 0,
     live: {
@@ -221,6 +233,9 @@ function startDuelCountdownForRound(lobby, roundIndex, startTimestamp = null) {
   lobby.roundSeed = crypto.randomInt(1, 0x7fffffff);
 
   for (const p of lobby.players) {
+    if (!p.rounds[rKey]) {
+      p.rounds[rKey] = { rawScore: 0, weightedScore: 0, multiplier: DUEL_MULTIPLIERS[rKey] || 1, finished: false };
+    }
     p.rounds[rKey].rawScore = 0;
     p.rounds[rKey].weightedScore = 0;
     p.rounds[rKey].finished = false;
@@ -238,7 +253,7 @@ function startDuelCountdownForRound(lobby, roundIndex, startTimestamp = null) {
   }
 }
 
-function finalizeDuelLobbyMatch(lobby) {
+function finalizeDuelLobbyMatch(lobby, options = {}) {
   if (!lobby || (lobby.status === 'finished' && lobby.result)) return;
   const now = Date.now();
   lobby.status = 'finished';
@@ -250,6 +265,11 @@ function finalizeDuelLobbyMatch(lobby) {
 
   recomputeDuelPlayerPoints(p1);
   recomputeDuelPlayerPoints(p2);
+
+  const forfeitWinner = options.forfeitWinner || null;
+  const forcedWinner = forfeitWinner === p1 ? 'a' : (forfeitWinner === p2 ? 'b' : null);
+  const isForfeit = Boolean(forcedWinner);
+  const forfeiter = forcedWinner === 'a' ? p2 : (forcedWinner === 'b' ? p1 : null);
 
   let eloRes;
   if (lobby.isFriendly) {
@@ -267,19 +287,21 @@ function finalizeDuelLobbyMatch(lobby) {
     eloRes = recordDuelMatchResult(p1.username, p2.username, p1.totalPoints, p2.totalPoints, {
       roundsA: p1.rounds,
       roundsB: p2.rounds,
-      isFriendly: Boolean(lobby.isFriendly)
+      isFriendly: Boolean(lobby.isFriendly),
+      forcedWinner,
+      forfeit: isForfeit
     });
   } else {
-    eloRes = calculateDuelEloUpdate(p1.elo, p2.elo, p1.totalPoints, p2.totalPoints);
+    eloRes = calculateDuelEloUpdate(p1.elo, p2.elo, p1.totalPoints, p2.totalPoints, { forcedWinner });
   }
 
   let winnerSlotId = null;
   let winnerUsername = null;
   let isDraw = false;
-  if (p1.totalPoints > p2.totalPoints) {
+  if (forcedWinner === 'a' || (!forcedWinner && p1.totalPoints > p2.totalPoints)) {
     winnerSlotId = p1.slotId;
     winnerUsername = p1.username;
-  } else if (p2.totalPoints > p1.totalPoints) {
+  } else if (forcedWinner === 'b' || (!forcedWinner && p2.totalPoints > p1.totalPoints)) {
     winnerSlotId = p2.slotId;
     winnerUsername = p2.username;
   } else {
@@ -302,6 +324,9 @@ function finalizeDuelLobbyMatch(lobby) {
     winnerSlotId,
     winnerUsername,
     isDraw,
+    forfeit: isForfeit,
+    forfeitedUsername: forfeiter ? forfeiter.username : null,
+    forfeitReason: isForfeit ? (options.reason || 'Closed Tab / Disconnected') : null,
     isFriendly: Boolean(lobby.isFriendly),
     finishedAt: now,
     p1: {
@@ -328,41 +353,64 @@ function finalizeDuelLobbyMatch(lobby) {
 }
 
 function stepDuelBotSimulation(bot, lobby, rKey, now, humanFinishedForMs) {
-  const targetScore = (bot.botTargets && typeof bot.botTargets[rKey] === 'number') ? bot.botTargets[rKey] : 8;
+  const defaultTarget = rKey === 'extreme' ? 2 : 8;
+  const targetScore = (bot.botTargets && typeof bot.botTargets[rKey] === 'number') ? bot.botTargets[rKey] : defaultTarget;
   const dt = SIM_CONFIG.dt;
 
   if (!bot.botSim || bot.botSim.roundKey !== rKey || bot.botSim.roundSeed !== lobby.roundSeed) {
     const prng = createSeededPRNG((lobby.roundSeed || 12345) ^ ((bot.botPhase ? Math.floor(bot.botPhase * 1000) : 0)));
+    const extremeSolver = rKey === 'extreme' ? createExtremePipeSolver(lobby.roundSeed || 12345, SIM_CONFIG) : null;
     const initDiff = getDifficultyParams(0, rKey);
     const spawnPipe = (xPos, gapSize) => {
-      const minCenterY = SIM_CONFIG.groundY + 2.4 + gapSize * 0.5;
-      const maxCenterY = SIM_CONFIG.ceilingY - 2.6 - gapSize * 0.5;
-      const gapCenterY = minCenterY + prng() * Math.max(0.5, maxCenterY - minCenterY);
+      let gapCenterY;
+      let actualGap = gapSize;
+      if (extremeSolver) {
+        const solved = extremeSolver.nextPipe();
+        actualGap = solved.gapSize;
+        gapCenterY = solved.gapCenterY;
+      } else {
+        const minCenterY = 2.9 + actualGap * 0.5;
+        const maxCenterY = SIM_CONFIG.ceilingY - 2.6 - actualGap * 0.5;
+        gapCenterY = minCenterY + prng() * Math.max(0.5, maxCenterY - minCenterY);
+      }
       return {
         x: xPos,
-        bottomTopY: gapCenterY - gapSize * 0.5,
-        topBottomY: gapCenterY + gapSize * 0.5,
+        bottomTopY: gapCenterY - actualGap * 0.5,
+        topBottomY: gapCenterY + actualGap * 0.5,
         gapCenterY,
-        gapSize,
+        gapSize: actualGap,
         passed: false
       };
     };
+
+    const initialPipes = [];
+    if (rKey === 'extreme') {
+      const extCfg = SIM_CONFIG.difficulties.extreme;
+      const firstX = SIM_CONFIG.birdX + extCfg.firstPipeDist;
+      for (let pIdx = 0; pIdx < 4; pIdx++) {
+        initialPipes.push(spawnPipe(firstX + pIdx * extCfg.spawnDistance, initDiff.pipeGap));
+      }
+    } else {
+      const firstNormalX = SIM_CONFIG.birdX + SIM_CONFIG.baseSpawnDistance;
+      initialPipes.push(
+        spawnPipe(firstNormalX, initDiff.pipeGap),
+        spawnPipe(firstNormalX + SIM_CONFIG.baseSpawnDistance, initDiff.pipeGap),
+        spawnPipe(firstNormalX + SIM_CONFIG.baseSpawnDistance * 2, initDiff.pipeGap)
+      );
+    }
 
     bot.botSim = {
       roundKey: rKey,
       roundSeed: lobby.roundSeed,
       ticksSimulated: 0,
       birdY: SIM_CONFIG.birdStartY,
-      birdVelocityY: SIM_CONFIG.flapImpulse * 0.65,
+      birdVelocityY: initDiff.flapImpulse,
       score: 0,
-      distanceSinceLastPipe: 0,
       flapCooldownTicks: 0,
       prng,
-      pipes: [
-        spawnPipe(SIM_CONFIG.pipeSpawnX - SIM_CONFIG.baseSpawnDistance * 2, initDiff.pipeGap),
-        spawnPipe(SIM_CONFIG.pipeSpawnX - SIM_CONFIG.baseSpawnDistance, initDiff.pipeGap),
-        spawnPipe(SIM_CONFIG.pipeSpawnX, initDiff.pipeGap)
-      ]
+      extremeSolver,
+      spawnPipe,
+      pipes: initialPipes
     };
   }
 
@@ -384,10 +432,11 @@ function stepDuelBotSimulation(bot, lobby, rKey, now, humanFinishedForMs) {
     if (sim.flapCooldownTicks > 0) sim.flapCooldownTicks--;
 
     if (!shouldThrow) {
-      const aimY = nextPipe ? (nextPipe.gapCenterY - 0.15) : SIM_CONFIG.birdStartY;
-      if (sim.birdY < aimY - 0.25 && sim.birdVelocityY <= 0.8 && sim.flapCooldownTicks === 0) {
+      const aimY = nextPipe ? (nextPipe.gapCenterY - (rKey === 'extreme' ? 0.05 : 0.15)) : SIM_CONFIG.birdStartY;
+      const trigOffset = rKey === 'extreme' ? 0.12 : 0.25;
+      if (sim.birdY < aimY - trigOffset && sim.birdVelocityY <= (rKey === 'extreme' ? 0.4 : 0.8) && sim.flapCooldownTicks === 0) {
         sim.birdVelocityY = diff.flapImpulse;
-        sim.flapCooldownTicks = 6;
+        sim.flapCooldownTicks = rKey === 'extreme' ? 2 : 6;
       }
     } else {
       // Stop flapping so the bot naturally falls and crashes
@@ -412,11 +461,7 @@ function stepDuelBotSimulation(bot, lobby, rKey, now, humanFinishedForMs) {
     // Move pipes & check collision
     const bx = SIM_CONFIG.birdX;
     const by = sim.birdY;
-    const r = SIM_CONFIG.birdRadius;
-    const capReachX = SIM_CONFIG.pipeCapRadius + r - 0.08;
-    const shaftReachX = SIM_CONFIG.pipeRadius + r - 0.08;
 
-    sim.distanceSinceLastPipe += diff.speed * dt;
     for (let i = sim.pipes.length - 1; i >= 0; i--) {
       const pipe = sim.pipes[i];
       pipe.x -= diff.speed * dt;
@@ -424,16 +469,10 @@ function stepDuelBotSimulation(bot, lobby, rKey, now, humanFinishedForMs) {
         pipe.passed = true;
         sim.score++;
       }
-      const dx = Math.abs(bx - pipe.x);
-      if (dx < capReachX) {
-        const nearBottomCap = by >= (pipe.bottomTopY - SIM_CONFIG.pipeCapHeight - r);
-        const nearTopCap = by <= (pipe.topBottomY + SIM_CONFIG.pipeCapHeight + r);
-        const effX = (nearBottomCap || nearTopCap) ? capReachX : shaftReachX;
-        if (dx < effX && (by - r < pipe.bottomTopY || by + r > pipe.topBottomY)) {
-          if (shouldThrow) {
-            crashed = true;
-            break;
-          }
+      if (collidesExtremePipe(by, pipe.x, pipe, SIM_CONFIG)) {
+        if (shouldThrow) {
+          crashed = true;
+          break;
         }
       }
       if (pipe.x < SIM_CONFIG.pipeDespawnX) {
@@ -442,20 +481,17 @@ function stepDuelBotSimulation(bot, lobby, rKey, now, humanFinishedForMs) {
     }
     if (crashed) break;
 
-    if (sim.distanceSinceLastPipe >= SIM_CONFIG.baseSpawnDistance) {
-      sim.distanceSinceLastPipe -= SIM_CONFIG.baseSpawnDistance;
-      const gSize = diff.pipeGap;
-      const minCenterY = SIM_CONFIG.groundY + 2.4 + gSize * 0.5;
-      const maxCenterY = SIM_CONFIG.ceilingY - 2.6 - gSize * 0.5;
-      const gapCenterY = minCenterY + sim.prng() * Math.max(0.5, maxCenterY - minCenterY);
-      sim.pipes.push({
-        x: SIM_CONFIG.pipeSpawnX,
-        bottomTopY: gapCenterY - gSize * 0.5,
-        topBottomY: gapCenterY + gSize * 0.5,
-        gapCenterY,
-        gapSize: gSize,
-        passed: false
-      });
+    const activeSpawnDist = rKey === 'extreme'
+      ? (diff.spawnDistance || SIM_CONFIG.difficulties.extreme.spawnDistance)
+      : SIM_CONFIG.baseSpawnDistance;
+    const spawnTriggerX = (rKey === 'extreme'
+      ? SIM_CONFIG.difficulties.extreme.initialPipeSpawnX
+      : SIM_CONFIG.pipeSpawnX) - activeSpawnDist;
+    while (sim.pipes.length === 0 || sim.pipes[sim.pipes.length - 1].x <= spawnTriggerX + 1e-9) {
+      const nextX = sim.pipes.length > 0
+        ? (sim.pipes[sim.pipes.length - 1].x + activeSpawnDist)
+        : (rKey === 'extreme' ? SIM_CONFIG.difficulties.extreme.initialPipeSpawnX : SIM_CONFIG.pipeSpawnX);
+      sim.pipes.push(sim.spawnPipe(nextX, diff.pipeGap));
     }
   }
 
@@ -494,6 +530,30 @@ function stepDuelBotSimulation(bot, lobby, rKey, now, humanFinishedForMs) {
   recomputeDuelPlayerPoints(bot);
 }
 
+function forfeitDuelPlayer(lobby, leaver, reason = 'Closed Tab / Disconnected') {
+  if (!lobby || !leaver || lobby.status === 'waiting' || lobby.status === 'finished') return false;
+  const winner = (lobby.players || []).find(p => p && p !== leaver) || null;
+  leaver.leftMatch = true;
+  leaver.forfeited = true;
+  if (leaver.live) leaver.live.alive = false;
+  for (const rk of DUEL_ROUNDS) {
+    if (leaver.rounds && leaver.rounds[rk]) leaver.rounds[rk].finished = true;
+    if (winner && winner.rounds && winner.rounds[rk]) winner.rounds[rk].finished = true;
+  }
+  if (winner) {
+    finalizeDuelLobbyMatch(lobby, { forfeitWinner: winner, reason });
+    logDatabaseEvent(
+      'DUEL_FORFEIT',
+      leaver.username,
+      `🏳️ ${leaver.username} forfeited Ranked Duel (${reason}) — ${winner.username} awarded victory`,
+      { lobbyId: lobby.id, leaver: leaver.username, winner: winner.username, reason }
+    );
+    saveDatabase(false);
+    return true;
+  }
+  return false;
+}
+
 function advanceDuelLobbyClock(lobby) {
   if (!lobby) return;
   const now = Date.now();
@@ -506,12 +566,30 @@ function advanceDuelLobbyClock(lobby) {
     }
   }
 
+  // Detect tab-close / silent disconnect forfeit during active countdown, playing, or round summary
+  if (lobby.status === 'countdown' || lobby.status === 'playing' || lobby.status === 'round_summary') {
+    if (!lobby.matchStartedAt) lobby.matchStartedAt = lobby.countdownStartedAt || now;
+    const p1 = lobby.players[0];
+    const p2 = lobby.players[1];
+    if (p1 && p2 && (now - lobby.matchStartedAt > 15000)) {
+      const p1Silent = !p1.isBot && (now - (p1.lastHeartbeat || lobby.createdAt || now) > 15000);
+      const p2Silent = !p2.isBot && (now - (p2.lastHeartbeat || lobby.createdAt || now) > 15000);
+      if (p1Silent && !p2Silent) {
+        forfeitDuelPlayer(lobby, p1, 'Disconnected Mid-Match');
+        return;
+      }
+      if (p2Silent && !p1Silent) {
+        forfeitDuelPlayer(lobby, p2, 'Disconnected Mid-Match');
+        return;
+      }
+    }
+  }
+
   if (lobby.status === 'round_summary') {
     if (now >= lobby.summaryEndsAt) {
-      if (lobby.currentRoundIndex === 0) {
-        startDuelCountdownForRound(lobby, 1, lobby.summaryEndsAt);
-      } else if (lobby.currentRoundIndex === 1) {
-        startDuelCountdownForRound(lobby, 2, lobby.summaryEndsAt);
+      const nextRoundIdx = (Number(lobby.currentRoundIndex) || 0) + 1;
+      if (nextRoundIdx < DUEL_ROUNDS.length) {
+        startDuelCountdownForRound(lobby, nextRoundIdx, lobby.summaryEndsAt);
       } else {
         finalizeDuelLobbyMatch(lobby);
       }
@@ -605,7 +683,8 @@ function createDuelBotSlot(referenceElo = 1000) {
   slot.botTargets = {
     easy: Math.floor(6 + Math.random() * 11),
     medium: Math.floor(4 + Math.random() * 8),
-    hard: Math.floor(2 + Math.random() * 6)
+    hard: Math.floor(2 + Math.random() * 6),
+    extreme: Math.floor(1 + Math.random() * 3)
   };
   return slot;
 }
@@ -631,6 +710,7 @@ function serializeDuelLobby(lobby, includeLivePipes = false) {
     currentRound: lobby.currentRound || 'easy',
     currentRoundIndex: lobby.currentRoundIndex || 0,
     currentRoundNumber: (lobby.currentRoundIndex || 0) + 1,
+    totalRounds: DUEL_ROUNDS.length,
     currentRoundLabel: DUEL_ROUND_LABELS[lobby.currentRound || 'easy'] || 'Easy',
     currentMultiplier: lobby.currentMultiplier || 1,
     roundSeed: lobby.roundSeed || 12345,
@@ -906,6 +986,8 @@ function formatClientUserPayload(u) {
     duelMatches: u.duelMatches || 0,
     duelCoins: Math.round(Number(u.duelCoins) || 0),
     records: u.records,
+    extremeUnlocked: hasUnlockedExtremeMode(u),
+    extremeUnlockReqs: EXTREME_UNLOCK_REQS,
     trollQuests: u.trollQuests || null,
     careerStats: u.careerStats || null
   };
@@ -917,7 +999,7 @@ function processVerifiedRunSubmission(user, diffKey, verifiedScore) {
   let timeframePlacements = { daily: 1, weekly: 1, all: 1 };
   try {
     const db = getDb();
-    const modeLabel = diffKey === 'easy' ? 'EASY' : (diffKey === 'hard' ? 'HARD' : 'MEDIUM');
+    const modeLabel = diffKey === 'easy' ? 'EASY' : (diffKey === 'hard' ? 'HARD' : (diffKey === 'extreme' ? 'EXTREME' : 'MEDIUM'));
     const now = Date.now();
     const boundaries = getLeaderboardResetBoundaries(now);
     const dailyResetMs = boundaries.daily.currentResetMs;
@@ -1382,7 +1464,8 @@ async function handleApiRequest(req, res, pathname, port) {
     const initialRecords = {
       easy: Math.max(0, Math.floor(Number(reqRecords && reqRecords.easy) || 0)),
       medium: Math.max(0, Math.floor(Number(reqRecords && reqRecords.medium) || 0)),
-      hard: Math.max(0, Math.floor(Number(reqRecords && reqRecords.hard) || 0))
+      hard: Math.max(0, Math.floor(Number(reqRecords && reqRecords.hard) || 0)),
+      extreme: Math.max(0, Math.floor(Number(reqRecords && reqRecords.extreme) || 0))
     };
 
     db.users[usernameKey] = {
@@ -1410,7 +1493,7 @@ async function handleApiRequest(req, res, pathname, port) {
       duelMatches: 0,
       duelCoins: 0,
       records: initialRecords,
-      recordTimestamps: { easy: now, medium: now, hard: now }
+      recordTimestamps: { easy: now, medium: now, hard: now, extreme: now }
     };
 
     const token = crypto.randomBytes(24).toString('hex');
@@ -1700,7 +1783,7 @@ async function handleApiRequest(req, res, pathname, port) {
 
     // Count user's runs across all modes
     let totalRuns = 0;
-    ['easy', 'medium', 'hard'].forEach(diff => {
+    ALL_MODES.forEach(diff => {
       if (Array.isArray(db.runs[diff])) {
         totalRuns += db.runs[diff].filter(r => r.username.toLowerCase() === lower && !r.hidden).length;
       }
@@ -1709,7 +1792,7 @@ async function handleApiRequest(req, res, pathname, port) {
     // Compute leaderboard ranks
     const leaderboards = buildLeaderboards(0);
     const ranks = {};
-    ['easy', 'medium', 'hard'].forEach(diff => {
+    ALL_MODES.forEach(diff => {
       const idx = (leaderboards[diff] || []).findIndex(e => e.username.toLowerCase() === lower);
       ranks[diff] = idx !== -1 ? `#${idx + 1}` : 'Unranked';
     });
@@ -1717,7 +1800,8 @@ async function handleApiRequest(req, res, pathname, port) {
     return sendJSON(res, 200, {
       profile: {
         username: user.username,
-        records: user.records || { easy: 0, medium: 0, hard: 0 },
+        records: user.records || { easy: 0, medium: 0, hard: 0, extreme: 0 },
+        extremeUnlocked: hasUnlockedExtremeMode(user),
         recordTimestamps: user.recordTimestamps || {},
         selectedSkin: user.selectedSkin || 'classic',
         selectedPipeSkin: user.selectedPipeSkin || 'classic_pipe',
@@ -1769,6 +1853,15 @@ async function handleApiRequest(req, res, pathname, port) {
     const { difficulty, seed: clientSeed } = await readJsonBody(req);
     const diffKey = SIM_CONFIG.difficulties[difficulty] ? difficulty : 'medium';
 
+    if (diffKey === 'extreme' && !hasUnlockedExtremeMode(auth.user)) {
+      const r = auth.user.records || {};
+      return sendJSON(res, 403, {
+        error: `Extreme Mode Locked! Reach 100 Easy (${Number(r.easy) || 0}/100), 40 Medium (${Number(r.medium) || 0}/40), and 25 Hard (${Number(r.hard) || 0}/25) first.`,
+        extremeLocked: true,
+        extremeUnlockReqs: EXTREME_UNLOCK_REQS
+      });
+    }
+
     const runId = crypto.randomBytes(16).toString('hex');
     const seed = (typeof clientSeed === 'number' && Number.isInteger(clientSeed) && clientSeed > 0)
       ? clientSeed
@@ -1809,6 +1902,14 @@ async function handleApiRequest(req, res, pathname, port) {
 
     if (run.usernameKey !== auth.usernameKey) {
       return sendJSON(res, 403, { error: 'Anti-Cheat Rejection: Run token belongs to a different player.' });
+    }
+
+    if (run.difficulty === 'extreme' && !hasUnlockedExtremeMode(auth.user)) {
+      return sendJSON(res, 403, {
+        error: 'Extreme Mode Locked! Reach 100 Easy, 40 Medium, and 25 Hard first.',
+        extremeLocked: true,
+        extremeUnlockReqs: EXTREME_UNLOCK_REQS
+      });
     }
 
     const elapsedWallMs = Date.now() - run.startedAt;
@@ -2331,9 +2432,10 @@ async function handleApiRequest(req, res, pathname, port) {
       });
     }
 
-    // POST /api/duels/leave (only allowed while waiting in lobby before a ranked match begins)
+    // POST /api/duels/leave (deletes waiting lobby OR immediately forfeits an active match!)
     if (req.method === 'POST' && pathname === '/api/duels/leave') {
       const targetId = String(body.lobbyId || '');
+      const leaveReason = body.reason === 'tab_closed' ? 'Closed Tab' : 'Left Match';
       const idsToCheck = targetId ? [targetId] : Array.from(duelLobbies.keys());
       for (const lid of idsToCheck) {
         const lobby = duelLobbies.get(lid);
@@ -2343,6 +2445,8 @@ async function handleApiRequest(req, res, pathname, port) {
 
         if (lobby.status === 'waiting') {
           duelLobbies.delete(lid);
+        } else if (lobby.status !== 'finished') {
+          forfeitDuelPlayer(lobby, leaver, leaveReason);
         }
       }
       return sendJSON(res, 200, {

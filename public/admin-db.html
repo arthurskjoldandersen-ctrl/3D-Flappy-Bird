@@ -229,8 +229,8 @@
     /* KPI Grid */
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
     }
 
     .kpi-card {
@@ -453,6 +453,7 @@
     .score-input.easy-in { border-color: rgba(34, 197, 94, 0.45); color: #86efac; }
     .score-input.med-in { border-color: rgba(245, 158, 11, 0.45); color: #fde047; }
     .score-input.hard-in { border-color: rgba(244, 63, 94, 0.45); color: #fda4af; }
+    .score-input.extreme-in { border-color: rgba(192, 132, 252, 0.55); color: #e9d5ff; }
 
     /* Feed List */
     .feed-list {
@@ -1052,6 +1053,11 @@
         <div class="kpi-val" id="kpi-hard-champ">-</div>
         <div class="kpi-sub" id="kpi-hard-count">0 verified runs</div>
       </div>
+      <div class="kpi-card" style="border-color:rgba(192,132,252,0.45);">
+        <div class="kpi-label" style="color:#d8b4fe;">⚡ Extreme #1 Record</div>
+        <div class="kpi-val" id="kpi-extreme-champ">-</div>
+        <div class="kpi-sub" id="kpi-extreme-count" style="color:#c084fc;">0 verified runs</div>
+      </div>
     </div>
 
     <!-- Navigation Tabs Bar -->
@@ -1113,6 +1119,7 @@
                 <th>🟢 Easy Best</th>
                 <th>🟡 Medium Best</th>
                 <th>🔴 Hard Best</th>
+                <th>⚡ Extreme Best</th>
                 <th>🏆 Duel ELO</th>
                 <th>Actions</th>
               </tr>
@@ -1143,6 +1150,7 @@
             <button type="button" class="btn lb-mode-btn" data-mode="easy" style="padding:6px 12px; font-size:0.78rem;">🟢 Easy</button>
             <button type="button" class="btn btn-primary lb-mode-btn" data-mode="medium" style="padding:6px 12px; font-size:0.78rem;">🟡 Medium</button>
             <button type="button" class="btn lb-mode-btn" data-mode="hard" style="padding:6px 12px; font-size:0.78rem;">🔴 Hard</button>
+            <button type="button" class="btn lb-mode-btn" data-mode="extreme" style="padding:6px 12px; font-size:0.78rem; border-color:rgba(192,132,252,0.45); color:#e9d5ff;">⚡ Extreme</button>
             <span style="width:1px; height:20px; background:var(--border); margin:0 4px;"></span>
             <button type="button" class="btn lb-vis-btn btn-primary" data-vis="all" style="padding:6px 12px; font-size:0.78rem;">All</button>
             <button type="button" class="btn lb-vis-btn" data-vis="visible" style="padding:6px 12px; font-size:0.78rem;">👁️ Visible Only</button>
@@ -1186,6 +1194,7 @@
             <option value="easy">🟢 Easy</option>
             <option value="medium" selected>🟡 Medium</option>
             <option value="hard">🔴 Hard</option>
+            <option value="extreme">⚡ Extreme</option>
           </select>
           <input type="number" id="add-run-score" class="score-input" min="1" placeholder="Score" value="50" style="width:84px;" />
           <button type="button" class="btn btn-primary" id="btn-add-run" style="padding:6px 14px; font-size:0.8rem;">➕ Add Run</button>
@@ -1300,6 +1309,7 @@
           <button type="button" class="modal-filter-btn" data-mode="easy">🟢 Easy</button>
           <button type="button" class="modal-filter-btn" data-mode="medium">🟡 Medium</button>
           <button type="button" class="modal-filter-btn" data-mode="hard">🔴 Hard</button>
+          <button type="button" class="modal-filter-btn" data-mode="extreme">⚡ Extreme</button>
         </div>
 
         <!-- Visibility Filter Pills -->
@@ -1318,6 +1328,7 @@
           <option value="easy">🟢 Easy</option>
           <option value="medium" selected>🟡 Medium</option>
           <option value="hard">🔴 Hard</option>
+          <option value="extreme">⚡ Extreme</option>
         </select>
         <input type="number" id="modal-add-score" class="score-input" min="1" placeholder="Score" value="50" style="width:78px; padding:5px 8px;" />
         <button type="button" class="btn btn-primary" id="modal-btn-add-run" style="padding:5px 12px; font-size:0.78rem;">➕ Add Run</button>
@@ -1500,7 +1511,7 @@
           <div class="modal-avatar-badge" style="background:linear-gradient(135deg, #f59e0b, #ef4444);">⚔️</div>
           <div>
             <div class="modal-title" id="modal-duel-hist-title">Ranked Duels History</div>
-            <div class="modal-subtitle" id="modal-duel-hist-meta">Loading ELO record, opponents &amp; 3-gamemode results...</div>
+            <div class="modal-subtitle" id="modal-duel-hist-meta">Loading ELO record, opponents &amp; 4-gamemode results...</div>
           </div>
         </div>
         <button type="button" class="modal-close-btn" id="modal-duel-hist-close-btn" title="Close Popup (Esc)">✕</button>
@@ -1734,7 +1745,7 @@
         btn.style.background = 'rgba(127, 29, 29, 0.55)';
         btn.style.color = '#fecaca';
       } else {
-        btn.innerHTML = '⚖️ 150+ ELO Duels Blocked: <strong>OFF</strong> (150/200/300 Scaling)';
+        btn.innerHTML = '⚖️ 150+ ELO Duels Blocked: <strong>OFF</strong> (Upset ELO Active)';
         btn.style.borderColor = 'rgba(34, 197, 94, 0.55)';
         btn.style.background = 'rgba(22, 101, 52, 0.35)';
         btn.style.color = '#bbf7d0';
@@ -1818,11 +1829,15 @@
         document.getElementById('kpi-easy-champ').textContent = st.currentChampions.easy || '-';
         document.getElementById('kpi-med-champ').textContent = st.currentChampions.medium || '-';
         document.getElementById('kpi-hard-champ').textContent = st.currentChampions.hard || '-';
+        const extChampEl = document.getElementById('kpi-extreme-champ');
+        if (extChampEl) extChampEl.textContent = st.currentChampions.extreme || '-';
       }
       if (st.totalLeaderboardRuns) {
         document.getElementById('kpi-easy-count').textContent = `${st.totalLeaderboardRuns.easy || 0} verified placements`;
         document.getElementById('kpi-med-count').textContent = `${st.totalLeaderboardRuns.medium || 0} verified placements`;
         document.getElementById('kpi-hard-count').textContent = `${st.totalLeaderboardRuns.hard || 0} verified placements`;
+        const extCountEl = document.getElementById('kpi-extreme-count');
+        if (extCountEl) extCountEl.textContent = `${st.totalLeaderboardRuns.extreme || 0} verified placements`;
       }
 
       const activeTabEl = document.querySelector('.tab-pane.active');
@@ -1915,7 +1930,8 @@
           const easy = p.records?.easy || 0;
           const med = p.records?.medium || 0;
           const hard = p.records?.hard || 0;
-          return easy >= 50 || med >= 30 || hard >= 20;
+          const extreme = p.records?.extreme || 0;
+          return easy >= 50 || med >= 30 || hard >= 20 || extreme >= 5;
         });
       } else if (activePlayerChip === 'active') {
         players = players.filter(p => p.loginStatus && p.loginStatus.toLowerCase().includes('today'));
@@ -1931,7 +1947,7 @@
       if (players.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="6" style="text-align:center; color:var(--text-sub); padding:24px;">
+            <td colspan="7" style="text-align:center; color:var(--text-sub); padding:24px;">
               No players found matching your query or active filter.
             </td>
           </tr>
@@ -2006,6 +2022,9 @@
           </td>
           <td>
             <input type="number" min="0" class="score-input hard-in" data-user="${escapeHtml(p.username)}" data-diff="hard" value="${p.records.hard}" />
+          </td>
+          <td>
+            <input type="number" min="0" class="score-input extreme-in" data-user="${escapeHtml(p.username)}" data-diff="extreme" value="${p.records.extreme || 0}" />
           </td>
           <td>
             <input type="number" min="0" step="10" class="score-input elo-in" data-user="${escapeHtml(p.username)}" data-diff="elo" value="${p.duelElo !== undefined ? p.duelElo : 1000}" style="border-color:rgba(251,191,36,0.5); color:#fbbf24;" />
@@ -2111,6 +2130,8 @@
           const easy = Number(row.querySelector('[data-diff="easy"]').value) || 0;
           const medium = Number(row.querySelector('[data-diff="medium"]').value) || 0;
           const hard = Number(row.querySelector('[data-diff="hard"]').value) || 0;
+          const extEl = row.querySelector('[data-diff="extreme"]');
+          const extreme = extEl ? (Number(extEl.value) || 0) : 0;
           const duelEloEl = row.querySelector('[data-diff="elo"]');
           const duelElo = duelEloEl ? Math.max(0, Math.floor(Number(duelEloEl.value) || 0)) : undefined;
 
@@ -2119,14 +2140,14 @@
             const res = await fetch('/api/database/update-record', {
               method: 'POST',
               headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-              body: JSON.stringify({ username, records: { easy, medium, hard }, duelElo })
+              body: JSON.stringify({ username, records: { easy, medium, hard, extreme }, duelElo })
             });
             const updated = await res.json();
             if (res.ok) {
               isEditingInput = false;
               currentDbData = updated;
               renderDashboard(updated);
-              showToast(`✅ Updated ${username}'s Bests & Elo (Easy: ${easy}, Med: ${medium}, Hard: ${hard}, Elo: ${duelElo ?? 1000})!`);
+              showToast(`✅ Updated ${username}'s Bests & Elo (E:${easy}, M:${medium}, H:${hard}, X:${extreme}, Elo:${duelElo ?? 1000})!`);
             } else {
               alert(updated.error || 'Failed to update record');
             }
@@ -2195,12 +2216,13 @@
       if (bulkControls) bulkControls.style.display = filterUser ? 'flex' : 'none';
 
       tbody.innerHTML = '';
-      const allRunsObj = currentDbData.allRuns || currentDbData.leaderboards || { easy: [], medium: [], hard: [] };
-      const modesToShow = activeLbMode === 'all' ? ['easy', 'medium', 'hard'] : [activeLbMode];
+      const allRunsObj = currentDbData.allRuns || currentDbData.leaderboards || { easy: [], medium: [], hard: [], extreme: [] };
+      const modesToShow = activeLbMode === 'all' ? ['easy', 'medium', 'hard', 'extreme'] : [activeLbMode];
       const modeBadges = {
         easy: '<span style="color:#4ade80; font-weight:900; font-size:0.76rem;">🟢 EASY</span>',
         medium: '<span style="color:#fde047; font-weight:900; font-size:0.76rem;">🟡 MEDIUM</span>',
-        hard: '<span style="color:#fda4af; font-weight:900; font-size:0.76rem;">🔴 HARD</span>'
+        hard: '<span style="color:#fda4af; font-weight:900; font-size:0.76rem;">🔴 HARD</span>',
+        extreme: '<span style="color:#e9d5ff; font-weight:900; font-size:0.76rem;">⚡ EXTREME</span>'
       };
 
       let combinedRuns = [];
@@ -2226,7 +2248,7 @@
 
       // Sort combined runs according to tab sort dropdown (Highest to Lowest, Lowest to Highest, Mode, Date)
       const tabSortOrder = document.getElementById('tab-runs-sort-select')?.value || 'score_desc';
-      const modeWeights = { easy: 1, medium: 2, hard: 3 };
+      const modeWeights = { easy: 1, medium: 2, hard: 3, extreme: 4 };
       combinedRuns.sort((a, b) => {
         if (tabSortOrder === 'score_asc') {
           if (a.score !== b.score) return a.score - b.score;
@@ -2506,7 +2528,7 @@
         username,
         selectedSkin: 'Classic Yellow',
         selectedPipeSkin: 'Classic Green',
-        records: { easy: 0, medium: 0, hard: 0 }
+        records: { easy: 0, medium: 0, hard: 0, extreme: 0 }
       };
 
       document.getElementById('modal-player-title').innerHTML = `
@@ -2629,8 +2651,8 @@
       const tbody = document.getElementById('modal-runs-tbody');
       tbody.innerHTML = '';
 
-      const allRunsObj = currentDbData.allRuns || currentDbData.leaderboards || { easy: [], medium: [], hard: [] };
-      const modes = ['easy', 'medium', 'hard'];
+      const allRunsObj = currentDbData.allRuns || currentDbData.leaderboards || { easy: [], medium: [], hard: [], extreme: [] };
+      const modes = ['easy', 'medium', 'hard', 'extreme'];
       const playerRuns = [];
 
       modes.forEach(m => {
@@ -2640,7 +2662,7 @@
             playerRuns.push({
               ...r,
               difficulty: m,
-              modeIndex: m === 'easy' ? 1 : m === 'medium' ? 2 : 3,
+              modeIndex: m === 'easy' ? 1 : m === 'medium' ? 2 : m === 'hard' ? 3 : 4,
               fallbackRank: idx + 1
             });
           }
@@ -2705,7 +2727,8 @@
       const modeBadges = {
         easy: '<span style="color:#4ade80; font-weight:900; font-size:0.76rem;">🟢 EASY</span>',
         medium: '<span style="color:#fde047; font-weight:900; font-size:0.76rem;">🟡 MEDIUM</span>',
-        hard: '<span style="color:#fda4af; font-weight:900; font-size:0.76rem;">🔴 HARD</span>'
+        hard: '<span style="color:#fda4af; font-weight:900; font-size:0.76rem;">🔴 HARD</span>',
+        extreme: '<span style="color:#e9d5ff; font-weight:900; font-size:0.76rem;">⚡ EXTREME</span>'
       };
 
       filteredRuns.forEach(r => {
@@ -2905,7 +2928,7 @@
           </td>
           <td>
             <div style="font-size:0.78rem; color:var(--text-sub);">
-              🟢 ${b.easy || 0} • 🟡 ${b.medium || 0} • 🔴 ${b.hard || 0}
+              🟢 ${b.easy || 0} • 🟡 ${b.medium || 0} • 🔴 ${b.hard || 0} • ⚡ ${b.extreme || 0}
             </div>
           </td>
         `;
@@ -3364,21 +3387,21 @@
         }
         const history = Array.isArray(data.history) ? data.history : [];
         if (metaEl) {
-          metaEl.textContent = `${history.length} ranked 3-round duel(s) loaded for ${data.username || username}`;
+          metaEl.textContent = `${history.length} ranked 4-round duel(s) loaded for ${data.username || username}`;
         }
         if (sumEl) {
           sumEl.innerHTML = `
             <span class="modal-pill" style="color:#fbbf24; border-color:rgba(251,191,36,0.5);">🏆 ${data.duelElo ?? 1000} ELO</span>
             <span class="modal-pill" style="color:#86efac;">⚔️ ${data.duelWins || 0}W - ${data.duelLosses || 0}L${(data.duelDraws || 0) > 0 ? ` - ${data.duelDraws}D` : ''}</span>
             <span class="modal-pill">🎮 ${data.duelMatches || 0} Total Matches</span>
-            <span class="modal-pill" style="color:#fdba74;">🔥 Best 3-Round Score: ${data.duelBestMatchPoints || 0} pts</span>
+            <span class="modal-pill" style="color:#fdba74;">🔥 Best Duel Score: ${data.duelBestMatchPoints || 0} pts</span>
           `;
         }
         if (!bodyEl) return;
         if (history.length === 0) {
           bodyEl.innerHTML = `
             <div style="text-align:center; padding:28px; color:var(--text-sub); font-weight:800;">
-              ⚔️ No ranked 3-round duel history recorded yet for <strong>${escapeHtml(data.username || username)}</strong>.
+              ⚔️ No ranked 4-round duel history recorded yet for <strong>${escapeHtml(data.username || username)}</strong>.
             </div>
           `;
           return;
@@ -3420,6 +3443,8 @@
                 <span>🟡 Med: <strong>${mr.medium?.raw || 0}</strong> × 2 = ${mr.medium?.pts || 0} pts</span>
                 <span>•</span>
                 <span>🔴 Hard: <strong>${mr.hard?.raw || 0}</strong> × 3 = ${mr.hard?.pts || 0} pts</span>
+                <span>•</span>
+                <span>⚡ Ext: <strong>${mr.extreme?.raw || 0}</strong> × 10 = ${mr.extreme?.pts || 0} pts</span>
                 <span style="margin-left:auto; font-weight:900; color:#fbbf24;">= ${m.myTotal} PTS</span>
               </div>
               ${or ? `
@@ -3430,6 +3455,8 @@
                   <span>🟡 Med: <strong>${or.medium?.raw || 0}</strong> × 2 = ${or.medium?.pts || 0} pts</span>
                   <span>•</span>
                   <span>🔴 Hard: <strong>${or.hard?.raw || 0}</strong> × 3 = ${or.hard?.pts || 0} pts</span>
+                  <span>•</span>
+                  <span>⚡ Ext: <strong>${or.extreme?.raw || 0}</strong> × 10 = ${or.extreme?.pts || 0} pts</span>
                   <span style="margin-left:auto; font-weight:900; color:#cbd5e1;">= ${m.oppTotal} PTS</span>
                 </div>
               ` : ''}
@@ -3577,7 +3604,7 @@
                 ${(!isMeDonutTarget && tIsPrimary) ? '<span style="background:rgba(250,204,21,0.22);color:#fde047;border:1px solid rgba(250,204,21,0.55);padding:1px 7px;border-radius:999px;font-size:0.68rem;font-weight:900;">⭐ #1 BEST ACCOUNT</span>' : ''}
                 ${(!isMeDonutTarget && tIsOverLimit) ? '<span style="background:rgba(217,119,6,0.28);color:#fdba74;border:1px solid rgba(245,158,11,0.65);padding:1px 7px;border-radius:999px;font-size:0.68rem;font-weight:900;">⏸️ OVER LIMIT (PAUSED)</span>' : ''}
                 ${(!isMeDonutTarget && tClusterCount > 1) ? `<span style="background:rgba(56,189,248,0.18);color:#bae6fd;border:1px solid rgba(56,189,248,0.45);padding:1px 7px;border-radius:999px;font-size:0.68rem;font-weight:800;">Rank #${tRank}/${tClusterCount}${tPrioScore > 0 ? ` • Score ${tPrioScore}` : ''}</span>` : ''}
-                <span>• Best: 🟢 ${t.records?.easy || 0} / 🟡 ${t.records?.medium || 0} / 🔴 ${t.records?.hard || 0} • 🏆 ${t.duelElo ?? 1000} ELO • ${cookieBadge}</span>
+                <span>• Best: 🟢 ${t.records?.easy || 0} / 🟡 ${t.records?.medium || 0} / 🔴 ${t.records?.hard || 0} / ⚡ ${t.records?.extreme || 0} • 🏆 ${t.duelElo ?? 1000} ELO • ${cookieBadge}</span>
               </div>
               <div style="color:#cbd5e1; font-size:0.74rem; display:flex; align-items:center; flex-wrap:wrap; gap:10px;">
                 <span><strong>Browser Device IDs:</strong> <code>${devsText}</code> &nbsp;|&nbsp; <strong>Switch History:</strong> <code>${linkedText}</code></span>
@@ -3654,7 +3681,7 @@
                   Logins: ${m.loginCount || 0} • Last Login: ${escapeHtml(m.lastLoginReadable || 'Unknown')}
                 </div>
                 <div style="font-size:0.74rem; color:#93c5fd; margin-top:3px;">
-                  Bests: 🟢 ${m.records?.easy || 0} / 🟡 ${m.records?.medium || 0} / 🔴 ${m.records?.hard || 0} • 🏆 ${m.duelElo ?? 1000} ELO • 🪙 ${m.duelCoins || 0} Coins
+                  Bests: 🟢 ${m.records?.easy || 0} / 🟡 ${m.records?.medium || 0} / 🔴 ${m.records?.hard || 0} / ⚡ ${m.records?.extreme || 0} • 🏆 ${m.duelElo ?? 1000} ELO • 🪙 ${m.duelCoins || 0} Coins
                 </div>
               </div>
               <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
@@ -3717,7 +3744,7 @@
         currentDbData.allRuns = currentDbData.allRuns.filter(r => !r || !r.username || r.username.toLowerCase() !== uKey);
       }
       if (currentDbData.leaderboards && typeof currentDbData.leaderboards === 'object') {
-        ['easy', 'medium', 'hard'].forEach(diff => {
+        ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
           if (Array.isArray(currentDbData.leaderboards[diff])) {
             currentDbData.leaderboards[diff] = currentDbData.leaderboards[diff].filter(e => !e || !e.username || e.username.toLowerCase() !== uKey);
           }

@@ -4136,7 +4136,29 @@ class FlappyBird3DModels {
         // DETERMINISTIC PIPE SPAWNING & 3D PIPE SKIN TRIM BUILDER
         // ------------------------------------------------------------------------
         getDifficultyParams() {
+          if (typeof window.getDifficultyParamsFor === 'function') {
+            return window.getDifficultyParamsFor(this.score, this.selectedDifficulty, CONFIG);
+          }
           const diff = CONFIG.difficulties[this.selectedDifficulty] || CONFIG.difficulties.medium;
+          if (this.selectedDifficulty === 'extreme' || (typeof diff.gravity === 'number' && typeof diff.flapImpulse === 'number')) {
+            const speedProgress = Math.min(Math.max(0, Number(this.score) || 0) / (diff.speedRampScore || 45), 1.0);
+            const minSpd = diff.baseSpeed || CONFIG.baseSpeed;
+            const maxSpd = Math.min(diff.maxSpeed || CONFIG.maxSpeed, CONFIG.baseSpeed * 2.0);
+            const speed = Math.min(maxSpd, minSpd + speedProgress * (maxSpd - minSpd));
+            const speedRatio = Math.min(2.0, speed / CONFIG.baseSpeed);
+            const refRatio = speed / (diff.refSpeed || 12.0);
+            return {
+              speed,
+              pipeGap: diff.baseGap,
+              speedRatio,
+              gravity: diff.gravity * (refRatio * refRatio),
+              flapImpulse: diff.flapImpulse * refRatio,
+              maxFallSpeed: diff.maxFallSpeed * refRatio,
+              spawnDistance: diff.spawnDistance || CONFIG.baseSpawnDistance,
+              speedMult: speedRatio.toFixed(1),
+              label: diff.label
+            };
+          }
           const speedProgress = Math.min(this.score / (diff.speedRampScore || 45), 1.0);
           const gapProgress = Math.min(this.score / 40, 1.0);
           const targetMaxSpeed = Math.min(diff.maxSpeed || CONFIG.maxSpeed, CONFIG.baseSpeed * 2.0);
@@ -4157,7 +4179,7 @@ class FlappyBird3DModels {
           const maxFallSpeed = CONFIG.maxFallSpeed * speedRatio * fallSlowdown;
           const speedMult = speedRatio.toFixed(1);
 
-          return { speed, pipeGap, speedRatio, gravity, flapImpulse, maxFallSpeed, speedMult, label: diff.label };
+          return { speed, pipeGap, speedRatio, gravity, flapImpulse, maxFallSpeed, spawnDistance: CONFIG.baseSpawnDistance, speedMult, label: diff.label };
         }
 
         spawnLobbyPreviewPipes() {
@@ -4189,10 +4211,18 @@ class FlappyBird3DModels {
         }
 
         spawnPipePair(spawnX = CONFIG.pipeSpawnX) {
-          const { pipeGap } = this.getDifficultyParams();
-          const minCenterY = 2.9 + pipeGap * 0.5;
-          const maxCenterY = CONFIG.ceilingY - 2.6 - pipeGap * 0.5;
-          const gapCenterY = minCenterY + this.prng() * (maxCenterY - minCenterY);
+          const diffParams = this.getDifficultyParams();
+          let pipeGap = diffParams.pipeGap;
+          let gapCenterY;
+          if (this.selectedDifficulty === 'extreme' && this.extremeSolver) {
+            const solved = this.extremeSolver.nextPipe();
+            pipeGap = solved.gapSize;
+            gapCenterY = solved.gapCenterY;
+          } else {
+            const minCenterY = 2.9 + pipeGap * 0.5;
+            const maxCenterY = CONFIG.ceilingY - 2.6 - pipeGap * 0.5;
+            gapCenterY = minCenterY + this.prng() * (maxCenterY - minCenterY);
+          }
 
           const bottomTopY = gapCenterY - pipeGap * 0.5;
           const topBottomY = gapCenterY + pipeGap * 0.5;

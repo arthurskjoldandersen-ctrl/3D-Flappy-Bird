@@ -253,6 +253,31 @@
               </div>
               <div class="mode-card-meta diff-meta" id="diff-meta-hard">Best: 0 • 12 Skins</div>
             </button>
+
+            <!-- ⚡ SPECIAL EXTREME MODE (Full-Width Challenge Banner Beneath Easy / Med / Hard) -->
+            <button type="button" class="mode-card mode-card-extreme diff-btn is-locked" data-diff="extreme" id="diff-card-extreme">
+              <div class="mode-card-extreme-top">
+                <div class="mode-badge-wrap">
+                  <span class="mode-icon">⚡</span>
+                  <span class="mode-name">EXTREME</span>
+                  <span class="mode-extreme-spec-pill">30-FP • 60 FPS Lock</span>
+                </div>
+                <div class="mode-extreme-badges">
+                  <span class="mode-tag-pill tag-extreme-locked" id="extreme-lock-pill">🔒 LOCKED</span>
+                </div>
+              </div>
+              <div class="extreme-unlock-progress-wrap" id="extreme-unlock-progress-wrap">
+                <div class="extreme-req-chips">
+                  <span class="extreme-req-chip" id="extreme-prog-easy">Easy 0/100</span>
+                  <span class="extreme-req-chip" id="extreme-prog-med">Med 0/40</span>
+                  <span class="extreme-req-chip" id="extreme-prog-hard">Hard 0/25</span>
+                </div>
+                <div class="extreme-unlock-bar-track">
+                  <div class="extreme-unlock-bar-fill" id="extreme-unlock-bar-fill" style="width: 0%;"></div>
+                </div>
+              </div>
+              <div class="mode-card-meta diff-meta" id="diff-meta-extreme">🔒 Reach 100 Easy, 40 Med &amp; 25 Hard to Unlock</div>
+            </button>
           </div>
 
           <!-- Active Loadout Row: 1-Click Jump to Locker -->
@@ -293,22 +318,6 @@
             <span class="play-text">START FLIGHT</span>
             <span class="play-sub">(Space or Click)</span>
           </button>
-
-          <!-- Next Goal Progress Pill -->
-          <div class="next-unlock-banner next-unlock-box" id="next-unlock-box" title="Click to preview next goal in 3D">
-            <span id="next-unlock-title" style="display: none;">Next Unlock</span>
-            <div class="next-goal-item" id="next-bird-goal" style="display:flex; align-items:center; gap:8px; width:100%;">
-              <span class="deck-goal-icon">🎯</span>
-              <span class="deck-goal-label next-goal-sub" id="next-bird-req" style="font-weight:800; font-size:0.78rem;">Next Goal</span>
-              <span id="next-bird-name" style="font-size:0.78rem; font-weight:900; color:var(--text-primary); margin-left:4px;">Canary</span>
-              <div class="deck-goal-track next-goal-bar"><div class="deck-goal-fill next-goal-fill" id="next-bird-fill" style="width: 0%;"></div></div>
-            </div>
-            <div class="next-goal-item" id="next-pipe-goal" style="display:none;">
-              <span id="next-pipe-req"></span>
-              <span id="next-pipe-name"></span>
-              <div class="next-goal-fill" id="next-pipe-fill"></div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -401,6 +410,8 @@
                       <span>🟡 Medium 2x</span>
                       <span>•</span>
                       <span>🔴 Hard 3x</span>
+                      <span>•</span>
+                      <span>⚡ Extreme 10x</span>
                     </div>
                   </div>
 
@@ -422,7 +433,7 @@
                     <div class="duels-create-icon">⚡</div>
                     <h3 class="duels-create-title">Create Duel Lobby</h3>
                     <p class="duels-create-desc">
-                      Host a 3-Round Ranked or Friendly Duel: <strong>Round 1 Easy (1x)</strong> → <strong>Round 2 Medium (2x)</strong> → <strong>Round 3 Hard (3x)</strong>. All points are counted together!
+                      Host a 4-Round Ranked or Friendly Duel: <strong>Round 1 Easy (1x)</strong> → <strong>Round 2 Medium (2x)</strong> → <strong>Round 3 Hard (3x)</strong> → <strong>Round 4 Extreme (10x)</strong>. All points are counted together!
                     </p>
                   </div>
 
@@ -505,7 +516,7 @@
                   <p class="duels-subtitle">Spend Ranked Duel Coins (Friendly matches give 0 coins)</p>
                 </div>
               </div>
-              <div class="duel-shop-coins-pill" id="duel-shop-coins-pill" title="Your Duel Coins (Ranked Duels ONLY — Win: 1.5x, Tie: 1.0x, Loss: 0.7x | Friendly Matches = 0 coins)">
+              <div class="duel-shop-coins-pill" id="duel-shop-coins-pill" title="Your Duel Coins (Ranked Duels ONLY — Win: 2.0x, Tie: 1.0x, Loss: 0.8x | Friendly Matches = 0 coins)">
                 <span class="duel-shop-coins-icon">🪙</span>
                 <strong id="duel-shop-coins-display">0</strong>
               </div>
@@ -626,17 +637,32 @@
       <!-- VIEW 3: DEDICATED FULL-PAGE TOP 100 LEADERBOARDS -->
       <div id="view-leaderboard" class="hub-view-panel">
         <div class="lb-full-card card">
-          <div class="lb-header-row">
-            <div>
-              <h2 style="font-size: 1.45rem; font-family:'Fredoka',sans-serif; color:var(--text-primary); margin:0;">🏆 Global Leaderboards</h2>
-              <p style="font-size: 0.80rem; color:var(--text-secondary); margin:0;">Multi-entry verified rankings across all 100 spots • Real-time anti-cheat protected</p>
-            </div>
-            <div class="lb-controls-wrap">
-              <div class="lb-search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="lb-search-input" placeholder="Search player, rank (#1), or score..." autocomplete="off" />
+          <div class="lb-header-row lb-header-stacked">
+            <div class="lb-header-top">
+              <div>
+                <h2 style="font-size: 1.4rem; font-family:'Fredoka',sans-serif; color:var(--text-primary); margin:0;">🏆 Global Leaderboards</h2>
+                <p style="font-size: 0.78rem; color:var(--text-secondary); margin:0;">Multi-entry verified rankings across Easy, Medium, Hard &amp; Extreme • Anti-cheat protected</p>
               </div>
-              <!-- Timeframe Tabs (Daily / Weekly / All Time) & Live Reset Countdown Timer -->
+              <div class="lb-header-actions">
+                <div class="lb-search-box">
+                  <span class="search-icon">🔍</span>
+                  <input type="text" id="lb-search-input" placeholder="Search player, rank (#1), or score..." autocomplete="off" />
+                </div>
+                <button type="button" class="lb-unique-toggle-btn active" id="btn-toggle-lb-unique" title="Toggle 1 Record per Player" aria-pressed="true">
+                  <span class="unique-toggle-icon">👤</span>
+                  <span class="unique-toggle-label">1 Run / Player</span>
+                  <span class="unique-toggle-pill" id="lb-unique-pill">ON</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="lb-toolbar-row">
+              <div class="lb-tabs" id="lb-tabs">
+                <button type="button" class="lb-tab" data-tab="easy" id="tab-btn-lb-easy">🟢 Easy</button>
+                <button type="button" class="lb-tab active" data-tab="medium" id="tab-btn-lb-med">🟡 Medium</button>
+                <button type="button" class="lb-tab" data-tab="hard" id="tab-btn-lb-hard">🔴 Hard</button>
+                <button type="button" class="lb-tab" data-tab="extreme" id="tab-btn-lb-extreme">⚡ Extreme</button>
+              </div>
               <div class="lb-timeframe-bar" id="lb-timeframe-bar">
                 <div class="lb-timeframe-tabs" id="lb-timeframe-tabs" role="tablist" aria-label="Leaderboard Timeframe">
                   <button type="button" class="lb-timeframe-tab" data-timeframe="daily" id="tab-btn-timeframe-daily" role="tab" aria-selected="false">
@@ -657,18 +683,6 @@
                   <span class="timer-label" id="lb-timer-label">Reset:</span>
                   <strong class="timer-clock" id="lb-timer-clock">All Time Records</strong>
                 </div>
-              </div>
-              <div class="lb-tabs-bar">
-                <div class="lb-tabs" id="lb-tabs">
-                  <button type="button" class="lb-tab" data-tab="easy" id="tab-btn-lb-easy">🟢 Easy</button>
-                  <button type="button" class="lb-tab active" data-tab="medium" id="tab-btn-lb-med">🟡 Medium</button>
-                  <button type="button" class="lb-tab" data-tab="hard" id="tab-btn-lb-hard">🔴 Hard</button>
-                </div>
-                <button type="button" class="lb-unique-toggle-btn active" id="btn-toggle-lb-unique" title="Toggle 1 Record per Player" aria-pressed="true">
-                  <span class="unique-toggle-icon">👤</span>
-                  <span class="unique-toggle-label">1 Run / Player</span>
-                  <span class="unique-toggle-pill" id="lb-unique-pill">ON</span>
-                </button>
               </div>
             </div>
             <button type="button" class="btn-small" id="tab-btn-lb" style="display:none;">LB</button>
@@ -695,6 +709,7 @@
               <button type="button" class="stats-subfilter-btn" data-mode="easy">🟢 Easy</button>
               <button type="button" class="stats-subfilter-btn" data-mode="medium">🟡 Medium</button>
               <button type="button" class="stats-subfilter-btn" data-mode="hard">🔴 Hard</button>
+              <button type="button" class="stats-subfilter-btn" data-mode="extreme">⚡ Extreme</button>
               <button type="button" class="stats-subfilter-btn" data-mode="records">🏆 Records</button>
               <button type="button" class="stats-subfilter-btn" data-mode="collection">🎨 Collection</button>
               <button type="button" class="stats-subfilter-btn" data-mode="roadmap">🎯 Unlocks</button>
@@ -943,6 +958,14 @@
                   <strong class="rec-score" id="rec-hard">0</strong>
                   <span class="rec-sub" id="rec-hard-meta">Avg: 0.0 pts • 0 Flights</span>
                 </div>
+                <div class="profile-rec-card rec-extreme-card">
+                  <div class="rec-card-top">
+                    <span class="rec-title">⚡ Extreme Best</span>
+                    <span class="rec-mode-tag">60 FPS • 30-FP</span>
+                  </div>
+                  <strong class="rec-score" id="rec-extreme">0</strong>
+                  <span class="rec-sub" id="rec-extreme-meta">Avg: 0.0 pts • 0 Flights</span>
+                </div>
                 <div class="profile-rec-card rec-any-card">
                   <div class="rec-card-top">
                     <span class="rec-title">⭐ All-Time Peak</span>
@@ -1129,7 +1152,7 @@
         <span class="duel-hud-total" id="duel-hud-p1-total">Total: 0</span>
       </div>
       <div class="duel-hud-center-badge" id="duel-hud-round-badge">
-        ROUND 1/3 • EASY (1x)
+        ROUND 1/4 • EASY (1x)
       </div>
       <div class="duel-hud-player duel-hud-opp">
         <span class="duel-hud-name" id="duel-hud-p2-name">Opponent</span>
@@ -1213,11 +1236,11 @@
           Player 1 (1000 ELO) ⚔️ Player 2 (1000 ELO)
         </div>
         <div class="duel-countdown-round-tag" id="duel-countdown-round-tag">
-          ROUND 1 OF 3 — EASY MODE (1x POINTS)
+          ROUND 1 OF 4 — EASY MODE (1x POINTS)
         </div>
         <div class="duel-countdown-number" id="duel-countdown-number">3</div>
         <div class="duel-countdown-sub" id="duel-countdown-sub">
-          Get ready to fly! Points count 1x in Easy, 2x in Medium, 3x in Hard!
+          Get ready to fly! Points count 1x in Easy, 2x in Medium, 3x in Hard, and 10x in Extreme!
         </div>
       </div>
 
@@ -1270,12 +1293,12 @@
         </div>
       </div>
 
-      <!-- State D: Final Duel Match Results (All 3 Rounds Counted Together + Ranked Elo Changes) -->
+      <!-- State D: Final Duel Match Results (All 4 Rounds Counted Together + Ranked Elo Changes) -->
       <div id="duel-view-final-results" class="duel-modal-box duel-final-box" style="display: none;">
         <div class="duel-final-banner" id="duel-final-banner">🏆 DUEL COMPLETE</div>
         <h2 class="duel-final-winner-title" id="duel-final-winner-title">Player 1 Wins!</h2>
         <p class="duel-final-subtitle" id="duel-final-subtitle">
-          All 3 rounds counted together (Easy 1x + Medium 2x + Hard 3x)
+          All 4 rounds counted together (Easy 1x + Medium 2x + Hard 3x + Extreme 10x)
         </p>
 
         <div class="duel-final-players-grid">
@@ -1297,6 +1320,10 @@
               <div class="duel-final-r-row">
                 <span>🔴 Hard (3x)</span>
                 <strong id="duel-final-p1-hard">0 × 3 = 0 pts</strong>
+              </div>
+              <div class="duel-final-r-row">
+                <span>⚡ Extreme (10x)</span>
+                <strong id="duel-final-p1-extreme">0 × 10 = 0 pts</strong>
               </div>
               <div class="duel-final-r-total">
                 <span>TOTAL POINTS</span>
@@ -1327,6 +1354,10 @@
               <div class="duel-final-r-row">
                 <span>🔴 Hard (3x)</span>
                 <strong id="duel-final-p2-hard">0 × 3 = 0 pts</strong>
+              </div>
+              <div class="duel-final-r-row">
+                <span>⚡ Extreme (10x)</span>
+                <strong id="duel-final-p2-extreme">0 × 10 = 0 pts</strong>
               </div>
               <div class="duel-final-r-total">
                 <span>TOTAL POINTS</span>
@@ -1541,6 +1572,11 @@
             <strong class="record-score-val" id="public-rec-hard">0 pts</strong>
             <span class="record-rank-pill" id="public-rank-hard">Rank --</span>
           </div>
+          <div class="public-record-card mode-extreme">
+            <span class="record-mode-pill">⚡ Extreme</span>
+            <strong class="record-score-val" id="public-rec-extreme">0 pts</strong>
+            <span class="record-rank-pill" id="public-rank-extreme">Rank --</span>
+          </div>
         </div>
 
         <!-- Career Telemetry -->
@@ -1561,7 +1597,7 @@
         </div>
 
         <!-- Ranked Duels Match History -->
-        <div class="public-section-title" style="margin-top: 14px;">⚔️ Ranked Duels History (3-Round Matches)</div>
+        <div class="public-section-title" style="margin-top: 14px;">⚔️ Ranked Duels History (4-Round Matches)</div>
         <div class="public-duel-summary" id="public-duel-summary"></div>
         <div class="public-duel-history-list" id="public-duel-history-list">
           <div class="public-duel-meta" style="padding: 8px 0;">Loading ranked match history...</div>

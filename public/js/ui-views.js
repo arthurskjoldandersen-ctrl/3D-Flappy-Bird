@@ -14,18 +14,19 @@ class FlappyBirdUIAndProgression {
               const r = {
                 easy: Number(parsed.easy) || 0,
                 medium: Number(parsed.medium) || 0,
-                hard: Number(parsed.hard) || 0
+                hard: Number(parsed.hard) || 0,
+                extreme: Number(parsed.extreme) || 0
               };
               // Sanitize: purge corrupted 109/40/27 baseline so guests & players start with their true records
               if (r.easy === 109 && r.medium === 40 && r.hard === 27) {
-                const clean = { easy: 0, medium: 0, hard: 0 };
+                const clean = { easy: 0, medium: 0, hard: 0, extreme: 0 };
                 try { localStorage.setItem('flappy3d_records_v2', JSON.stringify(clean)); } catch (_) {}
                 return clean;
               }
               return r;
             }
           } catch (_) {}
-          const baseline = { easy: 0, medium: 0, hard: 0 };
+          const baseline = { easy: 0, medium: 0, hard: 0, extreme: 0 };
           try {
             localStorage.setItem('flappy3d_records_v2', JSON.stringify(baseline));
           } catch (_) {}
@@ -49,7 +50,8 @@ class FlappyBirdUIAndProgression {
             modes: {
               easy: defaultModeStat(),
               medium: defaultModeStat(),
-              hard: defaultModeStat()
+              hard: defaultModeStat(),
+              extreme: defaultModeStat()
             }
           };
         }
@@ -90,7 +92,8 @@ class FlappyBirdUIAndProgression {
                 modes: {
                   easy: normMode(pm.easy),
                   medium: normMode(pm.medium),
-                  hard: normMode(pm.hard)
+                  hard: normMode(pm.hard),
+                  extreme: normMode(pm.extreme)
                 }
               };
             }
@@ -211,7 +214,7 @@ class FlappyBirdUIAndProgression {
             });
             if (!lcs.totalRuns && scs.lastScore) lcs.lastScore = Number(scs.lastScore) || 0;
             if (scs.modes && typeof scs.modes === 'object') {
-              ['easy', 'medium', 'hard'].forEach((m) => {
+              ['easy', 'medium', 'hard', 'extreme'].forEach((m) => {
                 const sm = scs.modes[m];
                 if (!sm || typeof sm !== 'object') return;
                 if (!lcs.modes[m]) lcs.modes[m] = { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 };
@@ -1183,7 +1186,8 @@ class FlappyBirdUIAndProgression {
               { id: 'seed_h3', username: 'joslor11', score: 21, verified: true, date: Date.now() - 10800000, skin: 'emerald' },
               { id: 'seed_h4', username: 'ejstrup', score: 18, verified: true, date: Date.now() - 14400000, skin: 'cyber' },
               { id: 'seed_h5', username: 'thomsen', score: 15, verified: true, date: Date.now() - 18000000, skin: 'golden' }
-            ]
+            ],
+            extreme: []
           };
         }
 
@@ -1532,7 +1536,8 @@ class FlappyBirdUIAndProgression {
             this.localRecords = {
               easy: Number(user.records.easy) || 0,
               medium: Number(user.records.medium) || 0,
-              hard: Number(user.records.hard) || 0
+              hard: Number(user.records.hard) || 0,
+              extreme: Number(user.records.extreme) || 0
             };
             this.saveLocalRecords();
           }
@@ -1606,7 +1611,7 @@ class FlappyBirdUIAndProgression {
           this.prefetchedRun = null;
           this.prefetchPromise = null;
           this.prefetchingDifficulty = null;
-          this.localRecords = { easy: 0, medium: 0, hard: 0 };
+          this.localRecords = { easy: 0, medium: 0, hard: 0, extreme: 0 };
           this.saveLocalRecords();
           localStorage.removeItem('flappy3d_token');
 
@@ -1752,24 +1757,27 @@ class FlappyBirdUIAndProgression {
             const easyEntry = (this.leaderboards.easy || []).find(e => e.username.toLowerCase() === cleanName.toLowerCase());
             const medEntry = (this.leaderboards.medium || []).find(e => e.username.toLowerCase() === cleanName.toLowerCase());
             const hardEntry = (this.leaderboards.hard || []).find(e => e.username.toLowerCase() === cleanName.toLowerCase());
+            const extremeEntry = (this.leaderboards.extreme || []).find(e => e.username.toLowerCase() === cleanName.toLowerCase());
 
             const easyRank = easyEntry ? `#${(this.leaderboards.easy || []).indexOf(easyEntry) + 1}` : 'Unranked';
             const medRank = medEntry ? `#${(this.leaderboards.medium || []).indexOf(medEntry) + 1}` : 'Unranked';
             const hardRank = hardEntry ? `#${(this.leaderboards.hard || []).indexOf(hardEntry) + 1}` : 'Unranked';
+            const extremeRank = extremeEntry ? `#${(this.leaderboards.extreme || []).indexOf(extremeEntry) + 1}` : 'Unranked';
 
             profileData = {
               username: cleanName,
               records: {
                 easy: easyEntry ? easyEntry.score : 0,
                 medium: medEntry ? medEntry.score : 0,
-                hard: hardEntry ? hardEntry.score : 0
+                hard: hardEntry ? hardEntry.score : 0,
+                extreme: extremeEntry ? extremeEntry.score : 0
               },
               selectedSkin: (easyEntry && easyEntry.skin) || (cleanName.toLowerCase() === 'medonut' ? 'sakura' : 'classic'),
               selectedPipeSkin: (cleanName.toLowerCase() === 'medonut' ? 'glacier_pipe' : 'classic_pipe'),
               avatarSkinId: (cleanName.toLowerCase() === 'medonut' ? 'sakura' : 'classic'),
               createdAt: Date.now() - 86400000 * 14,
-              totalRuns: (easyEntry ? 1 : 0) + (medEntry ? 1 : 0) + (hardEntry ? 1 : 0),
-              ranks: { easy: easyRank, medium: medRank, hard: hardRank }
+              totalRuns: (easyEntry ? 1 : 0) + (medEntry ? 1 : 0) + (hardEntry ? 1 : 0) + (extremeEntry ? 1 : 0),
+              ranks: { easy: easyRank, medium: medRank, hard: hardRank, extreme: extremeRank }
             };
           }
 
@@ -1817,17 +1825,21 @@ class FlappyBirdUIAndProgression {
           const recEasy = document.getElementById('public-rec-easy');
           const recMed = document.getElementById('public-rec-med');
           const recHard = document.getElementById('public-rec-hard');
+          const recExtreme = document.getElementById('public-rec-extreme');
           const rankEasy = document.getElementById('public-rank-easy');
           const rankMed = document.getElementById('public-rank-med');
           const rankHard = document.getElementById('public-rank-hard');
+          const rankExtreme = document.getElementById('public-rank-extreme');
 
           if (recEasy) recEasy.textContent = `${profileData.records?.easy || 0} pts`;
           if (recMed) recMed.textContent = `${profileData.records?.medium || 0} pts`;
           if (recHard) recHard.textContent = `${profileData.records?.hard || 0} pts`;
+          if (recExtreme) recExtreme.textContent = `${profileData.records?.extreme || 0} pts`;
 
           if (rankEasy) rankEasy.textContent = `Rank ${profileData.ranks?.easy || '--'}`;
           if (rankMed) rankMed.textContent = `Rank ${profileData.ranks?.medium || '--'}`;
           if (rankHard) rankHard.textContent = `Rank ${profileData.ranks?.hard || '--'}`;
+          if (rankExtreme) rankExtreme.textContent = `Rank ${profileData.ranks?.extreme || '--'}`;
 
           const runsStat = document.getElementById('public-stat-runs');
           const skinsStat = document.getElementById('public-stat-skins');
@@ -1839,6 +1851,7 @@ class FlappyBirdUIAndProgression {
             if (profileData.ranks?.easy && profileData.ranks.easy.startsWith('#')) top100Count++;
             if (profileData.ranks?.medium && profileData.ranks.medium.startsWith('#')) top100Count++;
             if (profileData.ranks?.hard && profileData.ranks.hard.startsWith('#')) top100Count++;
+            if (profileData.ranks?.extreme && profileData.ranks.extreme.startsWith('#')) top100Count++;
             top100Stat.textContent = `${top100Count} Modes`;
           }
 
@@ -1866,7 +1879,7 @@ class FlappyBirdUIAndProgression {
             if (history.length === 0) {
               const emptyDiv = document.createElement('div');
               emptyDiv.className = 'public-duel-meta';
-              emptyDiv.textContent = 'No completed ranked 3-round duels recorded yet.';
+              emptyDiv.textContent = 'No completed ranked duels recorded yet.';
               duelListEl.appendChild(emptyDiv);
             } else {
               for (const m of history) {
@@ -1896,7 +1909,7 @@ class FlappyBirdUIAndProgression {
                 const or = m.oppRounds;
                 const modesDiv = document.createElement('div');
                 modesDiv.className = 'public-duel-modes';
-                const myLine = `You: 🟢 E ${mr.easy?.raw || 0} (${mr.easy?.pts || 0}) • 🟡 M ${mr.medium?.raw || 0} (${mr.medium?.pts || 0}) • 🔴 H ${mr.hard?.raw || 0} (${mr.hard?.pts || 0})`;
+                const myLine = `You: 🟢 E ${mr.easy?.raw || 0} (${mr.easy?.pts || 0}) • 🟡 M ${mr.medium?.raw || 0} (${mr.medium?.pts || 0}) • 🔴 H ${mr.hard?.raw || 0} (${mr.hard?.pts || 0}) • ⚡ X ${mr.extreme?.raw || 0} (${mr.extreme?.pts || 0})`;
                 modesDiv.textContent = myLine;
 
                 row.append(topDiv, modesDiv);
@@ -1904,7 +1917,7 @@ class FlappyBirdUIAndProgression {
                   const oppDiv = document.createElement('div');
                   oppDiv.className = 'public-duel-modes';
                   oppDiv.style.opacity = '0.82';
-                  oppDiv.textContent = `${m.opponent}: 🟢 E ${or.easy?.raw || 0} (${or.easy?.pts || 0}) • 🟡 M ${or.medium?.raw || 0} (${or.medium?.pts || 0}) • 🔴 H ${or.hard?.raw || 0} (${or.hard?.pts || 0})`;
+                  oppDiv.textContent = `${m.opponent}: 🟢 E ${or.easy?.raw || 0} (${or.easy?.pts || 0}) • 🟡 M ${or.medium?.raw || 0} (${or.medium?.pts || 0}) • 🔴 H ${or.hard?.raw || 0} (${or.hard?.pts || 0}) • ⚡ X ${or.extreme?.raw || 0} (${or.extreme?.pts || 0})`;
                   row.appendChild(oppDiv);
                 }
 
@@ -2006,6 +2019,7 @@ class FlappyBirdUIAndProgression {
           const easyBest = this.getBestForDifficulty('easy');
           const medBest = this.getBestForDifficulty('medium');
           const hardBest = this.getBestForDifficulty('hard');
+          const extremeBest = this.getBestForDifficulty('extreme');
           const anyBest = this.getHighestScoreAnyMode();
 
           const recEasyEl = document.getElementById('rec-easy');
@@ -2014,6 +2028,8 @@ class FlappyBirdUIAndProgression {
           if (recMedEl) recMedEl.textContent = String(medBest);
           const recHardEl = document.getElementById('rec-hard');
           if (recHardEl) recHardEl.textContent = String(hardBest);
+          const recExtremeEl = document.getElementById('rec-extreme');
+          if (recExtremeEl) recExtremeEl.textContent = String(extremeBest);
           const recAnyEl = document.getElementById('rec-any');
           if (recAnyEl) recAnyEl.textContent = String(anyBest);
 
@@ -2099,6 +2115,8 @@ class FlappyBirdUIAndProgression {
           if (recMedMeta) recMedMeta.textContent = `Avg: ${getAvgStr('medium')} pts • ${getRunsCount('medium')} Flights`;
           const recHardMeta = document.getElementById('rec-hard-meta');
           if (recHardMeta) recHardMeta.textContent = `Avg: ${getAvgStr('hard')} pts • ${getRunsCount('hard')} Flights`;
+          const recExtMeta = document.getElementById('rec-extreme-meta');
+          if (recExtMeta) recExtMeta.textContent = `Avg: ${getAvgStr('extreme')} pts • ${getRunsCount('extreme')} Flights`;
           const recAnyMeta = document.getElementById('rec-any-meta');
           if (recAnyMeta) recAnyMeta.textContent = `Avg: ${overallAvg} pts • ${overallRuns} Total Runs`;
 
@@ -2191,6 +2209,64 @@ class FlappyBirdUIAndProgression {
           if (metaEasy) metaEasy.innerHTML = `🏆 Record: ${easyRec} (${easyRecUser}) • 👤 Best: ${easyBest} • ${easyBirdsCount + easyPipesCount} Skins`;
           if (metaMed) metaMed.innerHTML = `🏆 Record: ${medRec} (${medRecUser}) • 👤 Best: ${medBest} • ${medBirdsCount + medPipesCount} Skins`;
           if (metaHard) metaHard.innerHTML = `🏆 Record: ${hardRec} (${hardRecUser}) • 👤 Best: ${hardBest} • ${hardBirdsCount + hardPipesCount} Skins`;
+
+          // Update Special EXTREME Mode Banner Card (100 Easy + 40 Medium + 25 Hard Gate)
+          const extProg = (typeof this.getExtremeUnlockProgress === 'function')
+            ? this.getExtremeUnlockProgress()
+            : { easy: easyBest, medium: medBest, hard: hardBest, unlocked: easyBest >= 100 && medBest >= 40 && hardBest >= 25 };
+          const extUnlocked = Boolean(extProg.unlocked);
+          if (this.selectedDifficulty === 'extreme' && !extUnlocked) {
+            this.selectedDifficulty = 'medium';
+            document.querySelectorAll('#difficulty-selector .diff-btn').forEach(b => {
+              b.classList.toggle('active', b.getAttribute('data-diff') === 'medium');
+            });
+          }
+          const extCard = document.getElementById('diff-card-extreme');
+          const extTag = document.getElementById('extreme-lock-pill');
+          const metaExt = document.getElementById('diff-meta-extreme');
+          const extProgWrap = document.getElementById('extreme-unlock-progress-wrap');
+          const extTopRec = (this.leaderboards && this.leaderboards.extreme && this.leaderboards.extreme[0]);
+          const extRecText = extTopRec ? `${extTopRec.score} (${extTopRec.username})` : 'Be #1!';
+          if (extCard) {
+            extCard.classList.toggle('is-locked', !extUnlocked);
+            extCard.classList.toggle('is-unlocked', extUnlocked);
+          }
+          if (extTag) {
+            extTag.textContent = extUnlocked ? 'UNLOCKED • 60 FPS' : '🔒 LOCKED';
+            extTag.className = 'mode-tag-pill ' + (extUnlocked ? 'tag-extreme-open' : 'tag-extreme-locked');
+          }
+          if (extProgWrap) {
+            const cEasy = Math.min(100, extProg.easy);
+            const cMed = Math.min(40, extProg.medium);
+            const cHard = Math.min(25, extProg.hard);
+            const pctEasy = Math.min(1, cEasy / 100);
+            const pctMed = Math.min(1, cMed / 40);
+            const pctHard = Math.min(1, cHard / 25);
+            const totalPct = Math.round(((pctEasy + pctMed + pctHard) / 3) * 100);
+            const eChip = document.getElementById('extreme-prog-easy');
+            const mChip = document.getElementById('extreme-prog-med');
+            const hChip = document.getElementById('extreme-prog-hard');
+            const fillEl = document.getElementById('extreme-unlock-bar-fill');
+            if (eChip) {
+              eChip.textContent = `${cEasy >= 100 ? '✓' : ''} Easy ${cEasy}/100`.trim();
+              eChip.classList.toggle('done', cEasy >= 100);
+            }
+            if (mChip) {
+              mChip.textContent = `${cMed >= 40 ? '✓' : ''} Med ${cMed}/40`.trim();
+              mChip.classList.toggle('done', cMed >= 40);
+            }
+            if (hChip) {
+              hChip.textContent = `${cHard >= 25 ? '✓' : ''} Hard ${cHard}/25`.trim();
+              hChip.classList.toggle('done', cHard >= 25);
+            }
+            if (fillEl) fillEl.style.width = `${totalPct}%`;
+            extProgWrap.style.display = extUnlocked ? 'none' : 'flex';
+          }
+          if (metaExt) {
+            metaExt.innerHTML = extUnlocked
+              ? `🏆 Record: ${extRecText} • 👤 Best: ${extremeBest} • Exact 30-FP @ 60 FPS`
+              : `🔒 Reach 100 Easy, 40 Med & 25 Hard to Unlock • 🏆 #1: ${extRecText}`;
+          }
 
           // Update filter button counts for Bird Skins (Spacious 4x2 grid)
           const bAll = document.getElementById('bird-filter-all');
@@ -2670,6 +2746,7 @@ class FlappyBirdUIAndProgression {
           const easyBest = this.getBestForDifficulty('easy');
           const medBest = this.getBestForDifficulty('medium');
           const hardBest = this.getBestForDifficulty('hard');
+          const extremeBest = this.getBestForDifficulty('extreme');
           const anyBest = this.getHighestScoreAnyMode();
 
           const unlockedBirds = this.getUnlockedBirdSkinCount();
@@ -2686,6 +2763,7 @@ class FlappyBirdUIAndProgression {
           const easyM = getModeStat('easy');
           const medM  = getModeStat('medium');
           const hardM = getModeStat('hard');
+          const extremeM = getModeStat('extreme');
           const overallRuns = (this.careerStats && this.careerStats.totalRuns) || 0;
           const overallScore = (this.careerStats && this.careerStats.totalScore) || 0;
           const overallFlaps = (this.careerStats && this.careerStats.totalFlaps) || 0;
@@ -2719,7 +2797,7 @@ class FlappyBirdUIAndProgression {
           }
 
           const sfilter = this.statsSubfilter || 'all';
-          const isModeFilter = (sfilter === 'easy' || sfilter === 'medium' || sfilter === 'hard');
+          const isModeFilter = (sfilter === 'easy' || sfilter === 'medium' || sfilter === 'hard' || sfilter === 'extreme');
 
           // Always show Pilot Rank & Overall Mastery Hero Banner with 6-KPI Strip
           const hero = document.createElement('div');
@@ -2797,6 +2875,7 @@ class FlappyBirdUIAndProgression {
               { key: 'easy', cls: 'easy-card', label: '🟢 Easy Mode', score: easyBest, subLeft: `Avg: ${calcAvg(easyM)} pts`, subRight: `${easyM.runs} Flights`, mastery: `${easyMas.owned}/${easyMas.total} Mode Skins (${easyMas.pct}%)`, pct: easyMas.pct },
               { key: 'medium', cls: 'med-card', label: '🟡 Medium Mode', score: medBest, subLeft: `Avg: ${calcAvg(medM)} pts`, subRight: `${medM.runs} Flights`, mastery: `${medMas.owned}/${medMas.total} Mode Skins (${medMas.pct}%)`, pct: medMas.pct },
               { key: 'hard', cls: 'hard-card', label: '🔴 Hard Mode', score: hardBest, subLeft: `Avg: ${calcAvg(hardM)} pts`, subRight: `${hardM.runs} Flights`, mastery: `${hardMas.owned}/${hardMas.total} Mode Skins (${hardMas.pct}%)`, pct: hardMas.pct },
+              { key: 'extreme', cls: 'extreme-card', label: '⚡ Extreme Mode', score: extremeBest, subLeft: `Avg: ${calcAvg(extremeM)} pts`, subRight: `${extremeM.runs} Flights`, mastery: this.hasUnlockedExtremeMode && this.hasUnlockedExtremeMode() ? '30-FP • 60 FPS Locked' : 'Req: 100E / 40M / 25H', pct: this.hasUnlockedExtremeMode && this.hasUnlockedExtremeMode() ? 100 : 0 },
               { key: 'any', cls: 'peak-card', label: '👑 Overall Peak', score: anyBest, subLeft: `Avg: ${overallAvg} pts`, subRight: `${overallRuns} Total Runs`, mastery: `${totalUnlocked}/${totalCosmetics} Total Skins (${totalPct}%)`, pct: totalPct }
             ];
             const modesData = isModeFilter
@@ -2838,7 +2917,7 @@ class FlappyBirdUIAndProgression {
             // PER-GAMEMODE DETAILED TELEMETRY BREAKDOWN (3-Column Grid across full width)
             const modeTeleHeader = document.createElement('div');
             modeTeleHeader.className = 'stats-block-header';
-            modeTeleHeader.innerHTML = `<span>📊 Per-Gamemode Telemetry & Flight Physics Breakdown</span><span>${isModeFilter ? sfilter.toUpperCase() : 'Easy • Medium • Hard Side-by-Side'}</span>`;
+            modeTeleHeader.innerHTML = `<span>📊 Per-Gamemode Telemetry & Flight Physics Breakdown</span><span>${isModeFilter ? sfilter.toUpperCase() : 'Easy • Medium • Hard • Extreme'}</span>`;
             container.appendChild(modeTeleHeader);
 
             const modeTeleList = document.createElement('div');
@@ -2847,7 +2926,8 @@ class FlappyBirdUIAndProgression {
             const allDetailedModes = [
               { key: 'easy', cls: 'easy-tele', title: '🟢 Easy Mode Telemetry', best: easyBest, data: easyM, spec: 'Gap: 4.9m • Base Speed: 8.6m/s • Ramp: +1.2%/pipe' },
               { key: 'medium', cls: 'med-tele', title: '🟡 Medium Mode Telemetry', best: medBest, data: medM, spec: 'Gap: 3.9m • Base Speed: 10.6m/s • Standard Competitive' },
-              { key: 'hard', cls: 'hard-tele', title: '🔴 Hard Mode Telemetry', best: hardBest, data: hardM, spec: 'Gap: 3.35m • Base Speed: 12.8m/s • Moving Pipes' }
+              { key: 'hard', cls: 'hard-tele', title: '🔴 Hard Mode Telemetry', best: hardBest, data: hardM, spec: 'Gap: 3.35m • Base Speed: 12.8m/s • Moving Pipes' },
+              { key: 'extreme', cls: 'extreme-tele', title: '⚡ Extreme Mode Telemetry', best: extremeBest, data: extremeM, spec: 'Gap: 2.87m • Speed: 12.0m/s • 60 FPS • 30-FP Exact' }
             ];
             const detailedModes = isModeFilter
               ? allDetailedModes.filter(dm => dm.key === sfilter)

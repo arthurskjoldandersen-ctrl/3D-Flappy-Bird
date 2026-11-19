@@ -6,7 +6,7 @@
  * to verify the exact score achieved without trusting the client's score variable.
  */
 
-const { SIM_CONFIG, createSeededPRNG, getDifficultyParams } = require('../config/physicsConfig');
+const { SIM_CONFIG, createSeededPRNG, getDifficultyParams, createExtremePipeSolver } = require('../config/physicsConfig');
 
 function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScore }) {
   if (!SIM_CONFIG.difficulties[difficulty]) {
@@ -40,19 +40,28 @@ function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScor
   }
 
   const rand = createSeededPRNG(seed);
+  const extremeSolver = difficulty === 'extreme' ? createExtremePipeSolver(seed, SIM_CONFIG) : null;
   const dt = SIM_CONFIG.dt;
 
   let score = 0;
   let birdY = SIM_CONFIG.birdStartY;
-  let birdVelocityY = SIM_CONFIG.flapImpulse;
+  let birdVelocityY = getDifficultyParams(0, difficulty).flapImpulse;
   let distanceSinceLastPipe = 0;
   const pipes = [];
 
   function spawnPipePair(spawnX) {
-    const { pipeGap } = getDifficultyParams(score, difficulty);
-    const minCenterY = 2.9 + pipeGap * 0.5;
-    const maxCenterY = SIM_CONFIG.ceilingY - 2.6 - pipeGap * 0.5;
-    const gapCenterY = minCenterY + rand() * (maxCenterY - minCenterY);
+    const params = getDifficultyParams(score, difficulty);
+    let pipeGap = params.pipeGap;
+    let gapCenterY;
+    if (extremeSolver) {
+      const solved = extremeSolver.nextPipe();
+      pipeGap = solved.gapSize;
+      gapCenterY = solved.gapCenterY;
+    } else {
+      const minCenterY = 2.9 + pipeGap * 0.5;
+      const maxCenterY = SIM_CONFIG.ceilingY - 2.6 - pipeGap * 0.5;
+      gapCenterY = minCenterY + rand() * (maxCenterY - minCenterY);
+    }
 
     pipes.push({
       x: spawnX,
@@ -99,14 +108,23 @@ function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScor
     return false;
   }
 
-  spawnPipePair(SIM_CONFIG.pipeSpawnX - SIM_CONFIG.baseSpawnDistance * 2);
-  spawnPipePair(SIM_CONFIG.pipeSpawnX - SIM_CONFIG.baseSpawnDistance);
-  spawnPipePair(SIM_CONFIG.pipeSpawnX);
+  if (difficulty === 'extreme') {
+    const extCfg = SIM_CONFIG.difficulties.extreme;
+    const firstX = SIM_CONFIG.birdX + extCfg.firstPipeDist;
+    for (let pIdx = 0; pIdx < 4; pIdx++) {
+      spawnPipePair(firstX + pIdx * extCfg.spawnDistance);
+    }
+  } else {
+    const firstNormalX = SIM_CONFIG.birdX + SIM_CONFIG.baseSpawnDistance;
+    spawnPipePair(firstNormalX);
+    spawnPipePair(firstNormalX + SIM_CONFIG.baseSpawnDistance);
+    spawnPipePair(firstNormalX + SIM_CONFIG.baseSpawnDistance * 2);
+  }
 
   let crashedAtTick = -1;
 
   for (let tick = 1; tick <= totalTicks; tick++) {
-    const { speed: scrollSpeed, gravity, flapImpulse, maxFallSpeed } = getDifficultyParams(score, difficulty);
+    const { speed: scrollSpeed, gravity, flapImpulse, maxFallSpeed, spawnDistance } = getDifficultyParams(score, difficulty);
 
     if (flapSet.has(tick)) {
       birdVelocityY = flapImpulse;
@@ -123,12 +141,6 @@ function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScor
       if (birdVelocityY > 0) birdVelocityY = 0;
     }
 
-    distanceSinceLastPipe += scrollSpeed * dt;
-    if (distanceSinceLastPipe >= SIM_CONFIG.baseSpawnDistance) {
-      distanceSinceLastPipe = 0;
-      spawnPipePair(SIM_CONFIG.pipeSpawnX);
-    }
-
     for (let i = pipes.length - 1; i >= 0; i--) {
       const pipe = pipes[i];
       pipe.x -= scrollSpeed * dt;
@@ -141,6 +153,19 @@ function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScor
       if (pipe.x < SIM_CONFIG.pipeDespawnX) {
         pipes.splice(i, 1);
       }
+    }
+
+    const activeSpawnDist = difficulty === 'extreme'
+      ? (spawnDistance || SIM_CONFIG.difficulties.extreme.spawnDistance)
+      : SIM_CONFIG.baseSpawnDistance;
+    const spawnTriggerX = (difficulty === 'extreme'
+      ? SIM_CONFIG.difficulties.extreme.initialPipeSpawnX
+      : SIM_CONFIG.pipeSpawnX) - activeSpawnDist;
+    while (pipes.length === 0 || pipes[pipes.length - 1].x <= spawnTriggerX + 1e-9) {
+      const nextX = pipes.length > 0
+        ? (pipes[pipes.length - 1].x + activeSpawnDist)
+        : (difficulty === 'extreme' ? SIM_CONFIG.difficulties.extreme.initialPipeSpawnX : SIM_CONFIG.pipeSpawnX);
+      spawnPipePair(nextX);
     }
 
     if (checkCollisions()) {

@@ -56,6 +56,19 @@ try {
   }
 } catch (_) {}
 
+const ALL_MODES = ['easy', 'medium', 'hard', 'extreme'];
+const EXTREME_UNLOCK_REQS = { easy: 100, medium: 40, hard: 25 };
+
+function hasUnlockedExtremeMode(user) {
+  if (!user || typeof user !== 'object') return false;
+  const r = user.records || {};
+  return (
+    (Number(r.easy) || 0) >= EXTREME_UNLOCK_REQS.easy &&
+    (Number(r.medium) || 0) >= EXTREME_UNLOCK_REQS.medium &&
+    (Number(r.hard) || 0) >= EXTREME_UNLOCK_REQS.hard
+  );
+}
+
 /**
  * Safely merges client-synced Career Stats & Meme/Pokémon Quest progress onto a user record
  * using monotonic max/union so quest-unlocked skins persist across devices & /api/skin validation.
@@ -77,7 +90,8 @@ function mergeUserProgressionData(user, payload = {}, shouldSave = false) {
         modes: {
           easy: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 },
           medium: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 },
-          hard: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 }
+          hard: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 },
+          extreme: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 }
         }
       };
       changed = true;
@@ -95,13 +109,13 @@ function mergeUserProgressionData(user, payload = {}, shouldSave = false) {
       const ls = clampInt(src.lastScore, 10000);
       if (cs.lastScore !== ls) { cs.lastScore = ls; changed = true; }
     }
-    if (typeof src.lastMode === 'string' && ['easy', 'medium', 'hard'].includes(src.lastMode) && cs.lastMode !== src.lastMode) {
+    if (typeof src.lastMode === 'string' && ALL_MODES.includes(src.lastMode) && cs.lastMode !== src.lastMode) {
       cs.lastMode = src.lastMode;
       changed = true;
     }
     if (src.modes && typeof src.modes === 'object') {
       if (!cs.modes || typeof cs.modes !== 'object') cs.modes = {};
-      for (const dk of ['easy', 'medium', 'hard']) {
+      for (const dk of ALL_MODES) {
         const sm = src.modes[dk];
         if (!sm || typeof sm !== 'object') continue;
         if (!cs.modes[dk] || typeof cs.modes[dk] !== 'object') {
@@ -178,7 +192,7 @@ function mergeUserProgressionData(user, payload = {}, shouldSave = false) {
       }
     }
     if (Array.isArray(src.recentModes) && src.recentModes.length > 0) {
-      const cleanRM = src.recentModes.slice(-10).filter(m => m === 'easy' || m === 'medium' || m === 'hard');
+      const cleanRM = src.recentModes.slice(-10).filter(m => ALL_MODES.includes(m));
       if (cleanRM.length > 0 && JSON.stringify(tq.recentModes || []) !== JSON.stringify(cleanRM)) {
         tq.recentModes = cleanRM;
         changed = true;
@@ -211,13 +225,15 @@ function isSkinNaturallyUnlockedForUser(skinId, user) {
   const easyBest = Number(rec.easy) || 0;
   const medBest = Number(rec.medium) || 0;
   const hardBest = Number(rec.hard) || 0;
-  const anyBest = Math.max(easyBest, medBest, hardBest, Number(user.allTimeBest) || 0);
+  const extremeBest = Number(rec.extreme) || 0;
+  const anyBest = Math.max(easyBest, medBest, hardBest, extremeBest, Number(user.allTimeBest) || 0);
 
   if (item.altScore && anyBest >= item.altScore) return true;
   if (item.reqMode === 'any') return anyBest >= item.reqScore;
   if (item.reqMode === 'easy') return easyBest >= item.reqScore;
   if (item.reqMode === 'medium') return medBest >= item.reqScore;
   if (item.reqMode === 'hard') return hardBest >= item.reqScore;
+  if (item.reqMode === 'extreme') return extremeBest >= item.reqScore;
 
   const tq = user.trollQuests || {};
   const tqUnlocked = (tq.unlockedIds && typeof tq.unlockedIds === 'object') ? tq.unlockedIds : {};
@@ -587,7 +603,7 @@ let db = {
   adminSettings: { defaultMaxAccounts: 5 },
   banRegistry: { groups: {} },
   users: {},
-  runs: { easy: [], medium: [], hard: [] },
+  runs: { easy: [], medium: [], hard: [], extreme: [] },
   sessions: {},
   chatMessages: []
 };
@@ -700,7 +716,7 @@ function recalculateUserBestFromVisibleRuns(username, diff) {
   const uLower = String(username || '').toLowerCase();
   const user = db.users && db.users[uLower];
   if (!user) return 0;
-  if (!user.records) user.records = { easy: 0, medium: 0, hard: 0 };
+  if (!user.records) user.records = { easy: 0, medium: 0, hard: 0, extreme: 0 };
 
   const list = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
   const highestVisible = list
@@ -721,8 +737,8 @@ function recalculateUserBestFromVisibleRuns(username, diff) {
  */
 function syncAndRebuildOverview(fromExternalFileLoad = false) {
   if (!db.users || typeof db.users !== 'object') db.users = {};
-  if (!db.runs || typeof db.runs !== 'object') db.runs = { easy: [], medium: [], hard: [] };
-  ['easy', 'medium', 'hard'].forEach(diff => {
+  if (!db.runs || typeof db.runs !== 'object') db.runs = { easy: [], medium: [], hard: [], extreme: [] };
+  ALL_MODES.forEach(diff => {
     if (!Array.isArray(db.runs[diff])) db.runs[diff] = [];
   });
   if (!db.sessions || typeof db.sessions !== 'object') db.sessions = {};
@@ -735,16 +751,16 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       const uKey = (ovData.username || ovKey).toLowerCase();
       const user = db.users[uKey];
       if (!user) continue;
-      if (!user.records) user.records = { easy: 0, medium: 0, hard: 0 };
+      if (!user.records) user.records = { easy: 0, medium: 0, hard: 0, extreme: 0 };
 
-      ['easy', 'medium', 'hard'].forEach(diff => {
+      ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
         const ovScore = Number(ovData.records[diff]);
         const oldUserScore = Number(user._lastSyncedRecords && user._lastSyncedRecords[diff]);
         if (!Number.isNaN(ovScore) && ovScore >= 0 && ovScore !== oldUserScore && ovScore !== Number(user.records[diff])) {
           const prev = Number(user.records[diff]) || 0;
           const cleanVal = Math.max(0, Math.floor(ovScore));
           user.records[diff] = cleanVal;
-          if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
+          if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0, extreme: 0 };
           user.recordTimestamps[diff] = Date.now();
           user.lastNewBestAt = Date.now();
           user.lastNewBestText = `🏆 Updated ${diff.toUpperCase()} Best: ${cleanVal} pts (was ${prev} pts)`;
@@ -771,8 +787,8 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
   const sessionList = Object.values(db.sessions || {});
   for (const user of Object.values(db.users)) {
     if (!user || !user.username) continue;
-    if (!user.records) user.records = { easy: 0, medium: 0, hard: 0 };
-    if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
+    if (!user.records) user.records = { easy: 0, medium: 0, hard: 0, extreme: 0 };
+    if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0, extreme: 0 };
 
     // Backfill historical login count & last login timestamp from active sessions + account registration
     const uKeyLower = user.username.toLowerCase();
@@ -792,7 +808,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
 
     // Also check if `user.records` was directly edited in `db.users`
     if (fromExternalFileLoad && user._lastSyncedRecords) {
-      ['easy', 'medium', 'hard'].forEach(diff => {
+      ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
         const cur = Math.max(0, Math.floor(Number(user.records[diff]) || 0));
         const prev = Number(user._lastSyncedRecords[diff]) || 0;
         if (cur !== prev) {
@@ -811,7 +827,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       });
     }
 
-    ['easy', 'medium', 'hard'].forEach(diff => {
+    ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
       const best = Number(user.records[diff]) || 0;
       if (best > 0) {
         const alreadyInRuns = db.runs[diff].some(
@@ -832,7 +848,8 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     user._lastSyncedRecords = {
       easy: Number(user.records.easy) || 0,
       medium: Number(user.records.medium) || 0,
-      hard: Number(user.records.hard) || 0
+      hard: Number(user.records.hard) || 0,
+      extreme: Number(user.records.extreme) || 0
     };
   }
 
@@ -840,7 +857,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
   const resetBounds = getLeaderboardResetBoundaries();
   const weeklyResetStartMs = (resetBounds && resetBounds.weekly && resetBounds.weekly.currentResetMs) || 0;
 
-  ['easy', 'medium', 'hard'].forEach(diff => {
+  ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
     const list = Array.isArray(db.runs[diff]) ? db.runs[diff] : [];
     const validRuns = list
       .filter(r => r && typeof r.score === 'number' && r.score > 0 && r.username)
@@ -895,15 +912,15 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
   const sortedUsers = Object.values(db.users)
     .filter(u => u && u.username)
     .sort((a, b) => {
-      const maxA = Math.max(Number(a.records?.easy) || 0, Number(a.records?.medium) || 0, Number(a.records?.hard) || 0);
-      const maxB = Math.max(Number(b.records?.easy) || 0, Number(b.records?.medium) || 0, Number(b.records?.hard) || 0);
+      const maxA = Math.max(Number(a.records?.easy) || 0, Number(a.records?.medium) || 0, Number(a.records?.hard) || 0, Number(a.records?.extreme) || 0);
+      const maxB = Math.max(Number(b.records?.easy) || 0, Number(b.records?.medium) || 0, Number(b.records?.hard) || 0, Number(b.records?.extreme) || 0);
       if (maxB !== maxA) return maxB - maxA;
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
 
   // Pre-index run counts per user in a single O(Runs) pass instead of O(Users * Runs)
   const runCountsByUser = new Map();
-  ['easy', 'medium', 'hard'].forEach(diff => {
+  ALL_MODES.forEach(diff => {
     const list = db.runs[diff] || [];
     for (let i = 0; i < list.length; i++) {
       const r = list[i];
@@ -911,7 +928,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       const uLower = r.username.toLowerCase();
       let stats = runCountsByUser.get(uLower);
       if (!stats) {
-        stats = { easyVis: 0, medVis: 0, hardVis: 0, easyTot: 0, medTot: 0, hardTot: 0 };
+        stats = { easyVis: 0, medVis: 0, hardVis: 0, extremeVis: 0, easyTot: 0, medTot: 0, hardTot: 0, extremeTot: 0 };
         runCountsByUser.set(uLower, stats);
       }
       const isVis = !r.hidden;
@@ -924,6 +941,9 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       } else if (diff === 'hard') {
         stats.hardTot++;
         if (isVis) stats.hardVis++;
+      } else if (diff === 'extreme') {
+        stats.extremeTot++;
+        if (isVis) stats.extremeVis++;
       }
     }
   });
@@ -933,22 +953,26 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     const eBest = Number(u.records?.easy) || 0;
     const mBest = Number(u.records?.medium) || 0;
     const hBest = Number(u.records?.hard) || 0;
-    const allTimeBest = Math.max(eBest, mBest, hBest);
+    const extBest = Number(u.records?.extreme) || 0;
+    const allTimeBest = Math.max(eBest, mBest, hBest, extBest);
     const uLower = u.username.toLowerCase();
 
-    const rStats = runCountsByUser.get(uLower) || { easyVis: 0, medVis: 0, hardVis: 0, easyTot: 0, medTot: 0, hardTot: 0 };
+    const rStats = runCountsByUser.get(uLower) || { easyVis: 0, medVis: 0, hardVis: 0, extremeVis: 0, easyTot: 0, medTot: 0, hardTot: 0, extremeTot: 0 };
     const easySpots = rStats.easyVis;
     const medSpots = rStats.medVis;
     const hardSpots = rStats.hardVis;
+    const extSpots = rStats.extremeVis;
     const easyTotalRuns = rStats.easyTot;
     const medTotalRuns = rStats.medTot;
     const hardTotalRuns = rStats.hardTot;
-    const hiddenRunsCount = (easyTotalRuns - easySpots) + (medTotalRuns - medSpots) + (hardTotalRuns - hardSpots);
+    const extTotalRuns = rStats.extremeTot;
+    const hiddenRunsCount = (easyTotalRuns - easySpots) + (medTotalRuns - medSpots) + (hardTotalRuns - hardSpots) + (extTotalRuns - extSpots);
 
     const latestBestTime = Math.max(
       Number(u.recordTimestamps?.easy) || 0,
       Number(u.recordTimestamps?.medium) || 0,
       Number(u.recordTimestamps?.hard) || 0,
+      Number(u.recordTimestamps?.extreme) || 0,
       Number(u.lastNewBestAt) || 0
     );
 
@@ -993,7 +1017,8 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       records: {
         easy: eBest,
         medium: mBest,
-        hard: hBest
+        hard: hBest,
+        extreme: extBest
       },
       duelElo: u.duelElo,
       duelWins: u.duelWins,
@@ -1003,11 +1028,12 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       duelBestMatchBreakdown: u.duelBestMatchBreakdown || null,
       allTimeBest,
       leaderboardPlacements: {
-        total: easySpots + medSpots + hardSpots,
+        total: easySpots + medSpots + hardSpots + extSpots,
         easy: easySpots,
         medium: medSpots,
         hard: hardSpots,
-        totalRecordedRuns: easyTotalRuns + medTotalRuns + hardTotalRuns,
+        extreme: extSpots,
+        totalRecordedRuns: easyTotalRuns + medTotalRuns + hardTotalRuns + extTotalRuns,
         hiddenRuns: hiddenRunsCount
       },
       selectedSkin: u.selectedSkin || 'classic',
@@ -1099,9 +1125,11 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
   const visibleEasy = db.runs.easy.filter(r => !r.hidden);
   const visibleMed = db.runs.medium.filter(r => !r.hidden);
   const visibleHard = db.runs.hard.filter(r => !r.hidden);
+  const visibleExtreme = (db.runs.extreme || []).filter(r => !r.hidden);
   const easyChamp = visibleEasy[0] ? `${visibleEasy[0].username} (${visibleEasy[0].score} pts)` : 'None';
   const medChamp = visibleMed[0] ? `${visibleMed[0].username} (${visibleMed[0].score} pts)` : 'None';
   const hardChamp = visibleHard[0] ? `${visibleHard[0].username} (${visibleHard[0].score} pts)` : 'None';
+  const extremeChamp = visibleExtreme[0] ? `${visibleExtreme[0].username} (${visibleExtreme[0].score} pts)` : 'None';
 
   const now = Date.now();
   db.databaseStatus = {
@@ -1114,7 +1142,8 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     currentChampions: {
       easy: easyChamp,
       medium: medChamp,
-      hard: hardChamp
+      hard: hardChamp,
+      extreme: extremeChamp
     },
     totalRegisteredPlayers: sortedUsers.length,
     defaultMaxAccounts: Math.max(1, Math.min(50, Math.floor(Number(db.adminSettings && db.adminSettings.defaultMaxAccounts) || 5))),
@@ -1122,7 +1151,8 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       easy: db.runs.easy.length,
       medium: db.runs.medium.length,
       hard: db.runs.hard.length,
-      total: db.runs.easy.length + db.runs.medium.length + db.runs.hard.length
+      extreme: (db.runs.extreme || []).length,
+      total: db.runs.easy.length + db.runs.medium.length + db.runs.hard.length + (db.runs.extreme || []).length
     },
     howToViewOrEdit: 'Open /database in your browser OR edit records directly in playerRecordsOverview / users below and save this file!'
   };
@@ -1178,7 +1208,7 @@ function loadDatabase(fromWatcher = false) {
           ? parsed.banRegistry
           : { groups: {} },
         users: parsed.users || {},
-        runs: parsed.runs || { easy: [], medium: [], hard: [] },
+        runs: parsed.runs || { easy: [], medium: [], hard: [], extreme: [] },
         duelMatchHighScores: Array.isArray(parsed.duelMatchHighScores) ? parsed.duelMatchHighScores : [],
         duelMatchHistory: Array.isArray(parsed.duelMatchHistory) ? parsed.duelMatchHistory : [],
         sessions: parsed.sessions || {},
@@ -1198,9 +1228,9 @@ function loadDatabase(fromWatcher = false) {
 
     // Guarantee runs structure exists
     if (!db.runs || typeof db.runs !== 'object') {
-      db.runs = { easy: [], medium: [], hard: [] };
+      db.runs = { easy: [], medium: [], hard: [], extreme: [] };
     }
-    ['easy', 'medium', 'hard'].forEach(diff => {
+    ALL_MODES.forEach(diff => {
       if (!Array.isArray(db.runs[diff])) db.runs[diff] = [];
     });
     if (!Array.isArray(db.duelMatchHighScores)) db.duelMatchHighScores = [];
@@ -1347,9 +1377,9 @@ function buildLeaderboards(limit = 100, timeframe = 'all', nowMs = Date.now()) {
     minCreatedAt = boundaries.weekly.currentResetMs;
   }
 
-  const result = { easy: [], medium: [], hard: [] };
+  const result = { easy: [], medium: [], hard: [], extreme: [] };
 
-  ['easy', 'medium', 'hard'].forEach(diff => {
+  ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
     const runsList = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
     let filtered = runsList
       .filter(entry => {
@@ -1428,7 +1458,7 @@ function recordUserLogin(user, method = 'login') {
   });
   if (db.loginHistory.length > 500) db.loginHistory.length = 500;
 
-  const r = user.records || { easy: 0, medium: 0, hard: 0 };
+  const r = user.records || { easy: 0, medium: 0, hard: 0, extreme: 0 };
   const msg = `🔑 ${user.username} logged in (${method === 'quick-switch' ? 'Quick Login' : 'Password Login'} #${user.loginCount}) — Current Bests: Easy ${r.easy || 0} | Medium ${r.medium || 0} | Hard ${r.hard || 0}`;
 
   logDatabaseEvent('LOGIN', user.username, msg, {
@@ -1445,8 +1475,8 @@ function recordUserLogin(user, method = 'login') {
  */
 function recordVerifiedRun(user, diffKey, verifiedScore) {
   const now = Date.now();
-  if (!user.records) user.records = { easy: 0, medium: 0, hard: 0 };
-  if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
+  if (!user.records) user.records = { easy: 0, medium: 0, hard: 0, extreme: 0 };
+  if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0, extreme: 0 };
 
   const withinWindow = isWithinDanishWindow(now);
   const previousBest = Number(user.records[diffKey]) || 0;
@@ -1506,7 +1536,7 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
 
   let newRunId = null;
   if (verifiedScore > 0) {
-    if (!db.runs) db.runs = { easy: [], medium: [], hard: [] };
+    if (!db.runs) db.runs = { easy: [], medium: [], hard: [], extreme: [] };
     if (!Array.isArray(db.runs[diffKey])) db.runs[diffKey] = [];
 
     newRunId = crypto.randomBytes(8).toString('hex');
@@ -1543,11 +1573,11 @@ function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPi
   }
 
   const now = Date.now();
-  if (!user.records) user.records = { easy: 0, medium: 0, hard: 0 };
-  if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0 };
+  if (!user.records) user.records = { easy: 0, medium: 0, hard: 0, extreme: 0 };
+  if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0, extreme: 0 };
 
   const changes = [];
-  ['easy', 'medium', 'hard'].forEach(diff => {
+  ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
     if (newRecords && newRecords[diff] !== undefined) {
       const val = Math.max(0, Math.floor(Number(newRecords[diff]) || 0));
       const oldVal = Number(user.records[diff]) || 0;
@@ -1606,7 +1636,7 @@ function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPi
  * Automatically recalculates the user's best score in that mode from their visible runs so leaderboard & profile stay in sync.
  */
 function updateLeaderboardRunAdmin(difficulty, entryId, updates = {}) {
-  if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+  if (!ALL_MODES.includes(difficulty)) {
     throw new Error('Invalid difficulty.');
   }
   const list = db.runs[difficulty] || [];
@@ -1657,7 +1687,7 @@ function updateLeaderboardRunAdmin(difficulty, entryId, updates = {}) {
  * Adds a new run for any user in a given difficulty mode.
  */
 function addLeaderboardRunAdmin(username, difficulty, score, hidden = false) {
-  if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+  if (!ALL_MODES.includes(difficulty)) {
     throw new Error('Invalid difficulty.');
   }
   const cleanName = typeof username === 'string' ? username.trim() : '';
@@ -1709,9 +1739,9 @@ function toggleUserRunsVisibilityAdmin(username, difficulty, hidden) {
   const uLower = cleanName.toLowerCase();
   if (!uLower) throw new Error('Username is required.');
 
-  const targetModes = (difficulty && ['easy', 'medium', 'hard'].includes(difficulty))
+  const targetModes = (difficulty && ALL_MODES.includes(difficulty))
     ? [difficulty]
-    : ['easy', 'medium', 'hard'];
+    : ALL_MODES;
   const makeHidden = Boolean(hidden);
   let count = 0;
 
@@ -1744,8 +1774,8 @@ let cachedAllRunsAdmin = null;
  */
 function getAllRunsAdmin() {
   if (cachedAllRunsAdmin) return cachedAllRunsAdmin;
-  const result = { easy: [], medium: [], hard: [] };
-  ['easy', 'medium', 'hard'].forEach(diff => {
+  const result = { easy: [], medium: [], hard: [], extreme: [] };
+  ALL_MODES.forEach(diff => {
     const list = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
     let visibleRankCounter = 0;
     result[diff] = list
@@ -1779,7 +1809,7 @@ function getAllRunsAdmin() {
  * Deletes a specific leaderboard run entry by ID and recalculates the player's best if needed
  */
 function deleteLeaderboardEntryAdmin(difficulty, entryId) {
-  if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+  if (!ALL_MODES.includes(difficulty)) {
     throw new Error('Invalid difficulty.');
   }
   const list = db.runs[difficulty] || [];
@@ -2005,74 +2035,56 @@ function addChatMessage({ type = 'user', subtype = null, tagLabel = null, leader
 
 /**
  * Calculates Ranked Duel Elo changes using the competitive Elo formula.
- * Winning against a higher-Elo opponent yields MORE Elo (up to +36);
- * winning against a lower-Elo opponent yields LESS Elo (down to +4).
- * Losing against a lower-Elo opponent loses MORE Elo; losing against a higher-Elo opponent loses LESS Elo.
+ * Winning against a higher-Elo opponent (upset win, e.g. 950 beating 1200)
+ * yields a large reward (~+40 to +55 Elo) and deducts strongly from the higher-rated loser.
+ * Beating a much lower-rated opponent yields small expected Elo (+2 to +10).
  */
-function calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB) {
+function calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB, details = {}) {
   const rA = (typeof eloA === 'number' && !Number.isNaN(eloA)) ? eloA : 1000;
   const rB = (typeof eloB === 'number' && !Number.isNaN(eloB)) ? eloB : 1000;
-  const K = 40;
+  const K = 44;
 
   const expectedA = 1 / (1 + Math.pow(10, (rB - rA) / 400));
   const expectedB = 1 - expectedA;
 
+  const forcedWinner = details && (details.forcedWinner === 'a' || details.forcedWinner === 'b')
+    ? details.forcedWinner
+    : null;
+
   let actualA = 0.5;
   let actualB = 0.5;
-  if (pointsA > pointsB) {
+  if (forcedWinner === 'a' || (!forcedWinner && pointsA > pointsB)) {
     actualA = 1;
     actualB = 0;
-  } else if (pointsB > pointsA) {
+  } else if (forcedWinner === 'b' || (!forcedWinner && pointsB > pointsA)) {
     actualA = 0;
     actualB = 1;
   }
 
-  let deltaA = Math.round(K * (actualA - expectedA));
-  let deltaB = Math.round(K * (actualB - expectedB));
+  let deltaA = 0;
+  let deltaB = 0;
 
   if (actualA === 1) {
-    deltaA = Math.max(4, deltaA);
-    const lossReduction = deltaA >= 16 ? 2 : 1;
-    deltaB = -Math.max(2, deltaA - lossReduction);
+    const gap = Math.max(0, rB - rA);
+    const isUpset = rA < rB;
+    const effectiveK = isUpset ? (K + Math.min(20, Math.round(gap * 0.04))) : K;
+    const rawGain = Math.round(effectiveK * (1 - expectedA));
+    deltaA = isUpset ? Math.max(22, rawGain) : Math.max(2, rawGain);
+    const lossBuffer = deltaA >= 16 ? 2 : 1;
+    deltaB = -Math.max(2, deltaA - lossBuffer);
   } else if (actualB === 1) {
-    deltaB = Math.max(4, deltaB);
-    const lossReduction = deltaB >= 16 ? 2 : 1;
-    deltaA = -Math.max(2, deltaB - lossReduction);
+    const gap = Math.max(0, rA - rB);
+    const isUpset = rB < rA;
+    const effectiveK = isUpset ? (K + Math.min(20, Math.round(gap * 0.04))) : K;
+    const rawGain = Math.round(effectiveK * (1 - expectedB));
+    deltaB = isUpset ? Math.max(22, rawGain) : Math.max(2, rawGain);
+    const lossBuffer = deltaB >= 16 ? 2 : 1;
+    deltaA = -Math.max(2, deltaB - lossBuffer);
   } else {
-    if (deltaA > 0) deltaB = -Math.max(0, deltaA - 1);
-    else if (deltaB > 0) deltaA = -Math.max(0, deltaB - 1);
-    else deltaB = -deltaA;
-  }
-
-  // Enforce strict ELO gap scaling limits based on |rA - rB|
-  const eloDiff = Math.abs(rA - rB);
-  if (eloDiff > 300) {
-    deltaA = 0;
-    deltaB = 0;
-  } else if (eloDiff > 200) {
-    // Over 200 difference: strictly less than 3 ELO gained or lost (max +/- 2)
-    if (actualA === 1) {
-      deltaA = Math.min(2, Math.max(1, deltaA));
-      deltaB = -Math.min(2, Math.max(1, deltaA > 1 ? deltaA - 1 : 1));
-    } else if (actualB === 1) {
-      deltaB = Math.min(2, Math.max(1, deltaB));
-      deltaA = -Math.min(2, Math.max(1, deltaB > 1 ? deltaB - 1 : 1));
-    } else {
-      deltaA = Math.max(-2, Math.min(2, deltaA));
-      deltaB = Math.max(-2, Math.min(2, deltaB));
-    }
-  } else if (eloDiff > 150) {
-    // Over 150 difference: cannot gain or lose more than 10 ELO
-    if (actualA === 1) {
-      deltaA = Math.min(10, Math.max(4, deltaA));
-      deltaB = -Math.min(10, Math.max(2, deltaA - 1));
-    } else if (actualB === 1) {
-      deltaB = Math.min(10, Math.max(4, deltaB));
-      deltaA = -Math.min(10, Math.max(2, deltaB - 1));
-    } else {
-      deltaA = Math.max(-10, Math.min(10, deltaA));
-      deltaB = Math.max(-10, Math.min(10, deltaB));
-    }
+    deltaA = Math.round(K * (0.5 - expectedA));
+    deltaB = Math.round(K * (0.5 - expectedB));
+    if (deltaA > 0) deltaB = -deltaA;
+    else if (deltaB > 0) deltaA = -deltaB;
   }
 
   const newEloA = Math.max(100, rA + deltaA);
@@ -2117,18 +2129,21 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
     };
   }
 
-  const eloRes = calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB);
+  const forcedWinner = (details && (details.forcedWinner === 'a' || details.forcedWinner === 'b')) ? details.forcedWinner : null;
+  const isForfeit = Boolean(details && details.forfeit && forcedWinner);
+  const eloRes = calculateDuelEloUpdate(eloA, eloB, pointsA, pointsB, { forcedWinner });
 
   const safePointsA = Math.max(0, Math.round(Number(pointsA) || 0));
   const safePointsB = Math.max(0, Math.round(Number(pointsB) || 0));
+  const winnerSide = forcedWinner || (safePointsA > safePointsB ? 'a' : (safePointsB > safePointsA ? 'b' : 'draw'));
   let coinsA = safePointsA;
   let coinsB = safePointsB;
-  if (safePointsA > safePointsB) {
-    coinsA = Math.round(safePointsA * 1.5);
-    coinsB = Math.round(safePointsB * 0.7);
-  } else if (safePointsB > safePointsA) {
-    coinsA = Math.round(safePointsA * 0.7);
-    coinsB = Math.round(safePointsB * 1.5);
+  if (winnerSide === 'a') {
+    coinsA = isForfeit ? Math.max(10, Math.round(safePointsA * 2.0)) : Math.round(safePointsA * 2.0);
+    coinsB = isForfeit ? 0 : Math.round(safePointsB * 0.8);
+  } else if (winnerSide === 'b') {
+    coinsA = isForfeit ? 0 : Math.round(safePointsA * 0.8);
+    coinsB = isForfeit ? Math.max(10, Math.round(safePointsB * 2.0)) : Math.round(safePointsB * 2.0);
   }
 
   const now = Date.now();
@@ -2137,6 +2152,7 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
     const rE = (roundsObj && roundsObj.easy) || {};
     const rM = (roundsObj && roundsObj.medium) || {};
     const rH = (roundsObj && roundsObj.hard) || {};
+    const rX = (roundsObj && roundsObj.extreme) || {};
     const entry = {
       id: crypto.randomBytes(6).toString('hex'),
       username: userObj.username,
@@ -2144,9 +2160,11 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
       easyRaw: Number(rE.rawScore) || 0,
       mediumRaw: Number(rM.rawScore) || 0,
       hardRaw: Number(rH.rawScore) || 0,
+      extremeRaw: Number(rX.rawScore) || 0,
       easyPts: Number(rE.weightedScore) || 0,
       mediumPts: Number(rM.weightedScore) || 0,
       hardPts: Number(rH.weightedScore) || 0,
+      extremePts: Number(rX.weightedScore) || 0,
       opponent: String(oppName || ''),
       createdAt: now
     };
@@ -2157,9 +2175,11 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
         easyRaw: entry.easyRaw,
         mediumRaw: entry.mediumRaw,
         hardRaw: entry.hardRaw,
+        extremeRaw: entry.extremeRaw,
         easyPts: entry.easyPts,
         mediumPts: entry.mediumPts,
         hardPts: entry.hardPts,
+        extremePts: entry.extremePts,
         opponent: entry.opponent,
         achievedAt: now
       };
@@ -2170,8 +2190,8 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
     userA.duelElo = eloRes.newEloA;
     userA.duelMatches = (userA.duelMatches || 0) + 1;
     userA.duelCoins = Math.max(0, Math.round(Number(userA.duelCoins) || 0) + coinsA);
-    if (pointsA > pointsB) userA.duelWins = (userA.duelWins || 0) + 1;
-    else if (pointsB > pointsA) userA.duelLosses = (userA.duelLosses || 0) + 1;
+    if (winnerSide === 'a') userA.duelWins = (userA.duelWins || 0) + 1;
+    else if (winnerSide === 'b') userA.duelLosses = (userA.duelLosses || 0) + 1;
     else userA.duelDraws = (userA.duelDraws || 0) + 1;
     recordUserMatchHighScore(userA, safePointsA, details.roundsA, usernameB);
   }
@@ -2180,8 +2200,8 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
     userB.duelElo = eloRes.newEloB;
     userB.duelMatches = (userB.duelMatches || 0) + 1;
     userB.duelCoins = Math.max(0, Math.round(Number(userB.duelCoins) || 0) + coinsB);
-    if (pointsB > pointsA) userB.duelWins = (userB.duelWins || 0) + 1;
-    else if (pointsA > pointsB) userB.duelLosses = (userB.duelLosses || 0) + 1;
+    if (winnerSide === 'b') userB.duelWins = (userB.duelWins || 0) + 1;
+    else if (winnerSide === 'a') userB.duelLosses = (userB.duelLosses || 0) + 1;
     else userB.duelDraws = (userB.duelDraws || 0) + 1;
     recordUserMatchHighScore(userB, safePointsB, details.roundsB, usernameA);
   }
@@ -2197,24 +2217,28 @@ function recordDuelMatchResult(usernameA, usernameB, pointsA, pointsB, details =
       const rE = (roundsObj && roundsObj.easy) || {};
       const rM = (roundsObj && roundsObj.medium) || {};
       const rH = (roundsObj && roundsObj.hard) || {};
+      const rX = (roundsObj && roundsObj.extreme) || {};
       const eRaw = Math.max(0, Math.floor(Number(rE.rawScore) || 0));
       const mRaw = Math.max(0, Math.floor(Number(rM.rawScore) || 0));
       const hRaw = Math.max(0, Math.floor(Number(rH.rawScore) || 0));
+      const xRaw = Math.max(0, Math.floor(Number(rX.rawScore) || 0));
       return {
         easy: { raw: eRaw, pts: Number(rE.weightedScore) || eRaw },
         medium: { raw: mRaw, pts: Number(rM.weightedScore) || (mRaw * 2) },
-        hard: { raw: hRaw, pts: Number(rH.weightedScore) || (hRaw * 3) }
+        hard: { raw: hRaw, pts: Number(rH.weightedScore) || (hRaw * 3) },
+        extreme: { raw: xRaw, pts: Number(rX.weightedScore) || (xRaw * 10) }
       };
     };
     const dispA = userA ? userA.username : String(usernameA || 'Player 1');
     const dispB = userB ? userB.username : String(usernameB || 'Player 2');
-    const isDrawMatch = safePointsA === safePointsB;
-    const winnerName = isDrawMatch ? null : (safePointsA > safePointsB ? dispA : dispB);
+    const isDrawMatch = winnerSide === 'draw';
+    const winnerName = isDrawMatch ? null : (winnerSide === 'a' ? dispA : dispB);
     db.duelMatchHistory.unshift({
       id: 'dm_' + crypto.randomBytes(6).toString('hex'),
       createdAt: now,
       readableAt: formatReadableTimestamp(now),
       isDraw: isDrawMatch,
+      forfeit: isForfeit,
       winnerUsername: winnerName,
       playerA: {
         username: dispA,
@@ -2283,8 +2307,8 @@ function getPlayerRankedDuelHistory(username, limit = 60) {
       opponent: opp.username || 'Opponent',
       myTotal,
       oppTotal,
-      myRounds: me.rounds || { easy: { raw: 0, pts: 0 }, medium: { raw: 0, pts: 0 }, hard: { raw: 0, pts: 0 } },
-      oppRounds: opp.rounds || { easy: { raw: 0, pts: 0 }, medium: { raw: 0, pts: 0 }, hard: { raw: 0, pts: 0 } },
+      myRounds: me.rounds || { easy: { raw: 0, pts: 0 }, medium: { raw: 0, pts: 0 }, hard: { raw: 0, pts: 0 }, extreme: { raw: 0, pts: 0 } },
+      oppRounds: opp.rounds || { easy: { raw: 0, pts: 0 }, medium: { raw: 0, pts: 0 }, hard: { raw: 0, pts: 0 }, extreme: { raw: 0, pts: 0 } },
       oldElo: me.oldElo ?? null,
       newElo: me.newElo ?? null,
       eloDelta: typeof me.eloDelta === 'number' ? me.eloDelta : null,
@@ -2327,9 +2351,11 @@ function getPlayerRankedDuelHistory(username, limit = 60) {
     const myE = Number(e.easyRaw) || 0;
     const myM = Number(e.mediumRaw) || 0;
     const myH = Number(e.hardRaw) || 0;
+    const myX = Number(e.extremeRaw) || 0;
     const opE = oppEntry ? (Number(oppEntry.easyRaw) || 0) : null;
     const opM = oppEntry ? (Number(oppEntry.mediumRaw) || 0) : null;
     const opH = oppEntry ? (Number(oppEntry.hardRaw) || 0) : null;
+    const opX = oppEntry ? (Number(oppEntry.extremeRaw) || 0) : null;
 
     history.push({
       id: 'hs_' + (e.id || `${i}_${eTime}`),
@@ -2342,12 +2368,14 @@ function getPlayerRankedDuelHistory(username, limit = 60) {
       myRounds: {
         easy: { raw: myE, pts: Number(e.easyPts) || myE },
         medium: { raw: myM, pts: Number(e.mediumPts) || (myM * 2) },
-        hard: { raw: myH, pts: Number(e.hardPts) || (myH * 3) }
+        hard: { raw: myH, pts: Number(e.hardPts) || (myH * 3) },
+        extreme: { raw: myX, pts: Number(e.extremePts) || (myX * 10) }
       },
       oppRounds: oppEntry ? {
         easy: { raw: opE, pts: Number(oppEntry.easyPts) || opE },
         medium: { raw: opM, pts: Number(oppEntry.mediumPts) || (opM * 2) },
-        hard: { raw: opH, pts: Number(oppEntry.hardPts) || (opH * 3) }
+        hard: { raw: opH, pts: Number(oppEntry.hardPts) || (opH * 3) },
+        extreme: { raw: opX, pts: Number(oppEntry.extremePts) || (opX * 10) }
       } : null,
       oldElo: null,
       newElo: null,
@@ -2387,9 +2415,11 @@ function buildDuelHighScoreLeaderboard(uniqueOnly = false, limit = 100) {
           easyRaw: Number(bd.easyRaw) || 0,
           mediumRaw: Number(bd.mediumRaw) || 0,
           hardRaw: Number(bd.hardRaw) || 0,
+          extremeRaw: Number(bd.extremeRaw) || 0,
           easyPts: Number(bd.easyPts) || 0,
           mediumPts: Number(bd.mediumPts) || 0,
           hardPts: Number(bd.hardPts) || 0,
+          extremePts: Number(bd.extremePts) || 0,
           opponent: bd.opponent || '',
           createdAt: Number(bd.achievedAt) || Number(u.lastNewBestAt) || 0
         });
@@ -2419,9 +2449,11 @@ function buildDuelHighScoreLeaderboard(uniqueOnly = false, limit = 100) {
       easyRaw: Number(e.easyRaw) || 0,
       mediumRaw: Number(e.mediumRaw) || 0,
       hardRaw: Number(e.hardRaw) || 0,
+      extremeRaw: Number(e.extremeRaw) || 0,
       easyPts: Number(e.easyPts) || 0,
       mediumPts: Number(e.mediumPts) || 0,
       hardPts: Number(e.hardPts) || 0,
+      extremePts: Number(e.extremePts) || 0,
       opponent: e.opponent || '',
       createdAt: Number(e.createdAt) || 0
     });
@@ -2452,7 +2484,8 @@ function buildDuelRankedLeaderboard() {
     const bestSingle = Math.max(
       Number(u.records?.easy) || 0,
       Number(u.records?.medium) || 0,
-      Number(u.records?.hard) || 0
+      Number(u.records?.hard) || 0,
+      Number(u.records?.extreme) || 0
     );
 
     list.push({
@@ -2811,7 +2844,7 @@ function computeAltAccountMatches(targetUser, allUsersObj, forensicCtx = null) {
       lastLoginReadable: other.lastLoginReadable || formatReadableTimestamp(other.lastLoginAt) || 'Unknown',
       loginCount: oLoginCount,
       duelElo: typeof other.duelElo === 'number' ? other.duelElo : 1000,
-      records: other.records || { easy: 0, medium: 0, hard: 0 },
+      records: other.records || { easy: 0, medium: 0, hard: 0, extreme: 0 },
       duelCoins: Math.round(Number(other.duelCoins) || 0),
       banned: Boolean(other.banned),
       overAccountLimit: Boolean(other.overAccountLimit),
@@ -2896,7 +2929,7 @@ function findAltAccountsForUser(username) {
       createdAt: Number(user.createdAt) || 0,
       lastLoginAt: Number(user.lastLoginAt) || 0,
       lastLoginReadable: user.lastLoginReadable || formatReadableTimestamp(user.lastLoginAt) || 'Unknown',
-      records: user.records || { easy: 0, medium: 0, hard: 0 },
+      records: user.records || { easy: 0, medium: 0, hard: 0, extreme: 0 },
       duelElo: typeof user.duelElo === 'number' ? user.duelElo : 1000,
       banned: Boolean(user.banned),
       maxAccounts: (typeof user.maxAccounts === 'number' && user.maxAccounts >= 1) ? Math.floor(user.maxAccounts) : null,
@@ -2951,7 +2984,7 @@ function deletePlayerAccountAdmin(username) {
 
   let removedRuns = 0;
   if (db.runs && typeof db.runs === 'object') {
-    ['easy', 'medium', 'hard'].forEach(diff => {
+    ALL_MODES.forEach(diff => {
       if (!Array.isArray(db.runs[diff])) return;
       const before = db.runs[diff].length;
       db.runs[diff] = db.runs[diff].filter(r => !r || !r.username || r.username.toLowerCase() !== uKey);
@@ -3486,8 +3519,9 @@ function scoreUserAccountPriority(user) {
   const e = Number(rec.easy) || 0;
   const m = Number(rec.medium) || 0;
   const h = Number(rec.hard) || 0;
-  const weightedHigh = e + m * 2 + h * 3;
-  const maxSingle = Math.max(e, m, h);
+  const ext = Number(rec.extreme) || 0;
+  const weightedHigh = e + m * 2 + h * 3 + ext * 5;
+  const maxSingle = Math.max(e, m, h, ext);
   const elo = typeof user.duelElo === 'number' && !Number.isNaN(user.duelElo) ? user.duelElo : 1000;
   const duelMatches = Number(user.duelMatches) || 0;
   const careerRuns = Number(user.careerStats && user.careerStats.totalRuns) || 0;
@@ -3847,5 +3881,8 @@ module.exports = {
   scoreUserAccountPriority,
   checkAccountRegistrationAllowance,
   adminSetUserAccountLimit,
-  areUsersAltLinked
+  areUsersAltLinked,
+  ALL_MODES,
+  EXTREME_UNLOCK_REQS,
+  hasUnlockedExtremeMode
 };

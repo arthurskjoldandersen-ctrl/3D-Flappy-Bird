@@ -281,24 +281,24 @@
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  padding-bottom: 24px;
+  padding-bottom: 18px;
   pointer-events: none;
 }
 
 .play-deck-card {
   pointer-events: auto;
   width: 100%;
-  max-width: 540px;
+  max-width: 530px;
   background: var(--bg-surface);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 2px solid var(--border-subtle);
-  border-radius: 28px;
-  padding: 18px 22px;
+  border-radius: 26px;
+  padding: 14px 18px;
   box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   text-align: center;
 }
 
@@ -887,6 +887,20 @@ select,
 label,
 a {
   pointer-events: auto !important;
+}
+
+/* Never let fading or hidden menu/overlay cards intercept jumps during active gameplay */
+body.in-game #start-screen,
+body.in-game #start-screen *,
+body.in-game #gameover-screen,
+body.in-game #gameover-screen *,
+body.in-game #hub-views-container,
+body.in-game #hub-views-container * {
+  pointer-events: none !important;
+}
+body.in-game #start-screen:not(.active),
+body.in-game #gameover-screen:not(.active) {
+  visibility: hidden !important;
 }
 
 button {
@@ -9113,6 +9127,290 @@ body.in-game #btn-chat-toggle {
   color: #f8fafc !important;
   box-shadow: 0 24px 64px rgba(220, 38, 38, 0.35) !important;
 }
+
+/* ==========================================================================
+   EXTREME MODE LOBBY BANNER & LEADERBOARD LAYOUT REDESIGN
+   ========================================================================== */
+.mode-select-deck {
+  gap: 8px !important;
+}
+
+.mode-card-extreme {
+  grid-column: 1 / -1 !important;
+  width: 100% !important;
+  padding: 9px 14px !important;
+  gap: 6px !important;
+  border-color: rgba(168, 85, 247, 0.42) !important;
+  background: linear-gradient(135deg, rgba(88, 28, 135, 0.24) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+}
+
+.theme-light .mode-card-extreme {
+  background: linear-gradient(135deg, rgba(243, 232, 255, 0.92) 0%, rgba(255, 255, 255, 0.98) 100%) !important;
+  border-color: rgba(168, 85, 247, 0.45) !important;
+  color: #1e293b !important;
+}
+
+.mode-card-extreme:hover {
+  border-color: #c084fc !important;
+}
+
+.mode-card-extreme.active {
+  border: 2px solid #c084fc !important;
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.38) !important;
+}
+
+.mode-card-extreme.is-locked {
+  opacity: 0.92;
+  border-style: dashed !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+}
+
+.mode-card-extreme.is-locked:hover {
+  transform: none !important;
+  border-color: rgba(245, 158, 11, 0.8) !important;
+}
+
+.mode-card-extreme-top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mode-extreme-spec-pill {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(168, 85, 247, 0.2);
+  color: #e9d5ff;
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  letter-spacing: 0.03em;
+}
+
+.theme-light .mode-extreme-spec-pill {
+  background: rgba(168, 85, 247, 0.14);
+  color: #7e22ce;
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+.mode-extreme-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag-extreme-locked {
+  background: rgba(245, 158, 11, 0.18) !important;
+  color: #fcd34d !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+}
+
+.theme-light .tag-extreme-locked {
+  color: #b45309 !important;
+}
+
+.tag-extreme-open {
+  background: rgba(168, 85, 247, 0.28) !important;
+  color: #f5d0fe !important;
+  border: 1px solid rgba(217, 70, 239, 0.6) !important;
+}
+
+.theme-light .tag-extreme-open {
+  color: #6b21a8 !important;
+}
+
+.extreme-unlock-progress-wrap {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.extreme-req-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.extreme-req-chip {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.theme-light .extreme-req-chip {
+  background: rgba(241, 245, 249, 0.95);
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.extreme-req-chip.done {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(16, 185, 129, 0.55) !important;
+}
+
+.theme-light .extreme-req-chip.done {
+  color: #047857 !important;
+}
+
+.extreme-unlock-bar-track {
+  flex: 1;
+  min-width: 60px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-light .extreme-unlock-bar-track {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.extreme-unlock-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f59e0b 0%, #c084fc 100%);
+  transition: width 0.25s ease;
+}
+
+/* Redesigned Spacious Leaderboard Header & Two-Row Toolbar */
+.lb-full-card {
+  max-width: 960px !important;
+  padding: 18px 24px !important;
+  gap: 12px !important;
+}
+
+.lb-header-row.lb-header-stacked {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+  margin-bottom: 0 !important;
+}
+
+.lb-header-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+}
+
+.lb-header-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+.lb-header-actions .lb-search-box {
+  min-width: 220px !important;
+}
+
+.lb-toolbar-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  padding-top: 8px !important;
+  border-top: 1px solid var(--border-subtle) !important;
+}
+
+.lb-toolbar-row .lb-tabs {
+  margin-bottom: 0 !important;
+  flex: 0 1 auto !important;
+  gap: 4px !important;
+}
+
+.lb-toolbar-row .lb-timeframe-bar {
+  margin-bottom: 0 !important;
+  justify-content: flex-end !important;
+}
+
+.lb-tab[data-tab="extreme"].active {
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%) !important;
+  color: #ffffff !important;
+  border-color: #f0abfc !important;
+  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.4) !important;
+}
+
+.lb-list-scrollable {
+  max-height: calc(100vh - 248px) !important;
+}
+
+/* 4-Mode Support Across Stats, Telemetry, Profile & Public Profile */
+.stats-records-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important;
+}
+
+.mode-telemetry-list {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+}
+
+.profile-records-grid {
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)) !important;
+}
+
+.public-records-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.stat-mode-card.extreme-card {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.16) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+  border-color: rgba(192, 132, 252, 0.55) !important;
+}
+
+.theme-light .stat-mode-card.extreme-card {
+  background: linear-gradient(135deg, #f3e8ff 0%, #ffffff 100%) !important;
+  border-color: #a855f7 !important;
+  color: #1e293b !important;
+}
+
+.mode-telemetry-card.extreme-tele {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(15, 23, 42, 0.92) 100%) !important;
+  border-color: #a855f7 !important;
+}
+
+.theme-light .mode-telemetry-card.extreme-tele {
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%) !important;
+  border-color: #a855f7 !important;
+  color: #1e293b !important;
+}
+
+.public-record-card.mode-extreme {
+  border-color: rgba(192, 132, 252, 0.45) !important;
+}
+
+@media (max-width: 720px) {
+  .public-records-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .lb-header-actions {
+    width: 100% !important;
+  }
+  .lb-header-actions .lb-search-box {
+    flex: 1 1 160px !important;
+  }
+  .lb-toolbar-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .lb-toolbar-row .lb-timeframe-bar {
+    justify-content: space-between !important;
+  }
+}
+
 
 
 

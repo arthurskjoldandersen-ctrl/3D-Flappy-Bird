@@ -36,12 +36,14 @@
           this.skinSearchQuery = '';
           this.lockerSortOrder = 'default';
 
-          this.leaderboards = { easy: [], medium: [], hard: [] };
+          this.leaderboards = { easy: [], medium: [], hard: [], extreme: [] };
           this.timeframeLeaderboards = {
-            all: { easy: [], medium: [], hard: [] },
-            weekly: { easy: [], medium: [], hard: [] },
-            daily: { easy: [], medium: [], hard: [] }
+            all: { easy: [], medium: [], hard: [], extreme: [] },
+            weekly: { easy: [], medium: [], hard: [], extreme: [] },
+            daily: { easy: [], medium: [], hard: [], extreme: [] }
           };
+          this.extremeSolver = null;
+          this.lastExtremeFrameTime = 0;
           this.activeTimeframeTab = 'all';
           this.resetBoundaries = null;
           this.clientServerTimeOffset = 0;
@@ -59,12 +61,14 @@
           this.activeRunId = null;
           this.activeSeed = 123456789;
           this.prng = createSeededPRNG(this.activeSeed);
+          this.extremeSolver = null;
+          this.lastExtremeFrameTime = 0;
           this.currentTick = 0;
           this.flapTicks = [];
           this.pendingFlap = false;
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
-          this.lastFlapTick = 0;
+          this.lastFlapTick = -2;
           this.lastQueueFlapTime = -1000;
           this.lastKbdQueueTime = -1000;
           this.lastPtrQueueTime = -1000;
@@ -1180,6 +1184,10 @@
               e.stopPropagation();
               const diff = btn.getAttribute('data-diff');
               if (!CONFIG.difficulties[diff]) return;
+              if (diff === 'extreme' && !this.hasUnlockedExtremeMode()) {
+                this.showExtremeLockNotice();
+                return;
+              }
               this.selectedDifficulty = diff;
               document.querySelectorAll('#difficulty-selector .diff-btn').forEach(b => b.classList.remove('active'));
               btn.classList.add('active');
@@ -1240,6 +1248,35 @@
               this.applyCoverAspectToBgTexture(this.scene.background);
             }
           });
+        }
+
+        getEffectiveRecords() {
+          return (this.currentUser && this.currentUser.records) ? this.currentUser.records : (this.localRecords || {});
+        }
+
+        getExtremeUnlockProgress() {
+          const rec = this.getEffectiveRecords();
+          const easy = Number(rec.easy) || 0;
+          const medium = Number(rec.medium) || 0;
+          const hard = Number(rec.hard) || 0;
+          return {
+            easy,
+            medium,
+            hard,
+            unlocked: easy >= 100 && medium >= 40 && hard >= 25
+          };
+        }
+
+        hasUnlockedExtremeMode() {
+          return this.getExtremeUnlockProgress().unlocked;
+        }
+
+        showExtremeLockNotice() {
+          const p = this.getExtremeUnlockProgress();
+          const msg = `⚡ Extreme Mode Locked! Reach 100 Easy (${p.easy}/100), 40 Medium (${p.medium}/40) & 25 Hard (${p.hard}/25).`;
+          if (typeof this.showLockerToast === 'function') {
+            this.showLockerToast(msg, true);
+          }
         }
 
         setLeaderboardTab(tabKey) {
@@ -1325,6 +1362,7 @@
         prefetchRunSession(difficulty = this.selectedDifficulty) {
           if (!this.currentUser || !this.authToken) return;
           const diffKey = CONFIG.difficulties[difficulty] ? difficulty : 'medium';
+          if (diffKey === 'extreme' && !this.hasUnlockedExtremeMode()) return;
 
           if (this.prefetchedRun &&
               this.prefetchedRun.difficulty === diffKey &&
@@ -1359,6 +1397,10 @@
 
         startGame() {
           if (this.isAccountBanned || this.state === GAME_STATE.PLAYING || this.isStartingRun) return;
+          if ((this.selectedDifficulty || 'medium') === 'extreme' && !this.hasUnlockedExtremeMode()) {
+            this.showExtremeLockNotice();
+            return;
+          }
           this.isStartingRun = true;
           document.body.classList.add('in-game');
           const topBarEl2 = document.getElementById('top-app-bar');
@@ -1437,18 +1479,21 @@
           }
 
           this.prng = createSeededPRNG(this.activeSeed);
+          this.extremeSolver = (targetDifficulty === 'extreme' && typeof createExtremePipeSolver === 'function')
+            ? createExtremePipeSolver(this.activeSeed, CONFIG)
+            : null;
+          this.lastExtremeFrameTime = 0;
           this.currentTick = 0;
           this.flapTicks = [];
           this.pendingFlap = false;
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
-          this.lastFlapTick = 0;
+          this.lastFlapTick = -2;
           this.lastQueueFlapTime = -1000;
           this.lastKbdQueueTime = -1000;
           this.lastPtrQueueTime = -1000;
           this.lastQueueSource = '';
           this.physicsAccumulator = 0;
-          this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
           // Reset any lingering particles from prior crash/score
           if (this.particlePool) {
@@ -1468,9 +1513,18 @@
           this.updateHUD();
 
           this.clearPipes();
-          this.spawnPipePair(CONFIG.pipeSpawnX - CONFIG.baseSpawnDistance * 2);
-          this.spawnPipePair(CONFIG.pipeSpawnX - CONFIG.baseSpawnDistance);
-          this.spawnPipePair(CONFIG.pipeSpawnX);
+          if (targetDifficulty === 'extreme') {
+            const extCfg = CONFIG.difficulties.extreme;
+            const firstX = CONFIG.birdX + extCfg.firstPipeDist;
+            for (let pIdx = 0; pIdx < 4; pIdx++) {
+              this.spawnPipePair(firstX + pIdx * extCfg.spawnDistance);
+            }
+          } else {
+            const firstNormalX = CONFIG.birdX + CONFIG.baseSpawnDistance;
+            this.spawnPipePair(firstNormalX);
+            this.spawnPipePair(firstNormalX + CONFIG.baseSpawnDistance);
+            this.spawnPipePair(firstNormalX + CONFIG.baseSpawnDistance * 2);
+          }
 
           this.simBirdY = CONFIG.birdStartY;
           this.prevBirdY = CONFIG.birdStartY;
@@ -1478,7 +1532,7 @@
           this.birdGroup.rotation.set(0, 0, 0);
           this.birdMeshGroup.rotation.set(0, 0, 0);
 
-          this.birdVelocityY = CONFIG.flapImpulse;
+          this.birdVelocityY = this.getDifficultyParams().flapImpulse;
           this.wingFlapBoost = 1.0;
           this.pendingFlap = false;
           this.queuedFlaps = 0;
@@ -1490,6 +1544,8 @@
           if (document.activeElement && typeof document.activeElement.blur === 'function') {
             document.activeElement.blur();
           }
+          this.physicsAccumulator = 0;
+          this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           this.sound.playFlap();
         }
 
@@ -1501,7 +1557,7 @@
           const lastChanTime = source === 'kbd' ? (this.lastKbdQueueTime || 0) : (source === 'ptr' ? (this.lastPtrQueueTime || 0) : lastAny);
 
           // Prevent switch bounce (<18ms same channel) or accidental simultaneous Space+Click overlap (<24ms cross-channel),
-          // while never dropping real fast double-taps (>=24ms) once the buffer slot is free.
+          // while allowing a second intentional rapid tap (>=32ms later) to buffer without being dropped.
           if (isSameSource && (now - lastChanTime < 18)) {
             return;
           }
@@ -1509,14 +1565,16 @@
             return;
           }
 
+          const elapsedSinceLastQueue = now - lastAny;
           this.lastQueueFlapTime = now;
           this.lastQueueSource = source;
           if (source === 'kbd') this.lastKbdQueueTime = now;
           else if (source === 'ptr') this.lastPtrQueueTime = now;
 
           this.pendingFlap = true;
-          // Cap buffer at 1 unexecuted jump so a double-event can never stack into 2 automatic jumps
-          this.queuedFlaps = 1;
+          this.queuedFlaps = (elapsedSinceLastQueue >= 32 && (this.queuedFlaps || 0) >= 1)
+            ? Math.min(2, this.queuedFlaps + 1)
+            : 1;
           this.flapBufferTicks = 12;
           this.wingFlapBoost = 1.0;
         }
@@ -1542,6 +1600,7 @@
           flash.style.opacity = '0.72';
           setTimeout(() => { flash.style.opacity = '0'; }, 90);
 
+          this.extremeSolver = null;
           this.spawnCrashParticles(this.birdGroup.position.x, this.birdGroup.position.y);
 
           const diffKey = this.selectedDifficulty;
@@ -1562,7 +1621,8 @@
             this.careerStats.modes = {
               easy: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 },
               medium: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 },
-              hard: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 }
+              hard: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 },
+              extreme: { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 }
             };
           }
           if (!this.careerStats.modes[diffKey]) {
@@ -1614,6 +1674,18 @@
               });
 
               this.currentUser.records = verifyRes.records;
+              if (verifyRes.records) {
+                this.localRecords = {
+                  easy: Number(verifyRes.records.easy) || 0,
+                  medium: Number(verifyRes.records.medium) || 0,
+                  hard: Number(verifyRes.records.hard) || 0,
+                  extreme: Number(verifyRes.records.extreme) || 0
+                };
+                this.saveLocalRecords();
+              }
+              if (typeof this.updateProfileRecordPills === 'function') {
+                this.updateProfileRecordPills();
+              }
               this.leaderboards = verifyRes.leaderboards || this.leaderboards;
               if (verifyRes.timeframeLeaderboards) {
                 this.timeframeLeaderboards = verifyRes.timeframeLeaderboards;
@@ -1768,7 +1840,7 @@
         stepPlayingPhysics() {
           this.currentTick += 1;
           const dt = CONFIG.dt;
-          const { speed: scrollSpeed, gravity, flapImpulse, maxFallSpeed } = this.getDifficultyParams();
+          const { speed: scrollSpeed, gravity, flapImpulse, maxFallSpeed, spawnDistance } = this.getDifficultyParams();
 
           // Store previous tick coordinates for smooth sub-tick visual interpolation
           this.prevBirdY = this.simBirdY;
@@ -1813,12 +1885,6 @@
             if (this.birdVelocityY > 0) this.birdVelocityY = 0;
           }
 
-          this.distanceSinceLastPipe += scrollSpeed * dt;
-          if (this.distanceSinceLastPipe >= CONFIG.baseSpawnDistance) {
-            this.distanceSinceLastPipe = 0;
-            this.spawnPipePair(CONFIG.pipeSpawnX);
-          }
-
           for (let i = this.pipes.length - 1; i >= 0; i--) {
             const pipe = this.pipes[i];
             pipe.x -= scrollSpeed * dt;
@@ -1839,6 +1905,20 @@
               }
               this.pipes.splice(i, 1);
             }
+          }
+
+          const isExtremeRun = (this.selectedDifficulty === 'extreme');
+          const activeSpawnDist = isExtremeRun
+            ? (spawnDistance || CONFIG.difficulties.extreme.spawnDistance)
+            : CONFIG.baseSpawnDistance;
+          const spawnTriggerX = (isExtremeRun
+            ? CONFIG.difficulties.extreme.initialPipeSpawnX
+            : CONFIG.pipeSpawnX) - activeSpawnDist;
+          while (this.pipes.length === 0 || this.pipes[this.pipes.length - 1].x <= spawnTriggerX + 1e-9) {
+            const nextX = this.pipes.length > 0
+              ? (this.pipes[this.pipes.length - 1].x + activeSpawnDist)
+              : (isExtremeRun ? CONFIG.difficulties.extreme.initialPipeSpawnX : CONFIG.pipeSpawnX);
+            this.spawnPipePair(nextX);
           }
 
           if (this.checkCollisions()) {
@@ -1908,23 +1988,51 @@
             this.rightWingPivot.rotation.x = -flapAngle;
           } else if (this.state === GAME_STATE.PLAYING) {
             this.birdMeshGroup.rotation.y = 0;
-            this.physicsAccumulator += frameDt;
-            const maxSteps = 5;
-            let steps = 0;
-            while (this.physicsAccumulator >= CONFIG.dt && steps < maxSteps && this.state === GAME_STATE.PLAYING) {
-              this.physicsAccumulator -= CONFIG.dt;
+            if (this.selectedDifficulty === 'extreme') {
+              this.physicsAccumulator = 0;
               this.stepPlayingPhysics();
-              steps++;
-            }
+              if (this.state === GAME_STATE.PLAYING) {
+                this.birdGroup.position.y = this.simBirdY;
+                for (let i = 0; i < this.pipes.length; i++) {
+                  const p = this.pipes[i];
+                  p.group.position.x = p.x;
+                }
+              }
+            } else {
+              const is60HzFrame = (frameDt >= 0.0148 && frameDt <= 0.0188);
+              this.physicsAccumulator += frameDt;
+              let ran60HzDirect = false;
+              if (is60HzFrame && this.physicsAccumulator >= (CONFIG.dt - 0.0015) && this.physicsAccumulator < CONFIG.dt * 1.5) {
+                this.physicsAccumulator = Math.max(-0.0015, this.physicsAccumulator - CONFIG.dt);
+                this.stepPlayingPhysics();
+                ran60HzDirect = true;
+              } else {
+                const maxSteps = 5;
+                let steps = 0;
+                while (this.physicsAccumulator >= CONFIG.dt && steps < maxSteps && this.state === GAME_STATE.PLAYING) {
+                  this.physicsAccumulator -= CONFIG.dt;
+                  this.stepPlayingPhysics();
+                  steps++;
+                }
+              }
 
-            // Sub-tick interpolation factor alpha in [0, 1) eliminates all micro-stutter!
-            if (this.state === GAME_STATE.PLAYING) {
-              const alpha = Math.max(0, Math.min(1, this.physicsAccumulator / CONFIG.dt));
-              this.birdGroup.position.y = this.prevBirdY + (this.simBirdY - this.prevBirdY) * alpha;
+              // Sub-tick interpolation factor alpha in [0, 1) (or direct post-tick pose on 60Hz) eliminates jump stutter
+              if (this.state === GAME_STATE.PLAYING) {
+                if (ran60HzDirect) {
+                  this.birdGroup.position.y = this.simBirdY;
+                  for (let i = 0; i < this.pipes.length; i++) {
+                    const p = this.pipes[i];
+                    p.group.position.x = p.x;
+                  }
+                } else {
+                  const alpha = Math.max(0, Math.min(1, this.physicsAccumulator / CONFIG.dt));
+                  this.birdGroup.position.y = this.prevBirdY + (this.simBirdY - this.prevBirdY) * alpha;
 
-              for (let i = 0; i < this.pipes.length; i++) {
-                const p = this.pipes[i];
-                p.group.position.x = p.prevX + (p.x - p.prevX) * alpha;
+                  for (let i = 0; i < this.pipes.length; i++) {
+                    const p = this.pipes[i];
+                    p.group.position.x = p.prevX + (p.x - p.prevX) * alpha;
+                  }
+                }
               }
             }
 
@@ -2063,9 +2171,29 @@
 
         animate(now) {
           requestAnimationFrame(this.animate);
+          const isExtremeLocked = (this.state === GAME_STATE.PLAYING || this.state === GAME_STATE.CRASHING)
+            && this.selectedDifficulty === 'extreme';
+          if (isExtremeLocked) {
+            const EXTREME_FRAME_MS = 1000 / 60;
+            if (!this.lastExtremeFrameTime) {
+              this.lastExtremeFrameTime = now - EXTREME_FRAME_MS;
+            }
+            const elapsedExt = now - this.lastExtremeFrameTime;
+            if (elapsedExt < (EXTREME_FRAME_MS - 0.6)) {
+              return;
+            }
+            this.lastExtremeFrameTime = (elapsedExt > 120)
+              ? now
+              : (this.lastExtremeFrameTime + EXTREME_FRAME_MS);
+          } else {
+            this.lastExtremeFrameTime = 0;
+          }
+
           const rawDt = (now - (this.lastFrameTime || now)) * 0.001;
           this.lastFrameTime = now;
-          const dt = Number.isFinite(rawDt) ? Math.max(0.0001, Math.min(rawDt, 0.05)) : 0.016;
+          const dt = isExtremeLocked
+            ? CONFIG.dt
+            : (Number.isFinite(rawDt) ? Math.max(0.0001, Math.min(rawDt, 0.05)) : 0.016);
           try {
             this.update(dt);
           } catch (err) {
@@ -2156,9 +2284,54 @@
               }
             });
           }
+          if (!this._duelUnloadHandlerAdded && typeof window !== 'undefined' && window.addEventListener) {
+            this._duelUnloadHandlerAdded = true;
+            const sendTabCloseForfeit = () => {
+              const lid = this.activeDuelLobbyId;
+              const lobby = this.activeDuelLobby;
+              if (!lid) return;
+              if (lobby && lobby.status === 'finished') return;
+              const tokenQs = this.authToken ? `?token=${encodeURIComponent(this.authToken)}` : '';
+              const payloadStr = JSON.stringify({
+                lobbyId: lid,
+                clientId: this.duelClientId,
+                guestUsername: this.getDuelDisplayUsername(),
+                reason: 'tab_closed'
+              });
+              let beaconSent = false;
+              if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+                try {
+                  const blob = new Blob([payloadStr], { type: 'text/plain;charset=UTF-8' });
+                  beaconSent = navigator.sendBeacon(`/api/duels/leave${tokenQs}`, blob);
+                } catch (_) {}
+              }
+              if (!beaconSent && typeof fetch === 'function') {
+                try {
+                  const hdrs = { 'Content-Type': 'application/json' };
+                  if (this.authToken) hdrs['Authorization'] = `Bearer ${this.authToken}`;
+                  fetch('/api/duels/leave', { method: 'POST', headers: hdrs, body: payloadStr, keepalive: true }).catch(() => {});
+                } catch (_) {}
+              }
+            };
+            window.addEventListener('pagehide', sendTabCloseForfeit);
+            window.addEventListener('beforeunload', sendTabCloseForfeit);
+          }
           this._duelPollTimer = setInterval(() => {
-            if (document.hidden) return;
+            const inActiveMatch = Boolean(
+              this.activeDuelLobbyId &&
+              this.activeDuelLobby &&
+              this.activeDuelLobby.status !== 'waiting' &&
+              this.activeDuelLobby.status !== 'finished'
+            );
             const now = Date.now();
+            // Keep lightweight keepalive heartbeat running even while alt-tabbed during an active match
+            if (document.hidden) {
+              if (inActiveMatch && (now - (this.lastDuelPollAt || 0) >= 2000)) {
+                this.lastDuelPollAt = now;
+                this.fetchDuelsState();
+              }
+              return;
+            }
             const isLiveSpectating = Boolean(
               this.duelSpectatingLobbyId ||
               this.duelSoloSpectatingOpp ||
@@ -2649,7 +2822,8 @@
             const roundTagEl = document.getElementById('duel-countdown-round-tag');
             if (roundTagEl) {
               const modePrefix = lobby.isFriendly ? '🤝 FRIENDLY (0 ELO) • ' : '🏆 RANKED • ';
-              roundTagEl.textContent = `${modePrefix}ROUND ${lobby.currentRoundNumber} OF 3 — ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} MODE (${lobby.currentMultiplier}x POINTS)`;
+              const totalRnds = lobby.totalRounds || 4;
+              roundTagEl.textContent = `${modePrefix}ROUND ${lobby.currentRoundNumber} OF ${totalRnds} — ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} MODE (${lobby.currentMultiplier}x POINTS)`;
             }
             const numEl = document.getElementById('duel-countdown-number');
             if (numEl) numEl.textContent = String(sec);
@@ -2792,7 +2966,8 @@
           const r2 = (p2.rounds && p2.rounds[rKey]) || { rawScore: 0, weightedScore: 0 };
 
           const badgeEl = document.getElementById('duel-summary-round-badge');
-          if (badgeEl) badgeEl.textContent = `ROUND ${lobby.currentRoundNumber} OF 3 COMPLETE`;
+          const totalRnds = lobby.totalRounds || 4;
+          if (badgeEl) badgeEl.textContent = `ROUND ${lobby.currentRoundNumber} OF ${totalRnds} COMPLETE`;
           const titleEl = document.getElementById('duel-summary-title');
           if (titleEl) titleEl.textContent = `Round ${lobby.currentRoundNumber}: ${lobby.currentRoundLabel} (${mult}x) Results`;
 
@@ -2820,21 +2995,28 @@
               nextHint.textContent = '⏱️ Next up: Round 2 — Medium Mode (Counts Double: 2x Points)...';
             } else if (rKey === 'medium') {
               nextHint.textContent = '⏱️ Next up: Round 3 — Hard Mode (Counts Triple: 3x Points)...';
+            } else if (rKey === 'hard') {
+              nextHint.textContent = '⏱️ Next up: Round 4 — Extreme Mode (30-FP • Counts 10x Points!!)...';
             } else {
-              nextHint.textContent = '🏆 All 3 rounds complete! Counting all points together...';
+              nextHint.textContent = '🏆 All 4 rounds complete! Counting all points together...';
             }
           }
         }
 
         populateDuelFinalResultsModal(lobby) {
-          const p1 = (lobby.result && lobby.result.p1) || lobby.players[0] || { username: 'Player 1', oldElo: 1000, newElo: 1000, eloDelta: 0, totalPoints: 0, rounds: { easy: {}, medium: {}, hard: {} } };
-          const p2 = (lobby.result && lobby.result.p2) || lobby.players[1] || { username: 'Player 2', oldElo: 1000, newElo: 1000, eloDelta: 0, totalPoints: 0, rounds: { easy: {}, medium: {}, hard: {} } };
+          const p1 = (lobby.result && lobby.result.p1) || lobby.players[0] || { username: 'Player 1', oldElo: 1000, newElo: 1000, eloDelta: 0, totalPoints: 0, rounds: { easy: {}, medium: {}, hard: {}, extreme: {} } };
+          const p2 = (lobby.result && lobby.result.p2) || lobby.players[1] || { username: 'Player 2', oldElo: 1000, newElo: 1000, eloDelta: 0, totalPoints: 0, rounds: { easy: {}, medium: {}, hard: {}, extreme: {} } };
 
           const isFriendlyMatch = Boolean(lobby.isFriendly || (lobby.result && lobby.result.isFriendly));
 
           const winTitle = document.getElementById('duel-final-winner-title');
           if (winTitle) {
-            if (lobby.result && lobby.result.isDraw) {
+            if (lobby.result && lobby.result.forfeit && lobby.result.winnerUsername) {
+              const quitName = lobby.result.forfeitedUsername || 'Opponent';
+              winTitle.textContent = isFriendlyMatch
+                ? `🤝 ${lobby.result.winnerUsername} Wins! (${quitName} left)`
+                : `🏆 ${lobby.result.winnerUsername} Wins by Forfeit! (${quitName} closed tab / left)`;
+            } else if (lobby.result && lobby.result.isDraw) {
               winTitle.textContent = isFriendlyMatch
                 ? `🤝 Friendly Draw! (${p1.totalPoints} - ${p2.totalPoints} PTS)`
                 : `🤝 Draw Match! (${p1.totalPoints} - ${p2.totalPoints} PTS)`;
@@ -2852,8 +3034,14 @@
 
           const col1 = document.getElementById('duel-final-col-p1');
           const col2 = document.getElementById('duel-final-col-p2');
-          if (col1) col1.classList.toggle('winner-col', p1.totalPoints > p2.totalPoints);
-          if (col2) col2.classList.toggle('winner-col', p2.totalPoints > p1.totalPoints);
+          const p1WonCol = lobby.result && lobby.result.winnerSlotId
+            ? lobby.result.winnerSlotId === p1.slotId
+            : (p1.totalPoints > p2.totalPoints);
+          const p2WonCol = lobby.result && lobby.result.winnerSlotId
+            ? lobby.result.winnerSlotId === p2.slotId
+            : (p2.totalPoints > p1.totalPoints);
+          if (col1) col1.classList.toggle('winner-col', p1WonCol);
+          if (col2) col2.classList.toggle('winner-col', p2WonCol);
 
           const fillCol = (prefix, p) => {
             const nameEl = document.getElementById(`duel-final-${prefix}-name`);
@@ -2861,6 +3049,7 @@
             const easyEl = document.getElementById(`duel-final-${prefix}-easy`);
             const medEl = document.getElementById(`duel-final-${prefix}-med`);
             const hardEl = document.getElementById(`duel-final-${prefix}-hard`);
+            const extEl = document.getElementById(`duel-final-${prefix}-extreme`);
             const totEl = document.getElementById(`duel-final-${prefix}-total`);
 
             if (nameEl) nameEl.textContent = p.username;
@@ -2878,9 +3067,11 @@
             const rE = (p.rounds && p.rounds.easy) || { rawScore: 0, weightedScore: 0 };
             const rM = (p.rounds && p.rounds.medium) || { rawScore: 0, weightedScore: 0 };
             const rH = (p.rounds && p.rounds.hard) || { rawScore: 0, weightedScore: 0 };
+            const rX = (p.rounds && p.rounds.extreme) || { rawScore: 0, weightedScore: 0 };
             if (easyEl) easyEl.textContent = `${rE.rawScore || 0} = ${rE.weightedScore || 0} pts`;
             if (medEl) medEl.textContent = `${rM.rawScore || 0} × 2 = ${rM.weightedScore || 0} pts`;
             if (hardEl) hardEl.textContent = `${rH.rawScore || 0} × 3 = ${rH.weightedScore || 0} pts`;
+            if (extEl) extEl.textContent = `${rX.rawScore || 0} × 10 = ${rX.weightedScore || 0} pts`;
             if (totEl) totEl.textContent = `${p.totalPoints || 0} PTS`;
             const coinsRowEl = document.getElementById(`duel-final-${prefix}-coins`);
             if (coinsRowEl) {
@@ -2946,18 +3137,21 @@
           this.activeRunId = null;
           this.activeSeed = (typeof roundSeed === 'number' && roundSeed > 0) ? roundSeed : ((Math.floor(Math.random() * 0x7fffffff)) | 1);
           this.prng = createSeededPRNG(this.activeSeed);
+          this.extremeSolver = (roundDiff === 'extreme' && typeof createExtremePipeSolver === 'function')
+            ? createExtremePipeSolver(this.activeSeed, CONFIG)
+            : null;
+          this.lastExtremeFrameTime = 0;
           this.currentTick = 0;
           this.flapTicks = [];
           this.pendingFlap = false;
           this.queuedFlaps = 0;
           this.flapBufferTicks = 0;
-          this.lastFlapTick = 0;
+          this.lastFlapTick = -2;
           this.lastQueueFlapTime = -1000;
           this.lastKbdQueueTime = -1000;
           this.lastPtrQueueTime = -1000;
           this.lastQueueSource = '';
           this.physicsAccumulator = 0;
-          this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
           if (this.particlePool) {
             for (let i = 0; i < this.particlePool.length; i++) {
@@ -2976,9 +3170,18 @@
           this.updateHUD();
 
           this.clearPipes();
-          this.spawnPipePair(CONFIG.pipeSpawnX - CONFIG.baseSpawnDistance * 2);
-          this.spawnPipePair(CONFIG.pipeSpawnX - CONFIG.baseSpawnDistance);
-          this.spawnPipePair(CONFIG.pipeSpawnX);
+          if (roundDiff === 'extreme') {
+            const extCfg = CONFIG.difficulties.extreme;
+            const firstX = CONFIG.birdX + extCfg.firstPipeDist;
+            for (let pIdx = 0; pIdx < 4; pIdx++) {
+              this.spawnPipePair(firstX + pIdx * extCfg.spawnDistance);
+            }
+          } else {
+            const firstNormalX = CONFIG.birdX + CONFIG.baseSpawnDistance;
+            this.spawnPipePair(firstNormalX);
+            this.spawnPipePair(firstNormalX + CONFIG.baseSpawnDistance);
+            this.spawnPipePair(firstNormalX + CONFIG.baseSpawnDistance * 2);
+          }
 
           this.simBirdY = CONFIG.birdStartY;
           this.prevBirdY = CONFIG.birdStartY;
@@ -2986,8 +3189,10 @@
           this.birdGroup.rotation.set(0, 0, 0);
           this.birdMeshGroup.rotation.set(0, 0, 0);
 
-          this.birdVelocityY = CONFIG.flapImpulse;
+          this.birdVelocityY = this.getDifficultyParams().flapImpulse;
           this.wingFlapBoost = 1.0;
+          this.physicsAccumulator = 0;
+          this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
           this.sound.playFlap();
         }
 
@@ -3132,16 +3337,21 @@
           const mult = lobby.currentMultiplier || 1;
           const rKey = lobby.currentRound || 'easy';
 
+          const totalRnds = lobby.totalRounds || 4;
           const badgeEl = document.getElementById('duel-hud-round-badge');
           if (badgeEl) {
             const modeTag = lobby.isFriendly ? '🤝 FRIENDLY • ' : '🏆 RANKED • ';
-            badgeEl.textContent = `${modeTag}ROUND ${lobby.currentRoundNumber}/3 • ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} (${mult}x)`;
+            badgeEl.textContent = `${modeTag}ROUND ${lobby.currentRoundNumber}/${totalRnds} • ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} (${mult}x)`;
           }
 
           const myRaw = this.state === GAME_STATE.PLAYING ? this.score : (me && me.rounds && me.rounds[rKey] ? me.rounds[rKey].rawScore : 0);
           const myPts = myRaw * mult;
           const prevRoundsPts = me && me.rounds
-            ? ((rKey !== 'easy' ? (me.rounds.easy.weightedScore || 0) : 0) + (rKey === 'hard' ? (me.rounds.medium.weightedScore || 0) : 0))
+            ? (
+                (rKey !== 'easy' ? (me.rounds.easy?.weightedScore || 0) : 0) +
+                ((rKey === 'hard' || rKey === 'extreme') ? (me.rounds.medium?.weightedScore || 0) : 0) +
+                (rKey === 'extreme' ? (me.rounds.hard?.weightedScore || 0) : 0)
+              )
             : 0;
 
           const p1NameEl = document.getElementById('duel-hud-p1-name');
@@ -3526,13 +3736,14 @@
             const p2 = lobby.players && lobby.players[1] ? lobby.players[1] : null;
             const isMyWaitingLobby = isWaiting && p1 && p1.slotId === this.duelClientId;
 
+            const totalRnds = lobby.totalRounds || 4;
             let statusText = '🟢 Waiting (1/2)';
             if (lobby.status === 'countdown') {
-              statusText = `⏱️ Starting Round ${lobby.currentRoundNumber}/3 (${lobby.currentRoundLabel} ${lobby.currentMultiplier}x)`;
+              statusText = `⏱️ Starting Round ${lobby.currentRoundNumber}/${totalRnds} (${lobby.currentRoundLabel} ${lobby.currentMultiplier}x)`;
             } else if (lobby.status === 'playing') {
-              statusText = `🔥 Round ${lobby.currentRoundNumber}/3: ${lobby.currentRoundLabel} (${lobby.currentMultiplier}x)`;
+              statusText = `🔥 Round ${lobby.currentRoundNumber}/${totalRnds}: ${lobby.currentRoundLabel} (${lobby.currentMultiplier}x)`;
             } else if (lobby.status === 'round_summary') {
-              statusText = `📊 Round ${lobby.currentRoundNumber}/3 Results`;
+              statusText = `📊 Round ${lobby.currentRoundNumber}/${totalRnds} Results`;
             }
 
             const infoDiv = document.createElement('div');
@@ -3664,7 +3875,7 @@
           }
           if (subEl) {
             subEl.textContent = isPointsMode
-              ? 'Best total points in a single 3-round duel (Easy 1x + Med 2x + Hard 3x) • 1 placement per player'
+              ? 'Best total points in a single 4-round duel (Easy 1x + Med 2x + Hard 3x + Extreme 10x) • 1 placement per player'
               : '1 placement per player • Beat higher Elo opponents to gain more rating!';
           }
 
@@ -3694,7 +3905,7 @@
           if (isPointsMode) {
             const entries = Array.isArray(this.duelHighScoreLeaderboard) ? this.duelHighScoreLeaderboard : [];
             if (entries.length === 0) {
-              listEl.innerHTML = '<div class="lb-empty">No completed ranked matches recorded yet. Finish a 3-round duel to set a record!</div>';
+              listEl.innerHTML = '<div class="lb-empty">No completed ranked matches recorded yet. Finish a 4-round duel to set a record!</div>';
               return;
             }
             for (const entry of entries) {
@@ -3727,7 +3938,7 @@
               const bdSpan = document.createElement('span');
               bdSpan.className = 'duel-ranked-breakdown';
               const oppSuffix = entry.opponent ? ` vs ${entry.opponent}` : '';
-              bdSpan.textContent = `E:${entry.easyRaw || 0} • M:${entry.mediumRaw || 0} • H:${entry.hardRaw || 0}${oppSuffix}`;
+              bdSpan.textContent = `E:${entry.easyRaw || 0} • M:${entry.mediumRaw || 0} • H:${entry.hardRaw || 0} • ⚡:${entry.extremeRaw || 0}${oppSuffix}`;
 
               const ptsSpan = document.createElement('span');
               ptsSpan.className = 'duel-ranked-points-badge';
@@ -4254,7 +4465,7 @@
             } else if (lobby.status === 'finished') {
               roundPillEl.textContent = 'Match Complete';
             } else {
-              roundPillEl.textContent = `Round ${lobby.currentRoundNumber}/3: ${lobby.currentRoundLabel} (${lobby.currentMultiplier}x)`;
+              roundPillEl.textContent = `Round ${lobby.currentRoundNumber}/${lobby.totalRounds || 4}: ${lobby.currentRoundLabel} (${lobby.currentMultiplier}x)`;
             }
           }
 
@@ -4317,7 +4528,7 @@
             }
             const roundTagEl = document.getElementById('duel-countdown-round-tag');
             if (roundTagEl) {
-              roundTagEl.textContent = `ROUND ${lobby.currentRoundNumber} OF 3 — ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} (${lobby.currentMultiplier}x)`;
+              roundTagEl.textContent = `ROUND ${lobby.currentRoundNumber} OF ${lobby.totalRounds || 4} — ${(lobby.currentRoundLabel || 'EASY').toUpperCase()} (${lobby.currentMultiplier}x)`;
             }
             this.showDuelBackdropSubView('duel-view-countdown');
           } else if (lobby.status === 'round_summary') {
