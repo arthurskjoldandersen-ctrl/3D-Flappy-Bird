@@ -237,14 +237,20 @@ class FlappyBirdUIAndProgression {
 
         syncProgressionToServer() {
           if (!this.authToken || !this.currentUser) return;
+          if (this._questsSyncTimer) clearTimeout(this._questsSyncTimer);
           const expectedUser = (this.currentUser.username || '').toLowerCase();
-          this.apiRequest('/api/user/quests-sync', 'POST', this.getProgressionSyncPayload())
-            .then((res) => {
-              if (!this.currentUser || (this.currentUser.username || '').toLowerCase() !== expectedUser) return;
-              if (res && res.trollQuests) this.currentUser.trollQuests = res.trollQuests;
-              if (res && res.careerStats) this.currentUser.careerStats = res.careerStats;
-            })
-            .catch(() => {});
+          this._questsSyncTimer = setTimeout(() => {
+            this._questsSyncTimer = null;
+            if (!this.authToken || !this.currentUser) return;
+            if ((this.currentUser.username || '').toLowerCase() !== expectedUser) return;
+            this.apiRequest('/api/user/quests-sync', 'POST', this.getProgressionSyncPayload())
+              .then((res) => {
+                if (!this.currentUser || (this.currentUser.username || '').toLowerCase() !== expectedUser) return;
+                if (res && res.trollQuests) this.currentUser.trollQuests = res.trollQuests;
+                if (res && res.careerStats) this.currentUser.careerStats = res.careerStats;
+              })
+              .catch(() => {});
+          }, 350);
         }
 
         reconcileTrollQuests() {
@@ -271,7 +277,11 @@ class FlappyBirdUIAndProgression {
           let bgChanged = false;
 
           const birdObj = BIRD_SKINS.find(s => s.id === this.selectedSkinId);
+          let lostAllTimeSkinName = '';
           if (!birdObj || !this.isCosmeticUnlocked(birdObj)) {
+            if (birdObj && birdObj.reqMode === 'leaderboard' && birdObj.lbTimeframe === 'all') {
+              lostAllTimeSkinName = birdObj.name || '';
+            }
             this.selectedSkinId = 'classic';
             skinChanged = true;
             try { localStorage.setItem('flappy3d_skin', 'classic'); } catch (_) {}
@@ -296,6 +306,9 @@ class FlappyBirdUIAndProgression {
 
           if (skinChanged) {
             this.applySkin('classic', Boolean(this.authToken && this.currentUser));
+            if (lostAllTimeSkinName && typeof this.showLockerToast === 'function') {
+              this.showLockerToast(`📉 Lost All-Time Leaderboard spot for "${lostAllTimeSkinName}" — equipped Sunny Canary.`, false);
+            }
           }
           if (pipeChanged) {
             this.applyPipeSkin('classic_pipe', Boolean(this.authToken && this.currentUser));
@@ -616,7 +629,20 @@ class FlappyBirdUIAndProgression {
             }
             return false;
           }
-          // Priority 2.5: Skin equipped by database/admin is unlocked immediately
+          // Leaderboard Champion Skins (All-Time: live placement, lost if overtaken; Daily/Weekly: permanently earned on finished day/week)
+          if (item.reqMode === 'leaderboard') {
+            if (!this.currentUser) return false;
+            if (item.lbTimeframe === 'all') {
+              if (Array.isArray(this.currentUser.activeAllTimeLbSkins)) {
+                return this.currentUser.activeAllTimeLbSkins.includes(item.id);
+              }
+              const liveRank = this.getCurrentPlayerUniqueLeaderboardRank(item.lbMode, 'all');
+              if (liveRank <= 0 || liveRank > 3) return false;
+              return liveRank === 1 || liveRank === item.lbRank;
+            }
+            return Array.isArray(this.currentUser.unlockedLeaderboardSkins) && this.currentUser.unlockedLeaderboardSkins.includes(item.id);
+          }
+          // Priority 2.5: Skin equipped by database/admin is unlocked immediately (except live All-Time Leaderboard skins)
           if (this.currentUser && (this.currentUser.selectedSkin === item.id || this.currentUser.selectedPipeSkin === item.id)) {
             return true;
           }
@@ -646,6 +672,52 @@ class FlappyBirdUIAndProgression {
         getUnlockedBackgroundSkinCount() {
           if (typeof BACKGROUND_SKINS === 'undefined' || !Array.isArray(BACKGROUND_SKINS)) return 1;
           return BACKGROUND_SKINS.filter(b => this.isCosmeticUnlocked(b)).length;
+        }
+
+        getCosmeticCollectionCounts() {
+          const birds = (typeof BIRD_SKINS !== 'undefined' && Array.isArray(BIRD_SKINS)) ? BIRD_SKINS.length : 0;
+          const pipes = (typeof PIPE_SKINS !== 'undefined' && Array.isArray(PIPE_SKINS)) ? PIPE_SKINS.length : 0;
+          const bgs = (typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS)) ? BACKGROUND_SKINS.length : 0;
+          const unlockedBirds = this.getUnlockedBirdSkinCount();
+          const unlockedPipes = this.getUnlockedPipeSkinCount();
+          const unlockedBgs = bgs > 0 ? this.getUnlockedBackgroundSkinCount() : 0;
+          const totalUnlocked = unlockedBirds + unlockedPipes + unlockedBgs;
+          const totalCosmetics = birds + pipes + bgs;
+          const totalPct = totalCosmetics > 0 ? Math.round((totalUnlocked / totalCosmetics) * 100) : 0;
+          return {
+            birds,
+            pipes,
+            bgs,
+            unlockedBirds,
+            unlockedPipes,
+            unlockedBgs,
+            totalUnlocked,
+            totalCosmetics,
+            totalPct
+          };
+        }
+
+        getCurrentPlayerUniqueLeaderboardRank(modeKey, timeframeKey = 'all') {
+          if (!this.currentUser || !this.currentUser.username) return 0;
+          const targetName = this.currentUser.username.toLowerCase();
+          const tfData = (this.timeframeLeaderboards && this.timeframeLeaderboards[timeframeKey]) ||
+            (timeframeKey === 'all' ? this.leaderboards : null);
+          const rawList = (tfData && Array.isArray(tfData[modeKey])) ? tfData[modeKey] : [];
+          if (rawList.length === 0) return 0;
+
+          const maxByPlayer = new Map();
+          for (let i = 0; i < rawList.length; i++) {
+            const entry = rawList[i];
+            if (!entry || !entry.username || typeof entry.score !== 'number') continue;
+            const uKey = String(entry.username).toLowerCase();
+            const prev = maxByPlayer.get(uKey);
+            if (!prev || entry.score > prev.score || (entry.score === prev.score && (entry.updatedAt || 0) < prev.updatedAt)) {
+              maxByPlayer.set(uKey, { uKey, score: entry.score, updatedAt: entry.updatedAt || 0 });
+            }
+          }
+          const ranked = Array.from(maxByPlayer.values()).sort((a, b) => (b.score - a.score) || (a.updatedAt - b.updatedAt));
+          const idx = ranked.findIndex(r => r.uKey === targetName);
+          return idx !== -1 ? (idx + 1) : 0;
         }
 
         getClientBanToken() {
@@ -1005,10 +1077,10 @@ class FlappyBirdUIAndProgression {
               }
 
               const status = res.status;
-              // Handle server wake-up/proxy delays (502 Bad Gateway, 503 Unavailable, 504 Gateway Timeout)
-              if ((status === 502 || status === 503 || status === 504) && attempt < maxRetries) {
+              // Handle server wake-up, transient load, or rate limit delays smoothly
+              if ((status === 429 || status === 500 || status === 502 || status === 503 || status === 504) && attempt < maxRetries) {
                 attempt++;
-                await new Promise(r => setTimeout(r, attempt * 800));
+                await new Promise(r => setTimeout(r, Math.min(2400, attempt * 550)));
                 continue;
               }
 
@@ -1191,6 +1263,26 @@ class FlappyBirdUIAndProgression {
           };
         }
 
+        scheduleSaveCachedLeaderboards() {
+          const now = Date.now();
+          if (this._lastLbStorageWriteAt && (now - this._lastLbStorageWriteAt < 25000)) {
+            return;
+          }
+          if (this._lbStorageWriteTimer) clearTimeout(this._lbStorageWriteTimer);
+          this._lbStorageWriteTimer = setTimeout(() => {
+            this._lbStorageWriteTimer = null;
+            this._lastLbStorageWriteAt = Date.now();
+            try {
+              if (this.timeframeLeaderboards) {
+                localStorage.setItem('flappy3d_cached_timeframe_lb', JSON.stringify(this.timeframeLeaderboards));
+              }
+              if (this.leaderboards) {
+                localStorage.setItem('flappy3d_cached_leaderboards', JSON.stringify(this.leaderboards));
+              }
+            } catch (_) {}
+          }, 120);
+        }
+
         async fetchLeaderboards(showAll = null) {
           if (showAll !== null) {
             this.lbShowAllPlayers = Boolean(showAll);
@@ -1198,79 +1290,80 @@ class FlappyBirdUIAndProgression {
           if (typeof this.updateLeaderboardToggleBtn === 'function') {
             this.updateLeaderboardToggleBtn();
           }
-          try {
-            const url = this.lbShowAllPlayers ? '/api/leaderboard?all=true' : '/api/leaderboard';
-            const data = await this.apiRequest(url);
-            if (data && data.leaderboards) {
-              this.leaderboards = data.leaderboards;
-              if (data.timeframeLeaderboards) {
-                this.timeframeLeaderboards = data.timeframeLeaderboards;
-                try {
-                  localStorage.setItem('flappy3d_cached_timeframe_lb', JSON.stringify(data.timeframeLeaderboards));
-                } catch (_) {}
+          if (this._fetchingLeaderboardPromise && showAll === null) {
+            return this._fetchingLeaderboardPromise;
+          }
+          const fetchWork = (async () => {
+            try {
+              const url = this.lbShowAllPlayers ? '/api/leaderboard?all=true' : '/api/leaderboard';
+              const data = await this.apiRequest(url);
+              if (data && data.leaderboards) {
+                this._lastLeaderboardFetchAt = Date.now();
+                this.leaderboards = data.leaderboards;
+                if (data.timeframeLeaderboards) {
+                  this.timeframeLeaderboards = data.timeframeLeaderboards;
+                }
+                if (data.resetBoundaries) {
+                  this.resetBoundaries = data.resetBoundaries;
+                  if (typeof data.resetBoundaries.serverTime === 'number') {
+                    this.clientServerTimeOffset = data.resetBoundaries.serverTime - Date.now();
+                  }
+                }
+                this.scheduleSaveCachedLeaderboards();
+                if (typeof this.updateResetTimerUI === 'function') {
+                  this.updateResetTimerUI();
+                }
+                this.renderLeaderboard();
+                return;
               }
-              if (data.resetBoundaries) {
-                this.resetBoundaries = data.resetBoundaries;
-                if (typeof data.resetBoundaries.serverTime === 'number') {
-                  this.clientServerTimeOffset = data.resetBoundaries.serverTime - Date.now();
+            } catch (err) {
+              // Live fetch failed, fall back to offline cache or snapshot
+            }
+
+            let cachedData = null;
+            try {
+              const raw = localStorage.getItem('flappy3d_cached_leaderboards');
+              if (raw) cachedData = JSON.parse(raw);
+              const rawTf = localStorage.getItem('flappy3d_cached_timeframe_lb');
+              if (rawTf) {
+                const parsedTf = JSON.parse(rawTf);
+                if (parsedTf && parsedTf.all && parsedTf.weekly && parsedTf.daily) {
+                  this.timeframeLeaderboards = parsedTf;
                 }
               }
-              try {
-                localStorage.setItem('flappy3d_cached_leaderboards', JSON.stringify(data.leaderboards));
-              } catch (_) {}
-              if (typeof this.updateResetTimerUI === 'function') {
-                this.updateResetTimerUI();
-              }
+            } catch (_) {}
+
+            if (!this.resetBoundaries && typeof this.computeLocalResetBoundaries === 'function') {
+              this.resetBoundaries = this.computeLocalResetBoundaries();
+            }
+            if (typeof this.updateResetTimerUI === 'function') {
+              this.updateResetTimerUI();
+            }
+
+            if (cachedData && typeof cachedData === 'object' && cachedData.easy) {
+              this.leaderboards = cachedData;
               this.renderLeaderboard();
               return;
             }
-          } catch (err) {
-            // Live fetch failed, fall back to offline cache or snapshot
-          }
 
-          let cachedData = null;
-          try {
-            const raw = localStorage.getItem('flappy3d_cached_leaderboards');
-            if (raw) cachedData = JSON.parse(raw);
-            const rawTf = localStorage.getItem('flappy3d_cached_timeframe_lb');
-            if (rawTf) this.timeframeLeaderboards = JSON.parse(rawTf);
-          } catch (_) {}
-
-          if (!this.resetBoundaries && typeof this.computeLocalResetBoundaries === 'function') {
-            this.resetBoundaries = this.computeLocalResetBoundaries();
-          }
-          if (typeof this.updateResetTimerUI === 'function') {
-            this.updateResetTimerUI();
-          }
-
-          if (cachedData && typeof cachedData === 'object' && cachedData.easy) {
-            this.leaderboards = cachedData;
-            this.renderLeaderboard();
-            const listEl = document.getElementById('lb-list');
-            if (listEl && !listEl.querySelector('.lb-offline-notice')) {
-              const notice = document.createElement('div');
-              notice.className = 'lb-offline-notice';
-              notice.innerHTML = `⚡ <span>Viewing Cached Standings</span> <small>(Run <code>node server.js</code> for live multiplayer)</small>`;
-              listEl.prepend(notice);
+            this.leaderboards = this.getDefaultLeaderboardSnapshot();
+            if (!this.timeframeLeaderboards) {
+              this.timeframeLeaderboards = {
+                all: this.leaderboards,
+                weekly: this.leaderboards,
+                daily: this.leaderboards
+              };
             }
-            return;
-          }
+            this.renderLeaderboard();
+          })();
 
-          this.leaderboards = this.getDefaultLeaderboardSnapshot();
-          if (!this.timeframeLeaderboards) {
-            this.timeframeLeaderboards = {
-              all: this.leaderboards,
-              weekly: this.leaderboards,
-              daily: this.leaderboards
-            };
-          }
-          this.renderLeaderboard();
-          const listEl = document.getElementById('lb-list');
-          if (listEl && !listEl.querySelector('.lb-offline-notice')) {
-            const notice = document.createElement('div');
-            notice.className = 'lb-offline-notice';
-            notice.innerHTML = `⚡ <span>Standings Snapshot</span> <small>(Start <code>node server.js</code> on port 3000 for live cloud sync)</small>`;
-            listEl.prepend(notice);
+          this._fetchingLeaderboardPromise = fetchWork;
+          try {
+            return await fetchWork;
+          } finally {
+            if (this._fetchingLeaderboardPromise === fetchWork) {
+              this._fetchingLeaderboardPromise = null;
+            }
           }
         }
 
@@ -1485,12 +1578,16 @@ class FlappyBirdUIAndProgression {
           this.currentUser = user;
           this.authToken = token;
           this._cosmeticsVersion = Number(user && user.cosmeticsVersion) || 0;
+          this._localRecordsVersion = Number(user && user.recordsVersion) || 0;
           this._pendingBirdSkinSave = null;
           this._pendingPipeSkinSave = null;
           this._pendingBgSkinSave = null;
           localStorage.setItem('flappy3d_token', token);
           if (user && user.username) {
             this.rememberClientAccount(user.username);
+          }
+          if (typeof this.flushPendingRunFinishes === 'function') {
+            setTimeout(() => this.flushPendingRunFinishes(), 200);
           }
 
           const authBox = document.getElementById('auth-form-box');
@@ -1596,6 +1693,9 @@ class FlappyBirdUIAndProgression {
           if (typeof this.prefetchRunSession === 'function') {
             this.prefetchRunSession(this.selectedDifficulty);
           }
+          if (this.chat && typeof this.chat.updateAdminToolsVisibility === 'function') {
+            this.chat.updateAdminToolsVisibility();
+          }
         }
 
         clearLoggedInUser(showGuestPrompt = true) {
@@ -1652,6 +1752,9 @@ class FlappyBirdUIAndProgression {
           this.renderLeaderboard();
           if (typeof this.updateDuelShopCoinsUI === 'function') {
             this.updateDuelShopCoinsUI(0);
+          }
+          if (this.chat && typeof this.chat.updateAdminToolsVisibility === 'function') {
+            this.chat.updateAdminToolsVisibility();
           }
           if (typeof this.renderDuelCasesShop === 'function') {
             this.renderDuelCasesShop();
@@ -2033,28 +2136,33 @@ class FlappyBirdUIAndProgression {
           const recAnyEl = document.getElementById('rec-any');
           if (recAnyEl) recAnyEl.textContent = String(anyBest);
 
-          const unlockedBirds = this.getUnlockedBirdSkinCount();
-          const unlockedPipes = this.getUnlockedPipeSkinCount();
-          const totalUnlocked = unlockedBirds + unlockedPipes;
-          const totalCosmetics = BIRD_SKINS.length + PIPE_SKINS.length;
-          const totalPct = Math.round((totalUnlocked / totalCosmetics) * 100);
+          const {
+            birds: birdsTotal,
+            pipes: pipesTotal,
+            bgs: bgsTotal,
+            unlockedBirds,
+            unlockedPipes,
+            unlockedBgs,
+            totalUnlocked,
+            totalCosmetics,
+            totalPct
+          } = this.getCosmeticCollectionCounts();
 
           const badgeEl = document.getElementById('unlocked-count-badge');
           if (badgeEl) badgeEl.textContent = `🎨 ${totalUnlocked}/${totalCosmetics} Owned (${totalPct}%)`;
 
-          // Dynamically update top-right profile capsule badge, nav dock badge, and locker tab counts!
+          // Dynamically update top-right profile capsule badge, nav dock badge, and locker tab counts (including Backgrounds!)
           const capsuleCountEl = document.getElementById('capsule-owned-count');
           if (capsuleCountEl) capsuleCountEl.textContent = `🎨 ${totalUnlocked}/${totalCosmetics}`;
           const dockSkinsBadgeEl = document.getElementById('dock-skins-badge');
           if (dockSkinsBadgeEl) dockSkinsBadgeEl.textContent = `${totalUnlocked}/${totalCosmetics}`;
           const tabBirdBtnEl = document.getElementById('tab-btn-bird-skins');
-          if (tabBirdBtnEl) tabBirdBtnEl.innerHTML = `<span>🐦</span> Bird Skins (${unlockedBirds}/${BIRD_SKINS.length})`;
+          if (tabBirdBtnEl) tabBirdBtnEl.innerHTML = `<span>🐦</span> Bird Skins (${unlockedBirds}/${birdsTotal})`;
           const tabPipeBtnEl = document.getElementById('tab-btn-pipe-skins');
-          if (tabPipeBtnEl) tabPipeBtnEl.innerHTML = `<span>🏗️</span> Pipe Skins (${unlockedPipes}/${PIPE_SKINS.length})`;
+          if (tabPipeBtnEl) tabPipeBtnEl.innerHTML = `<span>🏗️</span> Pipe Skins (${unlockedPipes}/${pipesTotal})`;
           const tabBgBtnEl = document.getElementById('tab-btn-bg-skins');
-          if (tabBgBtnEl && typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS)) {
-            const unlockedBgs = this.getUnlockedBackgroundSkinCount();
-            tabBgBtnEl.innerHTML = `<span>🌄</span> Backgrounds (${unlockedBgs}/${BACKGROUND_SKINS.length})`;
+          if (tabBgBtnEl && bgsTotal > 0) {
+            tabBgBtnEl.innerHTML = `<span>🌄</span> Backgrounds (${unlockedBgs}/${bgsTotal})`;
           }
           const gotoLockerBtnEl = document.getElementById('btn-account-goto-locker');
           if (gotoLockerBtnEl) gotoLockerBtnEl.textContent = `🎨 Open Skins Locker (${totalUnlocked}/${totalCosmetics})`;
@@ -2083,6 +2191,7 @@ class FlappyBirdUIAndProgression {
           const easyBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'easy').length;
           const medBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'medium').length;
           const hardBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'hard').length;
+          const lbBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'leaderboard').length;
           const pokeBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'pokemon').length;
           const memeBirdsCount = BIRD_SKINS.filter(s => s.reqMode === 'meme').length;
 
@@ -2279,6 +2388,7 @@ class FlappyBirdUIAndProgression {
           const bAll = document.getElementById('bird-filter-all');
           const bOwned = document.getElementById('bird-filter-owned');
           const bLocked = document.getElementById('bird-filter-locked');
+          const bLb = document.getElementById('bird-filter-leaderboard');
           const bPokemon = document.getElementById('bird-filter-pokemon');
           const bEasy = document.getElementById('bird-filter-easy');
           const bMed = document.getElementById('bird-filter-medium');
@@ -2287,11 +2397,19 @@ class FlappyBirdUIAndProgression {
           if (bAll) bAll.textContent = `✨ All (${BIRD_SKINS.length})`;
           if (bOwned) bOwned.textContent = `✅ Owned (${unlockedBirds})`;
           if (bLocked) bLocked.textContent = `🔒 Locked (${BIRD_SKINS.length - unlockedBirds})`;
+          if (bLb) bLb.textContent = `🏆 Leaderboard (${lbBirdsCount})`;
           if (bPokemon) bPokemon.textContent = `🔴 Pokémon (${pokeBirdsCount})`;
           if (bEasy) bEasy.textContent = `🟢 Easy (${easyBirdsCount})`;
           if (bMed) bMed.textContent = `🟡 Medium (${medBirdsCount})`;
           if (bHard) bHard.textContent = `🔴 Hard (${hardBirdsCount})`;
           if (bMeme) bMeme.textContent = `😂 Meme (${memeBirdsCount})`;
+
+          const bgAll = document.getElementById('bg-filter-all');
+          const bgOwned = document.getElementById('bg-filter-owned');
+          const bgLocked = document.getElementById('bg-filter-locked');
+          if (bgAll && bgsTotal > 0) bgAll.textContent = `✨ All (${bgsTotal})`;
+          if (bgOwned && bgsTotal > 0) bgOwned.textContent = `✅ Owned (${unlockedBgs})`;
+          if (bgLocked && bgsTotal > 0) bgLocked.textContent = `🔒 Locked (${Math.max(0, bgsTotal - unlockedBgs)})`;
 
           // Update filter button counts for Pipe Skins (Spacious 4x2 grid)
           const pAll = document.getElementById('pipe-filter-all');
@@ -2325,8 +2443,8 @@ class FlappyBirdUIAndProgression {
           }
 
           // Find closest locked Bird Skin achievable in current difficulty (or any/pokemon mode)
-          const lockedBirdsForMode = BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s) && (s.reqMode === mode || s.reqMode === 'any' || s.reqMode === 'pokemon'));
-          const fallbackLockedBirds = BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s));
+          const lockedBirdsForMode = BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s) && s.reqMode !== 'leaderboard' && (s.reqMode === mode || s.reqMode === 'any' || s.reqMode === 'pokemon'));
+          const fallbackLockedBirds = BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s) && s.reqMode !== 'leaderboard');
           const birdCandidates = lockedBirdsForMode.length > 0 ? lockedBirdsForMode : fallbackLockedBirds;
           birdCandidates.sort((a, b) => {
             const pA = this.getCosmeticProgress(a);
@@ -2378,6 +2496,29 @@ class FlappyBirdUIAndProgression {
         }
 
         getCosmeticProgress(item) {
+          if (item.reqMode === 'leaderboard') {
+            if (this.isCosmeticUnlocked(item)) {
+              return { current: 1, target: 1, percent: 100 };
+            }
+            const myRank = this.getCurrentPlayerUniqueLeaderboardRank(item.lbMode, item.lbTimeframe);
+            const qualifiesNow = myRank > 0 && (myRank === 1 || myRank === item.lbRank);
+            if (qualifiesNow && (item.lbTimeframe === 'daily' || item.lbTimeframe === 'weekly')) {
+              const resetWord = item.lbTimeframe === 'daily' ? 'Day Reset (07:00)' : 'Week Reset (Mon 07:00)';
+              return {
+                current: 1,
+                target: 1,
+                percent: 100,
+                currentRank: myRank,
+                pendingPeriodLabel: `Holding #${myRank} now — Unlocks at ${resetWord}!`
+              };
+            }
+            return {
+              current: 0,
+              target: 1,
+              percent: myRank > 0 ? (myRank <= 5 ? 60 : (myRank <= 15 ? 30 : 12)) : 0,
+              currentRank: myRank
+            };
+          }
           if (item.kind === 'bg' || item.reqMode === 'case') {
             const owned = this.isCosmeticUnlocked(item) ? 1 : 0;
             return { current: owned, target: 1, percent: owned ? 100 : 0 };
@@ -2488,29 +2629,83 @@ class FlappyBirdUIAndProgression {
           }
         }
 
+        renderLeaderboardRewardBanner() {
+          const bannerEl = document.getElementById('lb-reward-banner');
+          if (!bannerEl) return;
+          const modeKey = this.activeLbTab || 'medium';
+          const tfKey = this.activeTimeframeTab || 'all';
+          const modeLabel = (CONFIG.difficulties[modeKey] && CONFIG.difficulties[modeKey].label) || modeKey;
+          const tfLabel = tfKey === 'daily' ? 'Daily' : (tfKey === 'weekly' ? 'Weekly' : 'All-Time');
+          const tfRule = tfKey === 'all'
+            ? 'Live rank (lost if overtaken)'
+            : (tfKey === 'daily' ? 'Won when Day ends (07:00)' : 'Won when Week ends (Mon 07:00)');
+          const rewards = (typeof BIRD_SKINS !== 'undefined' && Array.isArray(BIRD_SKINS))
+            ? BIRD_SKINS.filter(s => s && s.reqMode === 'leaderboard' && s.lbMode === modeKey && s.lbTimeframe === tfKey).sort((a, b) => a.lbRank - b.lbRank)
+            : [];
+          if (rewards.length === 0) {
+            bannerEl.style.display = 'none';
+            return;
+          }
+          bannerEl.style.display = 'flex';
+          const medals = ['🥇 #1', '🥈 #2', '🥉 #3'];
+          const chipsHtml = rewards.map((sk, idx) => {
+            const owned = this.isCosmeticUnlocked(sk);
+            return `<span class="lb-reward-chip ${owned ? 'owned' : ''}">${medals[idx] || '#' + sk.lbRank}: ${sk.emoji} ${sk.name}${owned ? ' ✓' : ''}</span>`;
+          }).join('');
+          bannerEl.innerHTML = `
+            <span>🏆 <strong>${tfLabel} ${modeLabel} Skin Rewards</strong> · ${tfRule} · <em>1st gets all 3!</em></span>
+            <div class="lb-reward-chips">${chipsHtml}</div>
+          `;
+          if (!bannerEl._boundClick) {
+            bannerEl._boundClick = true;
+            bannerEl.addEventListener('click', () => {
+              this.switchView('skins');
+              if (typeof this.openLockerWithFilter === 'function') {
+                this.openLockerWithFilter('birds', 'leaderboard');
+              }
+            });
+          }
+        }
+
         renderLeaderboard(highlightEntryId = null) {
           if (typeof this.updateLeaderboardUniqueToggleUI === 'function') {
             this.updateLeaderboardUniqueToggleUI();
           }
-          this.renderLeaderboardInto(
-            document.getElementById('lb-list'),
-            this.activeLbTab,
-            highlightEntryId
-          );
+          this.renderLeaderboardRewardBanner();
+          const goEl = document.getElementById('gameover-screen');
+          const goVisible = this.state === GAME_STATE.GAMEOVER ||
+            this.state === GAME_STATE.CRASHING ||
+            Boolean(goEl && goEl.classList.contains('active'));
+          const lbViewVisible = !goVisible && this.currentAppView === 'leaderboard';
 
-          const tfKey = this.activeTimeframeTab || 'all';
-          const tfLabel = tfKey === 'daily' ? 'Daily' : (tfKey === 'weekly' ? 'Weekly' : 'All-Time');
-
-          const goTitle = document.getElementById('gameover-lb-title');
-          if (goTitle) {
-            const label = CONFIG.difficulties[this.selectedDifficulty].label;
-            goTitle.textContent = `🏆 Live Leaderboard (${tfLabel} · ${label})`;
+          if (lbViewVisible) {
+            this.renderLeaderboardInto(
+              document.getElementById('lb-list'),
+              this.activeLbTab,
+              highlightEntryId
+            );
+            this._dirtyLobbyLb = false;
+          } else {
+            this._dirtyLobbyLb = true;
           }
-          this.renderLeaderboardInto(
-            document.getElementById('gameover-lb-list'),
-            this.selectedDifficulty,
-            highlightEntryId
-          );
+
+          if (goVisible) {
+            const tfKey = this.activeTimeframeTab || 'all';
+            const tfLabel = tfKey === 'daily' ? 'Daily' : (tfKey === 'weekly' ? 'Weekly' : 'All-Time');
+            const goTitle = document.getElementById('gameover-lb-title');
+            if (goTitle) {
+              const label = CONFIG.difficulties[this.selectedDifficulty].label;
+              goTitle.textContent = `🏆 Live Leaderboard (${tfLabel} · ${label})`;
+            }
+            this.renderLeaderboardInto(
+              document.getElementById('gameover-lb-list'),
+              this.selectedDifficulty,
+              highlightEntryId
+            );
+            this._dirtyGameOverLb = false;
+          } else {
+            this._dirtyGameOverLb = true;
+          }
         }
 
         renderLeaderboardInto(listEl, diffKey, highlightEntryId = null) {
@@ -2646,14 +2841,19 @@ class FlappyBirdUIAndProgression {
 
           let meRowElement = null;
           let matchedCount = 0;
+          const isGameOverList = listEl.id === 'gameover-lb-list';
+          const renderLimit = isGameOverList ? 50 : entries.length;
+          const frag = document.createDocumentFragment();
 
-          entries.forEach((item, idx) => {
+          for (let idx = 0; idx < entries.length; idx++) {
+            if (matchedCount >= renderLimit && !rawQuery) break;
+            const item = entries[idx];
             const rankStr = `#${idx + 1}`;
             if (rawQuery) {
               const uname = (item.username || '').toLowerCase();
               const scoreStr = String(item.score);
               if (!uname.includes(rawQuery) && !rankStr.includes(rawQuery) && !scoreStr.includes(rawQuery)) {
-                return;
+                continue;
               }
             }
             matchedCount++;
@@ -2703,19 +2903,21 @@ class FlappyBirdUIAndProgression {
             }
 
             row.append(rankEl, nameEl, scoreEl);
-            listEl.appendChild(row);
+            frag.appendChild(row);
 
             if (isMe && !meRowElement) {
               meRowElement = row;
             }
-          });
+          }
 
           if (matchedCount === 0 && rawQuery) {
             const emptySearchEl = document.createElement('div');
             emptySearchEl.className = 'lb-empty';
             emptySearchEl.innerHTML = `🔍 No leaderboard players or scores match "<strong>${rawQuery}</strong>" on ${label}.`;
-            listEl.appendChild(emptySearchEl);
+            frag.appendChild(emptySearchEl);
           }
+
+          listEl.appendChild(frag);
 
           // Restore previous scroll position so scrolling down never jumps back to top after ~2s
           if (!highlightEntryId && prevScrollTop > 0) {
@@ -2756,11 +2958,17 @@ class FlappyBirdUIAndProgression {
           const extremeBest = this.getBestForDifficulty('extreme');
           const anyBest = this.getHighestScoreAnyMode();
 
-          const unlockedBirds = this.getUnlockedBirdSkinCount();
-          const unlockedPipes = this.getUnlockedPipeSkinCount();
-          const totalUnlocked = unlockedBirds + unlockedPipes;
-          const totalCosmetics = BIRD_SKINS.length + PIPE_SKINS.length;
-          const totalPct = Math.round((totalUnlocked / totalCosmetics) * 100);
+          const {
+            birds: birdsTotal,
+            pipes: pipesTotal,
+            bgs: bgsTotal,
+            unlockedBirds,
+            unlockedPipes,
+            unlockedBgs,
+            totalUnlocked,
+            totalCosmetics,
+            totalPct
+          } = this.getCosmeticCollectionCounts();
 
           const mStats = (this.careerStats && this.careerStats.modes) || {};
           const getModeStat = (k) => mStats[k] || { runs: 0, totalScore: 0, totalFlaps: 0, lastScore: 0 };
@@ -2822,7 +3030,7 @@ class FlappyBirdUIAndProgression {
             </div>
             <div class="stats-master-bar-wrap">
               <div class="stats-master-bar-labels">
-                <span>🎨 Total 3D Cosmetic Mastery (${BIRD_SKINS.length} Birds + ${PIPE_SKINS.length} Pipes)</span>
+                <span>🎨 Total 3D Cosmetic Mastery (${birdsTotal} Birds + ${pipesTotal} Pipes + ${bgsTotal} Backgrounds)</span>
                 <span class="stats-header-link">${totalUnlocked} / ${totalCosmetics} Unlocked (${totalPct}%)</span>
               </div>
               <div class="stats-master-bar-track">
@@ -2852,7 +3060,11 @@ class FlappyBirdUIAndProgression {
               </div>
               <div class="stats-hero-kpi">
                 <small>🏗️ Pipes Owned</small>
-                <strong>${unlockedPipes} / ${PIPE_SKINS.length}</strong>
+                <strong>${unlockedPipes} / ${pipesTotal}</strong>
+              </div>
+              <div class="stats-hero-kpi">
+                <small>🌄 Backgrounds</small>
+                <strong>${unlockedBgs} / ${bgsTotal}</strong>
               </div>
             </div>
           `;
@@ -3032,9 +3244,13 @@ class FlappyBirdUIAndProgression {
               return { owned, total: filtered.length, pct: filtered.length ? Math.round((owned / filtered.length) * 100) : 100 };
             };
 
-            const totalStat = countHelper(allItems, () => true);
+            const bgList = (typeof BACKGROUND_SKINS !== 'undefined' && Array.isArray(BACKGROUND_SKINS)) ? BACKGROUND_SKINS : [];
+            const fullAllItems = [...allItems, ...bgList];
+            const totalStat = countHelper(fullAllItems, () => true);
             const birdStat = countHelper(BIRD_SKINS, () => true);
             const pipeStat = countHelper(PIPE_SKINS, () => true);
+            const bgStat = countHelper(bgList, () => true);
+            const lbStat = countHelper(BIRD_SKINS, i => i.reqMode === 'leaderboard');
             const pokeStat = countHelper(allItems, i => i.reqMode === 'pokemon');
             const memeStat = countHelper(allItems, i => i.reqMode === 'meme');
             const easyStat = countHelper(allItems, i => i.reqMode === 'easy');
@@ -3042,9 +3258,11 @@ class FlappyBirdUIAndProgression {
             const hardStat = countHelper(allItems, i => i.reqMode === 'hard');
 
             const categories = [
-              { title: '✨ All 3D Cosmetics', stat: totalStat, sub: 'Complete Collection', action: () => this.openLockerWithFilter('birds', 'all') },
+              { title: '✨ All 3D Cosmetics', stat: totalStat, sub: 'Birds + Pipes + BGs', action: () => this.openLockerWithFilter('birds', 'all') },
               { title: '🐦 3D Bird Skins', stat: birdStat, sub: '0.60m Uniform Hitbox', action: () => this.openLockerWithFilter('birds', 'all') },
               { title: '🏗️ 3D Pipe Skins', stat: pipeStat, sub: '1.05m Uniform Shaft', action: () => this.openLockerWithFilter('pipes', 'all') },
+              { title: '🌄 Backgrounds', stat: bgStat, sub: 'Case Drops & Custom', action: () => this.openLockerWithFilter('bg', 'all') },
+              { title: '🏆 Leaderboard Skins', stat: lbStat, sub: 'Top 3 Rewards (36)', action: () => this.openLockerWithFilter('birds', 'leaderboard') },
               { title: '🔴 Pokémon Quests', stat: pokeStat, sub: '17 Birds + 8 Pipes', action: () => this.openLockerWithFilter('birds', 'pokemon') },
               { title: '😂 Meme Quests', stat: memeStat, sub: '16 Viral Challenges', action: () => this.openLockerWithFilter('birds', 'meme') },
               { title: '🟢 Easy Exclusives', stat: easyStat, sub: 'Score Milestones', action: () => this.openLockerWithFilter('birds', 'easy') },
@@ -3085,7 +3303,7 @@ class FlappyBirdUIAndProgression {
             container.appendChild(roadHeader);
 
             const lockedAll = [
-              ...BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s) && (!isModeFilter || s.reqMode === sfilter || s.reqMode === 'any' || s.reqMode === 'pokemon')).map(s => ({ item: s, isPipe: false })),
+              ...BIRD_SKINS.filter(s => !this.isCosmeticUnlocked(s) && (!isModeFilter || s.reqMode === sfilter || (s.reqMode === 'leaderboard' && s.lbMode === sfilter) || s.reqMode === 'any' || s.reqMode === 'pokemon')).map(s => ({ item: s, isPipe: false })),
               ...PIPE_SKINS.filter(p => !this.isCosmeticUnlocked(p) && (!isModeFilter || p.reqMode === sfilter || p.reqMode === 'any' || p.reqMode === 'pokemon')).map(p => ({ item: p, isPipe: true }))
             ];
 
@@ -3105,6 +3323,10 @@ class FlappyBirdUIAndProgression {
                 const prog = this.getCosmeticProgress(item);
                 const ptsLeft = Math.max(1, prog.target - prog.current);
                 const isQuest = item.reqMode === 'meme' || item.reqMode === 'pokemon';
+                const isLb = item.reqMode === 'leaderboard';
+                const reqLabelText = isLb
+                  ? (prog.pendingPeriodLabel || `${item.reqText}${prog.currentRank ? ` • Current Rank: #${prog.currentRank}` : ''}`)
+                  : `${item.reqText} • ${isQuest ? `Progress: ${prog.current}/${prog.target} (${prog.percent}%)` : `Need ${ptsLeft} more pts (${prog.current}/${prog.target})`}`;
                 const row = document.createElement('div');
                 row.className = 'roadmap-row';
                 row.innerHTML = `
@@ -3121,7 +3343,7 @@ class FlappyBirdUIAndProgression {
                       <div class="skin-progress-track">
                         <div class="skin-progress-fill" style="width:${prog.percent}%;"></div>
                       </div>
-                      <span class="skin-req">${item.reqText} • ${isQuest ? `Progress: ${prog.current}/${prog.target} (${prog.percent}%)` : `Need ${ptsLeft} more pts (${prog.current}/${prog.target})`}</span>
+                      <span class="skin-req">${reqLabelText}</span>
                     </div>
                   </div>
                   <button type="button" class="skin-cta-btn preview-btn">👁️ 3D View</button>
@@ -3153,6 +3375,12 @@ class FlappyBirdUIAndProgression {
               b.classList.toggle('active', b.getAttribute('data-filter') === filterKey);
             });
             if (this.switchRightPanelFn) this.switchRightPanelFn('birds');
+          } else if (panelMode === 'bg') {
+            this.bgLockerFilter = filterKey;
+            document.querySelectorAll('#bg-filter-bar .locker-filter-btn').forEach(b => {
+              b.classList.toggle('active', b.getAttribute('data-filter') === filterKey);
+            });
+            if (this.switchRightPanelFn) this.switchRightPanelFn('bg');
           } else {
             this.pipeLockerFilter = filterKey;
             document.querySelectorAll('#pipe-filter-bar .locker-filter-btn').forEach(b => {
@@ -3209,13 +3437,17 @@ class FlappyBirdUIAndProgression {
                   ? `<span class="mode-tag mode-pokemon">🔴 POKÉMON QUEST</span>`
                   : (item.reqMode === 'meme'
                     ? `<span class="mode-tag mode-meme">😂 MEME QUEST</span>`
-                    : (item.reqMode === 'case'
-                      ? `<span class="mode-tag mode-pokemon">${item.dropPct <= 0.1 ? '🎬 0.1% JACKPOT' : (item.dropPct <= 1 ? '🖼️ 1% RARE DROP' : '📦 CASE DROP')}</span>`
-                      : '')))));
+                    : (item.reqMode === 'leaderboard'
+                      ? `<span class="mode-tag mode-leaderboard">🏆 ${String(item.lbTimeframe || 'ALL').toUpperCase()} #${item.lbRank || 1}</span>`
+                      : (item.reqMode === 'case'
+                        ? `<span class="mode-tag mode-pokemon">${item.dropPct <= 0.1 ? '🎬 0.1% JACKPOT' : (item.dropPct <= 0.5 ? '🖼️ 0.4% ULTRA-RARE' : (item.dropPct <= 1 ? '🎨 1% RARE DROP' : '📦 CASE DROP'))}</span>`
+                        : ''))))));
 
           const unitLabel = item.reqMode === 'case'
             ? 'UNLOCKED'
-            : ((item.reqMode === 'meme' || item.reqMode === 'pokemon') ? 'PROGRESS' : 'PTS');
+            : (item.reqMode === 'leaderboard'
+              ? 'RANKED'
+              : ((item.reqMode === 'meme' || item.reqMode === 'pokemon') ? 'PROGRESS' : 'PTS'));
           const statusHtml = equipped
             ? `<span class="ownership-pill equipped">⚡ EQUIPPED & OWNED</span>`
             : (unlocked
@@ -3235,7 +3467,34 @@ class FlappyBirdUIAndProgression {
             : '';
 
           let customMediaHtml = '';
-          if (isBg && (item.id === 'bg_custom_image' || item.id === 'bg_custom_video')) {
+          if (isBg && item.id === 'bg_custom_draw') {
+            if (unlocked && this.authToken && this.currentUser) {
+              const hasDraw = Boolean(this.currentUser.customBackgroundDrawing || this._localCustomDrawingDataUrl);
+              const drawSrc = this.currentUser.customBackgroundDrawing || this._localCustomDrawingDataUrl || '';
+              const thumbHtml = hasDraw
+                ? `<img class="bg-frame-thumb" style="width:58px;height:34px;object-fit:cover;" src="${drawSrc}" alt="Custom Drawing" />`
+                : '';
+              customMediaHtml = `
+                <div class="bg-upload-panel">
+                  <div>
+                    <button type="button" class="bg-upload-btn" id="btn-bg-draw-studio-open">
+                      🎨 ${hasDraw ? 'Edit Your Drawn Background' : 'Open Drawing Studio'}
+                    </button>
+                  </div>
+                  <span class="bg-upload-status" id="bg-draw-status-text">
+                    ${hasDraw ? '✅ Custom Drawing Saved & Ready' : 'Paint with Brush, Neon Glow, Spray, Fill, Shapes & Symmetry!'}
+                  </span>
+                  ${thumbHtml}
+                </div>
+              `;
+            } else {
+              customMediaHtml = `
+                <div class="bg-upload-panel">
+                  <span class="bg-upload-status">🔒 ${unlocked ? 'Log in to paint and save your custom 3D background.' : 'Unlock in the 250 🪙 Case (1.0%) or 500 🪙 Case (2.5%) in Duel Coins Shop!'}</span>
+                </div>
+              `;
+            }
+          } else if (isBg && (item.id === 'bg_custom_image' || item.id === 'bg_custom_video')) {
             const isVideo = item.id === 'bg_custom_video';
             if (unlocked && this.authToken && this.currentUser) {
               const hasImg = Boolean(this.currentUser.customBackgroundImage);
@@ -3248,13 +3507,13 @@ class FlappyBirdUIAndProgression {
                 <div class="bg-upload-panel">
                   <div>
                     <button type="button" class="bg-upload-btn" id="btn-bg-upload-trigger">
-                      ${isVideo ? '🎬 Upload Video (Auto-Cut to 15 Frames)' : '🖼️ Upload Custom Picture'}
+                      ${isVideo ? '🎬 Upload Video (30 FPS Smooth Loop)' : '🖼️ Upload Custom Picture'}
                     </button>
                     <input type="file" id="input-bg-upload-file" accept="${isVideo ? 'video/*' : 'image/*'}" style="display:none;" />
                   </div>
                   <span class="bg-upload-status" id="bg-upload-status-text">
                     ${isVideo
-                      ? (frames.length > 0 ? `✅ ${frames.length}-Frame Loop Ready` : 'Pick MP4/WebM — auto-sampled to 15 lag-free frames')
+                      ? (frames.length > 0 ? `✅ ${frames.length}-Frame 30 FPS Loop Ready` : 'Pick MP4/WebM — sampled at smooth 30 FPS (up to 60 frames)')
                       : (hasImg ? '✅ Custom Picture Uploaded' : 'Pick PNG/JPG/WebP from your device')}
                   </span>
                   ${thumbsHtml}
@@ -3263,7 +3522,7 @@ class FlappyBirdUIAndProgression {
             } else {
               customMediaHtml = `
                 <div class="bg-upload-panel">
-                  <span class="bg-upload-status">🔒 ${unlocked ? 'Log in to upload your custom background media.' : `Unlock via the 1000 🪙 Case (${isVideo ? '0.1%' : '1.0%'}) in Duel Coins Shop to upload!`}</span>
+                  <span class="bg-upload-status">🔒 ${unlocked ? 'Log in to upload your custom background media.' : `Unlock via the 1000 🪙 Case (${isVideo ? '0.1%' : '0.4%'}) in Duel Coins Shop to upload!`}</span>
                 </div>
               `;
             }
@@ -3301,6 +3560,15 @@ class FlappyBirdUIAndProgression {
             }
           }
           if (isBg) {
+            const drawOpenBtn = spotEl.querySelector('#btn-bg-draw-studio-open');
+            if (drawOpenBtn) {
+              drawOpenBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof this.openBackgroundDrawStudio === 'function') {
+                  this.openBackgroundDrawStudio();
+                }
+              });
+            }
             const upBtn = spotEl.querySelector('#btn-bg-upload-trigger');
             const upInput = spotEl.querySelector('#input-bg-upload-file');
             if (upBtn && upInput) {
@@ -3430,12 +3698,23 @@ class FlappyBirdUIAndProgression {
           if (item.reqMode === 'case') {
             const caseTag = document.createElement('span');
             caseTag.className = `mode-tag ${item.dropPct <= 1 ? 'mode-meme' : 'mode-pokemon'}`;
-            caseTag.textContent = item.dropPct <= 0.1
-              ? '🎬 0.1% JACKPOT'
-              : (item.dropPct <= 1
-                ? '🖼️ 1% RARE'
-                : (item.caseId === 'case_basic' ? '🎨 250 CASE' : (item.caseId === 'case_pattern' ? '🧩 500 CASE' : '🌌 1000 CASE')));
+            caseTag.textContent = item.id === 'bg_custom_draw'
+              ? '🎨 1%/2.5% DRAW'
+              : (item.dropPct <= 0.1
+                ? '🎬 0.1% JACKPOT'
+                : (item.dropPct <= 0.5
+                  ? '🖼️ 0.4% RARE'
+                  : (item.dropPct <= 1
+                    ? '🖼️ 1% RARE'
+                    : (item.caseId === 'case_basic' ? '🎨 250 CASE' : (item.caseId === 'case_pattern' ? '🧩 500 CASE' : '🌌 1000 CASE')))));
             metaRow.appendChild(caseTag);
+          } else if (item.reqMode === 'leaderboard') {
+            const lbTag = document.createElement('span');
+            lbTag.className = 'mode-tag mode-leaderboard';
+            const tfShort = item.lbTimeframe === 'daily' ? 'DAILY' : (item.lbTimeframe === 'weekly' ? 'WEEKLY' : 'ALL-TIME');
+            const mShort = String(item.lbMode || 'MED').toUpperCase();
+            lbTag.textContent = `🏆 ${tfShort} ${mShort} #${item.lbRank || 1}`;
+            metaRow.appendChild(lbTag);
           } else if (item.reqMode === 'easy' || item.reqMode === 'medium' || item.reqMode === 'hard' || item.reqMode === 'pokemon' || item.reqMode === 'meme') {
             const modeTag = document.createElement('span');
             modeTag.className = `mode-tag mode-${item.reqMode}`;
@@ -3475,7 +3754,11 @@ class FlappyBirdUIAndProgression {
               ? '🔒 Locked by Admin MeDonut (Stays locked)'
               : (item.reqMode === 'case'
                 ? `Unlock via ${item.reqText}`
-                : `${item.reqText} • ${prog.current}/${prog.target} (${prog.percent}%)`);
+                : (item.reqMode === 'leaderboard'
+                  ? (prog.pendingPeriodLabel
+                    ? `⏳ ${prog.pendingPeriodLabel}`
+                    : `${item.reqText}${prog.currentRank ? ` • Current Rank: #${prog.currentRank}` : ''}`)
+                  : `${item.reqText} • ${prog.current}/${prog.target} (${prog.percent}%)`));
             reqEl.title = reqEl.textContent;
 
             progRow.append(track, reqEl);
@@ -3628,6 +3911,8 @@ class FlappyBirdUIAndProgression {
             filteredSkins = filteredSkins.filter(s => this.isCosmeticUnlocked(s));
           } else if (filter === 'locked') {
             filteredSkins = filteredSkins.filter(s => !this.isCosmeticUnlocked(s));
+          } else if (filter === 'leaderboard') {
+            filteredSkins = filteredSkins.filter(s => s.reqMode === 'leaderboard');
           } else if (filter === 'pokemon') {
             filteredSkins = filteredSkins.filter(s => s.reqMode === 'pokemon' || s.rarity === 'POKEMON');
           } else if (filter === 'meme') {
@@ -3689,10 +3974,12 @@ class FlappyBirdUIAndProgression {
           }
 
           // Category-specific divider when viewing specific mode/theme
-          if (filter === 'easy' || filter === 'medium' || filter === 'hard' || filter === 'pokemon' || filter === 'meme') {
+          if (filter === 'easy' || filter === 'medium' || filter === 'hard' || filter === 'pokemon' || filter === 'meme' || filter === 'leaderboard') {
             const divMode = document.createElement('div');
-            divMode.className = 'skins-section-divider ' + (filter === 'pokemon' ? 'pokemon-header' : (filter === 'meme' ? 'meme-header' : (filter === 'easy' ? 'owned-header' : 'locked-header')));
-            divMode.innerHTML = filter === 'easy'
+            divMode.className = 'skins-section-divider ' + (filter === 'leaderboard' ? 'leaderboard-header' : (filter === 'pokemon' ? 'pokemon-header' : (filter === 'meme' ? 'meme-header' : (filter === 'easy' ? 'owned-header' : 'locked-header'))));
+            divMode.innerHTML = filter === 'leaderboard'
+              ? `<span>🏆 LEADERBOARD CHAMPION BIRD SKINS (${sortedSkins.length} • TOP 3 PER MODE & TIMEFRAME)</span><span>1st gets all 3! Daily/Weekly save on reset • All-Time is live</span>`
+              : (filter === 'easy'
               ? `<span>🟢 EASY MODE EXCLUSIVE BIRD SKINS (${sortedSkins.length} • UP TO SCORE 150)</span><span>Easy Mode Only</span>`
               : (filter === 'medium'
                 ? `<span>🟡 MEDIUM MODE EXCLUSIVE BIRD SKINS (${sortedSkins.length})</span><span>Medium Mode Only</span>`
@@ -3700,7 +3987,7 @@ class FlappyBirdUIAndProgression {
                   ? `<span>🔴 HARD MODE EXCLUSIVE BIRD SKINS (${sortedSkins.length})</span><span>Hard Mode Only</span>`
                   : (filter === 'pokemon'
                     ? `<span>🔴 POKÉMON BASE-FORM BIRD SKINS (${sortedSkins.length})</span><span>Complete Pokémon Quests!</span>`
-                    : `<span>😂 MEME QUEST BIRD SKINS (${sortedSkins.length})</span><span>Complete Meme Quests!</span>`)));
+                    : `<span>😂 MEME QUEST BIRD SKINS (${sortedSkins.length})</span><span>Complete Meme Quests!</span>`))));
             gridEl.appendChild(divMode);
             sortedSkins.forEach(skin => {
               gridEl.appendChild(this.buildCosmeticCard(skin, false));
@@ -3915,7 +4202,7 @@ class FlappyBirdUIAndProgression {
           } else if (filter === 'locked') {
             filtered = filtered.filter(b => !this.isCosmeticUnlocked(b));
           } else if (filter === 'case_basic' || filter === 'case_pattern' || filter === 'case_ultimate') {
-            filtered = filtered.filter(b => b.caseId === filter);
+            filtered = filtered.filter(b => b.caseId === filter || (Array.isArray(b.caseIds) && b.caseIds.includes(filter)));
           }
 
           if (query) {
@@ -4178,13 +4465,14 @@ class FlappyBirdUIAndProgression {
             const ctx = canvas.getContext('2d');
 
             const rawDur = Number(video.duration);
-            const duration = (Number.isFinite(rawDur) && rawDur > 0.1) ? rawDur : 3.0;
-            const FRAME_COUNT = 15;
+            const duration = (Number.isFinite(rawDur) && rawDur > 0.1) ? rawDur : 2.0;
+            // Smooth 30 FPS capture (up to 60 frames = 2.0s at 30 FPS)
+            const targetClipSec = Math.min(duration, 2.0);
+            const FRAME_COUNT = Math.max(15, Math.min(60, Math.round(targetClipSec * 30)));
             const frames = [];
 
             for (let i = 0; i < FRAME_COUNT; i++) {
-              const frac = i / (FRAME_COUNT - 1);
-              const t = Math.min(Math.max(0.01, duration - 0.03), frac * Math.max(0.05, duration - 0.05));
+              const t = Math.min(Math.max(0.005, duration - 0.02), (i / 30));
               await new Promise((resolve) => {
                 let done = false;
                 const finish = () => {
@@ -4201,7 +4489,11 @@ class FlappyBirdUIAndProgression {
                 try { video.currentTime = t; } catch (_) { clearTimeout(timer); finish(); }
               });
               ctx.drawImage(video, 0, 0, tw, th);
-              frames.push(canvas.toDataURL('image/jpeg', 0.65));
+              let frameUrl = canvas.toDataURL('image/webp', 0.68);
+              if (!frameUrl || !frameUrl.startsWith('data:image/webp')) {
+                frameUrl = canvas.toDataURL('image/jpeg', 0.68);
+              }
+              frames.push(frameUrl);
               if (onProgress) onProgress(i + 1, FRAME_COUNT);
             }
             return frames.slice(0, FRAME_COUNT);
@@ -4220,15 +4512,16 @@ class FlappyBirdUIAndProgression {
           const statusEl = document.getElementById('bg-upload-status-text');
           try {
             if (mediaType === 'video') {
-              if (statusEl) statusEl.textContent = '⏳ Slicing video into 15 lag-free frames (0/15)...';
-              this.showLockerToast('🎬 Extracting 15 evenly-spaced frames from video...', false);
+              if (statusEl) statusEl.textContent = '⏳ Extracting 30 FPS video frames...';
+              this.showLockerToast('🎬 Extracting smooth 30 FPS frames from video...', false);
               const frames = await this.extract15FramesFromVideoFile(file, (cur, tot) => {
-                if (statusEl) statusEl.textContent = `⏳ Cutting video to 15 frames (${cur}/${tot})...`;
+                if (statusEl) statusEl.textContent = `⏳ Capturing 30 FPS frames (${cur}/${tot})...`;
               });
-              if (statusEl) statusEl.textContent = '☁️ Saving 15-frame loop...';
+              if (statusEl) statusEl.textContent = `☁️ Saving ${frames.length}-frame 30 FPS loop...`;
               const res = await this.apiRequest('/api/user/background-media', 'POST', {
                 mediaType: 'video',
                 frames,
+                fps: 30,
                 autoEquip: true
               });
               if (res && res.ok) {
@@ -4236,7 +4529,7 @@ class FlappyBirdUIAndProgression {
                 this.currentUser.customBgUpdatedAt = res.customBgUpdatedAt;
                 this.applyBackgroundSkin('bg_custom_video', false, true);
                 this.renderBgSkinsGrid();
-                this.showLockerToast(`🎬 Uploaded & equipped 15-frame video background!`, false);
+                this.showLockerToast(`🎬 Uploaded & equipped 30 FPS video background (${frames.length} frames)!`, false);
               }
             } else {
               if (statusEl) statusEl.textContent = '⏳ Optimizing picture...';
@@ -4258,6 +4551,587 @@ class FlappyBirdUIAndProgression {
           } catch (err) {
             if (statusEl) statusEl.textContent = `❌ ${err.message}`;
             this.showLockerToast(`❌ Upload failed: ${err.message}`, true);
+          }
+        }
+
+        // ------------------------------------------------------------------------
+        // PRO 3D BACKGROUND DRAWING STUDIO (bg_custom_draw — 1% 250 / 2.5% 500 CASE)
+        // ------------------------------------------------------------------------
+        openBackgroundDrawStudio() {
+          const modal = document.getElementById('bg-draw-studio-modal');
+          if (!modal) return;
+          if (!this._drawStudioInitialized) {
+            this.initBackgroundDrawStudio();
+          }
+          modal.style.display = 'flex';
+          modal.classList.add('active');
+          document.body.classList.add('draw-studio-open');
+
+          const st = this._drawStudio;
+          if (st && st.ctx && st.canvas) {
+            const savedSrc = (this.currentUser && this.currentUser.customBackgroundDrawing) || this._localCustomDrawingDataUrl;
+            if (savedSrc && st.loadedSrc !== savedSrc) {
+              const img = new Image();
+              img.onload = () => {
+                st.ctx.save();
+                st.ctx.globalAlpha = 1;
+                st.ctx.shadowBlur = 0;
+                st.ctx.imageSmoothingEnabled = true;
+                st.ctx.imageSmoothingQuality = 'high';
+                st.ctx.clearRect(0, 0, st.canvas.width, st.canvas.height);
+                st.ctx.drawImage(img, 0, 0, st.canvas.width, st.canvas.height);
+                st.ctx.restore();
+                st.loadedSrc = savedSrc;
+                st.pushHistory();
+              };
+              img.src = savedSrc;
+            } else if (st.history.length === 0) {
+              st.applyPreset('sky_day');
+            }
+          }
+        }
+
+        closeBackgroundDrawStudio() {
+          const modal = document.getElementById('bg-draw-studio-modal');
+          document.body.classList.remove('draw-studio-open');
+          if (!modal) return;
+          modal.style.display = 'none';
+          modal.classList.remove('active');
+        }
+
+        initBackgroundDrawStudio() {
+          const modal = document.getElementById('bg-draw-studio-modal');
+          const canvas = document.getElementById('bg-draw-main-canvas');
+          const previewCanvas = document.getElementById('bg-draw-preview-canvas');
+          if (!modal || !canvas || !previewCanvas) return;
+          this._drawStudioInitialized = true;
+
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          const pCtx = previewCanvas.getContext('2d');
+          const statusEl = document.getElementById('draw-studio-status');
+          const colorPicker = document.getElementById('draw-color-picker');
+          const colorHexLabel = document.getElementById('draw-color-hex');
+          const sizeSlider = document.getElementById('draw-size-slider');
+          const sizeVal = document.getElementById('draw-size-val');
+          const opacitySlider = document.getElementById('draw-opacity-slider');
+          const opacityVal = document.getElementById('draw-opacity-val');
+          const symSelect = document.getElementById('draw-symmetry-select');
+          const presetSelect = document.getElementById('draw-preset-select');
+
+          const st = {
+            canvas,
+            previewCanvas,
+            ctx,
+            pCtx,
+            tool: 'brush',
+            color: '#38bdf8',
+            size: 16,
+            opacity: 1.0,
+            symmetry: 'none',
+            rainbowHue: 0,
+            drawing: false,
+            startX: 0,
+            startY: 0,
+            lastX: 0,
+            lastY: 0,
+            loadedSrc: null,
+            history: [],
+            historyIndex: -1,
+            setStatus: (msg) => { if (statusEl) statusEl.textContent = msg; },
+            setColor: (hex) => {
+              st.color = hex;
+              if (colorPicker) colorPicker.value = hex;
+              if (colorHexLabel) colorHexLabel.textContent = String(hex).toUpperCase();
+              modal.querySelectorAll('.draw-swatch').forEach(sw => {
+                sw.classList.toggle('active', String(sw.getAttribute('data-color') || '').toLowerCase() === String(hex).toLowerCase());
+              });
+            },
+            pushHistory: () => {
+              try {
+                const snap = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                if (st.historyIndex < st.history.length - 1) {
+                  st.history = st.history.slice(0, st.historyIndex + 1);
+                }
+                st.history.push(snap);
+                if (st.history.length > 25) st.history.shift();
+                st.historyIndex = st.history.length - 1;
+              } catch (_) {}
+            },
+            undo: () => {
+              if (st.historyIndex > 0) {
+                st.historyIndex--;
+                ctx.putImageData(st.history[st.historyIndex], 0, 0);
+                st.setStatus(`↩️ Undo (${st.historyIndex + 1}/${st.history.length})`);
+              }
+            },
+            redo: () => {
+              if (st.historyIndex < st.history.length - 1) {
+                st.historyIndex++;
+                ctx.putImageData(st.history[st.historyIndex], 0, 0);
+                st.setStatus(`↪️ Redo (${st.historyIndex + 1}/${st.history.length})`);
+              }
+            },
+            applyPreset: (presetKey) => {
+              const w = canvas.width;
+              const h = canvas.height;
+              ctx.save();
+              ctx.globalAlpha = 1;
+              ctx.shadowBlur = 0;
+              if (presetKey === 'solid_white') {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, w, h);
+              } else if (presetKey === 'solid_black') {
+                ctx.fillStyle = '#09090b';
+                ctx.fillRect(0, 0, w, h);
+              } else if (presetKey === 'sky_sunset') {
+                const g = ctx.createLinearGradient(0, 0, 0, h);
+                g.addColorStop(0, '#31105f');
+                g.addColorStop(0.45, '#e11d48');
+                g.addColorStop(0.78, '#f97316');
+                g.addColorStop(1, '#fde047');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, w, h);
+              } else if (presetKey === 'sky_night') {
+                const g = ctx.createLinearGradient(0, 0, 0, h);
+                g.addColorStop(0, '#020617');
+                g.addColorStop(0.6, '#0f172a');
+                g.addColorStop(1, '#1e1b4b');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = '#fef9c3';
+                for (let i = 0; i < 110; i++) {
+                  const sx = Math.random() * w;
+                  const sy = Math.random() * h * 0.85;
+                  const sr = 0.7 + Math.random() * 2.0;
+                  ctx.beginPath();
+                  ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+              } else if (presetKey === 'sky_cyber') {
+                const g = ctx.createLinearGradient(0, 0, 0, h);
+                g.addColorStop(0, '#090418');
+                g.addColorStop(0.55, '#2e1065');
+                g.addColorStop(1, '#0f172a');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, w, h);
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.35)';
+                ctx.lineWidth = 1.5;
+                for (let y = h * 0.58; y < h; y += 26) {
+                  ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+                for (let x = 0; x <= w; x += 48) {
+                  ctx.beginPath(); ctx.moveTo(w * 0.5 + (x - w * 0.5) * 0.3, h * 0.58); ctx.lineTo(x, h); ctx.stroke();
+                }
+              } else if (presetKey === 'sky_aurora') {
+                const g = ctx.createLinearGradient(0, 0, 0, h);
+                g.addColorStop(0, '#021224');
+                g.addColorStop(0.5, '#064e3b');
+                g.addColorStop(1, '#1e1b4b');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, w, h);
+              } else {
+                const g = ctx.createLinearGradient(0, 0, 0, h);
+                g.addColorStop(0, '#0284c7');
+                g.addColorStop(0.55, '#38bdf8');
+                g.addColorStop(1, '#bae6fd');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, w, h);
+              }
+              ctx.restore();
+              st.pushHistory();
+            }
+          };
+          this._drawStudio = st;
+
+          const getSymmetryPoints = (x, y) => {
+            const w = canvas.width;
+            const h = canvas.height;
+            if (st.symmetry === 'horizontal') return [[x, y], [w - x, y]];
+            if (st.symmetry === 'vertical') return [[x, y], [x, h - y]];
+            if (st.symmetry === 'quad') return [[x, y], [w - x, y], [x, h - y], [w - x, h - y]];
+            return [[x, y]];
+          };
+
+          const getCanvasCoords = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / Math.max(1, rect.width);
+            const scaleY = canvas.height / Math.max(1, rect.height);
+            return {
+              x: (e.clientX - rect.left) * scaleX,
+              y: (e.clientY - rect.top) * scaleY
+            };
+          };
+
+          const hexToRgba = (hex) => {
+            const clean = String(hex || '#38bdf8').replace('#', '');
+            const r = parseInt(clean.slice(0, 2), 16) || 0;
+            const g = parseInt(clean.slice(2, 4), 16) || 0;
+            const b = parseInt(clean.slice(4, 6), 16) || 0;
+            return [r, g, b, Math.round(st.opacity * 255)];
+          };
+
+          const floodFill = (startX, startY) => {
+            const w = canvas.width;
+            const h = canvas.height;
+            const sx = Math.max(0, Math.min(w - 1, Math.floor(startX)));
+            const sy = Math.max(0, Math.min(h - 1, Math.floor(startY)));
+            const imgData = ctx.getImageData(0, 0, w, h);
+            const d = imgData.data;
+            const baseIdx = (sy * w + sx) * 4;
+            const tr = d[baseIdx], tg = d[baseIdx + 1], tb = d[baseIdx + 2], ta = d[baseIdx + 3];
+            const [fr, fg, fb, fa] = hexToRgba(st.color);
+            if (Math.abs(tr - fr) < 4 && Math.abs(tg - fg) < 4 && Math.abs(tb - fb) < 4 && Math.abs(ta - fa) < 4) return;
+            const tol = 34;
+            const match = (i) => (
+              Math.abs(d[i] - tr) <= tol &&
+              Math.abs(d[i + 1] - tg) <= tol &&
+              Math.abs(d[i + 2] - tb) <= tol &&
+              Math.abs(d[i + 3] - ta) <= tol
+            );
+            const visited = new Uint8Array(w * h);
+            const stack = [sx, sy];
+            while (stack.length > 0) {
+              const cy = stack.pop();
+              const cx = stack.pop();
+              const p = cy * w + cx;
+              if (visited[p]) continue;
+              const idx = p * 4;
+              if (!match(idx)) continue;
+              visited[p] = 1;
+              d[idx] = fr; d[idx + 1] = fg; d[idx + 2] = fb; d[idx + 3] = 255;
+              if (cx > 0 && !visited[p - 1]) { stack.push(cx - 1, cy); }
+              if (cx < w - 1 && !visited[p + 1]) { stack.push(cx + 1, cy); }
+              if (cy > 0 && !visited[p - w]) { stack.push(cx, cy - 1); }
+              if (cy < h - 1 && !visited[p + w]) { stack.push(cx, cy + 1); }
+            }
+            ctx.putImageData(imgData, 0, 0);
+          };
+
+          const drawStar = (targetCtx, cx, cy, outerR) => {
+            const innerR = outerR * 0.45;
+            targetCtx.beginPath();
+            for (let i = 0; i < 10; i++) {
+              const r = i % 2 === 0 ? outerR : innerR;
+              const ang = (Math.PI / 5) * i - Math.PI / 2;
+              const px = cx + Math.cos(ang) * r;
+              const py = cy + Math.sin(ang) * r;
+              if (i === 0) targetCtx.moveTo(px, py);
+              else targetCtx.lineTo(px, py);
+            }
+            targetCtx.closePath();
+            targetCtx.fill();
+          };
+
+          const strokeSegment = (x0, y0, x1, y1) => {
+            const pts0 = getSymmetryPoints(x0, y0);
+            const pts1 = getSymmetryPoints(x1, y1);
+            const activeColor = st.tool === 'rainbow'
+              ? `hsl(${(st.rainbowHue = (st.rainbowHue + 4) % 360)}, 95%, 58%)`
+              : (st.tool === 'eraser' ? '#0f172a' : st.color);
+
+            ctx.save();
+            ctx.globalAlpha = st.tool === 'spray' ? Math.min(0.45, st.opacity) : st.opacity;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = activeColor;
+            ctx.fillStyle = activeColor;
+
+            if (st.tool === 'neon') {
+              ctx.shadowColor = activeColor;
+              ctx.shadowBlur = Math.max(10, st.size * 1.4);
+              ctx.lineWidth = Math.max(2, st.size * 0.7);
+            } else if (st.tool === 'pencil') {
+              ctx.shadowBlur = 0;
+              ctx.lineWidth = Math.max(1, Math.min(8, st.size * 0.45));
+            } else {
+              ctx.shadowBlur = st.tool === 'brush' ? Math.max(1, st.size * 0.18) : 0;
+              ctx.shadowColor = activeColor;
+              ctx.lineWidth = st.size;
+            }
+
+            for (let k = 0; k < pts0.length; k++) {
+              const [ax, ay] = pts0[k];
+              const [bx, by] = pts1[k];
+              if (st.tool === 'spray') {
+                const radius = Math.max(8, st.size * 1.8);
+                const dots = Math.max(14, Math.floor(st.size * 2.2));
+                for (let d = 0; d < dots; d++) {
+                  const ang = Math.random() * Math.PI * 2;
+                  const dist = Math.random() * radius;
+                  ctx.fillRect(bx + Math.cos(ang) * dist, by + Math.sin(ang) * dist, 1.8, 1.8);
+                }
+              } else {
+                ctx.beginPath();
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(bx, by);
+                ctx.stroke();
+              }
+            }
+            ctx.restore();
+          };
+
+          const drawShapeOn = (targetCtx, x0, y0, x1, y1) => {
+            targetCtx.save();
+            targetCtx.globalAlpha = st.opacity;
+            targetCtx.strokeStyle = st.color;
+            targetCtx.fillStyle = st.color;
+            targetCtx.lineWidth = Math.max(1, st.size * 0.65);
+            targetCtx.lineCap = 'round';
+            targetCtx.lineJoin = 'round';
+
+            if (st.tool === 'line') {
+              targetCtx.beginPath();
+              targetCtx.moveTo(x0, y0);
+              targetCtx.lineTo(x1, y1);
+              targetCtx.stroke();
+            } else if (st.tool === 'rect' || st.tool === 'rect_fill') {
+              const rx = Math.min(x0, x1);
+              const ry = Math.min(y0, y1);
+              const rw = Math.abs(x1 - x0);
+              const rh = Math.abs(y1 - y0);
+              if (st.tool === 'rect_fill') targetCtx.fillRect(rx, ry, rw, rh);
+              else targetCtx.strokeRect(rx, ry, rw, rh);
+            } else if (st.tool === 'circle' || st.tool === 'circle_fill') {
+              const cx = (x0 + x1) * 0.5;
+              const cy = (y0 + y1) * 0.5;
+              const radX = Math.max(1, Math.abs(x1 - x0) * 0.5);
+              const radY = Math.max(1, Math.abs(y1 - y0) * 0.5);
+              targetCtx.beginPath();
+              targetCtx.ellipse(cx, cy, radX, radY, 0, 0, Math.PI * 2);
+              if (st.tool === 'circle_fill') targetCtx.fill();
+              else targetCtx.stroke();
+            }
+            targetCtx.restore();
+          };
+
+          const isShapeTool = (t) => ['line', 'rect', 'rect_fill', 'circle', 'circle_fill'].includes(t);
+
+          canvas.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            const pt = getCanvasCoords(e);
+            if (st.tool === 'eyedropper') {
+              const px = ctx.getImageData(Math.floor(pt.x), Math.floor(pt.y), 1, 1).data;
+              const pickedHex = '#' + [px[0], px[1], px[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+              st.setColor(pickedHex);
+              st.tool = 'brush';
+              modal.querySelectorAll('.draw-tool-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tool') === 'brush'));
+              st.setStatus(`💧 Picked color ${pickedHex.toUpperCase()}`);
+              return;
+            }
+            if (st.tool === 'bucket') {
+              floodFill(pt.x, pt.y);
+              st.pushHistory();
+              st.setStatus('🪣 Area filled!');
+              return;
+            }
+            if (st.tool === 'star') {
+              ctx.save();
+              ctx.globalAlpha = st.opacity;
+              ctx.fillStyle = st.color;
+              ctx.shadowColor = st.color;
+              ctx.shadowBlur = Math.max(4, st.size * 0.6);
+              getSymmetryPoints(pt.x, pt.y).forEach(([sx, sy]) => drawStar(ctx, sx, sy, Math.max(10, st.size * 1.6)));
+              ctx.restore();
+              st.pushHistory();
+              st.setStatus('⭐ Star stamped!');
+              return;
+            }
+
+            st.drawing = true;
+            st.startX = pt.x;
+            st.startY = pt.y;
+            st.lastX = pt.x;
+            st.lastY = pt.y;
+            if (!isShapeTool(st.tool)) {
+              strokeSegment(pt.x, pt.y, pt.x + 0.01, pt.y + 0.01);
+            }
+          });
+
+          const onPointerMove = (e) => {
+            if (!st.drawing) return;
+            const pt = getCanvasCoords(e);
+            if (isShapeTool(st.tool)) {
+              st.lastX = pt.x;
+              st.lastY = pt.y;
+              pCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+              drawShapeOn(pCtx, st.startX, st.startY, st.lastX, st.lastY);
+            } else {
+              strokeSegment(st.lastX, st.lastY, pt.x, pt.y);
+              st.lastX = pt.x;
+              st.lastY = pt.y;
+            }
+          };
+
+          const onPointerUp = (e) => {
+            if (!st.drawing) return;
+            st.drawing = false;
+            if (isShapeTool(st.tool)) {
+              const pt = getCanvasCoords(e);
+              const endX = Number.isFinite(pt.x) ? pt.x : st.lastX;
+              const endY = Number.isFinite(pt.y) ? pt.y : st.lastY;
+              pCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+              drawShapeOn(ctx, st.startX, st.startY, endX, endY);
+            }
+            st.pushHistory();
+          };
+
+          window.addEventListener('pointermove', onPointerMove);
+          window.addEventListener('pointerup', onPointerUp);
+
+          // Bind Toolbar Buttons & Controls
+          modal.querySelectorAll('.draw-tool-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              st.tool = btn.getAttribute('data-tool') || 'brush';
+              modal.querySelectorAll('.draw-tool-btn').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+              st.setStatus(`Tool selected: ${btn.textContent.trim()}`);
+            });
+          });
+          modal.querySelectorAll('.draw-swatch').forEach(sw => {
+            sw.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const c = sw.getAttribute('data-color');
+              if (c) st.setColor(c);
+            });
+          });
+          if (colorPicker) {
+            colorPicker.addEventListener('input', (e) => st.setColor(e.target.value));
+          }
+          if (sizeSlider) {
+            sizeSlider.addEventListener('input', (e) => {
+              st.size = Math.max(1, Math.min(64, Number(e.target.value) || 12));
+              if (sizeVal) sizeVal.textContent = `${st.size}px`;
+            });
+          }
+          if (opacitySlider) {
+            opacitySlider.addEventListener('input', (e) => {
+              const pct = Math.max(10, Math.min(100, Number(e.target.value) || 100));
+              st.opacity = pct / 100;
+              if (opacityVal) opacityVal.textContent = `${pct}%`;
+            });
+          }
+          if (symSelect) {
+            symSelect.addEventListener('change', (e) => {
+              st.symmetry = e.target.value || 'none';
+              st.setStatus(`Symmetry: ${st.symmetry.toUpperCase()}`);
+            });
+          }
+          if (presetSelect) {
+            presetSelect.addEventListener('change', (e) => {
+              const val = e.target.value;
+              if (val) {
+                st.applyPreset(val);
+                e.target.value = '';
+                st.setStatus('✨ Backdrop preset applied!');
+              }
+            });
+          }
+
+          const undoBtn = document.getElementById('btn-draw-undo');
+          const redoBtn = document.getElementById('btn-draw-redo');
+          const clearBtn = document.getElementById('btn-draw-clear');
+          const closeBtn = document.getElementById('btn-draw-studio-close');
+          const dlBtn = document.getElementById('btn-draw-download');
+          const saveBtn = document.getElementById('btn-draw-save-apply');
+
+          if (undoBtn) undoBtn.addEventListener('click', (e) => { e.stopPropagation(); st.undo(); });
+          if (redoBtn) redoBtn.addEventListener('click', (e) => { e.stopPropagation(); st.redo(); });
+          if (clearBtn) clearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            st.applyPreset('sky_day');
+            st.setStatus('🗑️ Canvas reset to clean sky!');
+          });
+          if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); this.closeBackgroundDrawStudio(); });
+          modal.addEventListener('click', (e) => {
+            if (e.target === modal) this.closeBackgroundDrawStudio();
+          });
+          if (dlBtn) dlBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            try {
+              const link = document.createElement('a');
+              link.download = 'flappy3d-custom-background.png';
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+            } catch (_) {}
+          });
+          if (saveBtn) saveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.saveCustomBackgroundDrawing();
+          });
+
+          window.addEventListener('keydown', (e) => {
+            if (!modal.classList.contains('active')) return;
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+              e.preventDefault();
+              if (e.shiftKey) st.redo();
+              else st.undo();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+              e.preventDefault();
+              st.redo();
+            }
+          });
+        }
+
+        async saveCustomBackgroundDrawing() {
+          const st = this._drawStudio;
+          const saveBtn = document.getElementById('btn-draw-save-apply');
+          if (!st || !st.canvas) return;
+          if (!this.authToken || !this.currentUser) {
+            st.setStatus('🔑 Please log in to save your drawn background!');
+            return;
+          }
+
+          if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = '⏳ Saving...';
+          }
+          st.setStatus('☁️ Saving lossless Full HD artwork...');
+          try {
+            // Prioritize 100% lossless Full HD PNG so drawn artwork stays razor-sharp with zero chroma grain!
+            const MAX_DRAW_CHARS = 4500000;
+            let dataUrl = st.canvas.toDataURL('image/png');
+            if (!dataUrl || dataUrl.length > MAX_DRAW_CHARS) {
+              // If extremely complex artwork exceeds 4.5M chars, keep it lossless PNG at 1600x900 before ever touching lossy codecs
+              const tmp = document.createElement('canvas');
+              tmp.width = 1600;
+              tmp.height = 900;
+              const tCtx = tmp.getContext('2d');
+              tCtx.imageSmoothingEnabled = true;
+              tCtx.imageSmoothingQuality = 'high';
+              tCtx.drawImage(st.canvas, 0, 0, tmp.width, tmp.height);
+              dataUrl = tmp.toDataURL('image/png');
+            }
+            if (!dataUrl || dataUrl.length > MAX_DRAW_CHARS) {
+              dataUrl = st.canvas.toDataURL('image/webp', 0.98);
+            }
+            if (!dataUrl || (!dataUrl.startsWith('data:image/png') && !dataUrl.startsWith('data:image/webp')) || dataUrl.length > MAX_DRAW_CHARS) {
+              dataUrl = st.canvas.toDataURL('image/jpeg', 0.96);
+            }
+            const res = await this.apiRequest('/api/user/background-media', 'POST', {
+              mediaType: 'draw',
+              imageDataUrl: dataUrl,
+              autoEquip: true
+            });
+            if (res && res.ok) {
+              this.currentUser.customBackgroundDrawing = res.customBackgroundDrawing;
+              this.currentUser.customBgUpdatedAt = res.customBgUpdatedAt;
+              this._localCustomDrawingDataUrl = res.customBackgroundDrawing;
+              st.loadedSrc = res.customBackgroundDrawing;
+              this.applyBackgroundSkin('bg_custom_draw', false, true);
+              this.renderBgSkinsGrid();
+              st.setStatus('✅ Saved & applied to your 3D Background!');
+              this.showLockerToast('🎨 Saved & equipped your Custom Drawn Background!', false);
+              setTimeout(() => this.closeBackgroundDrawStudio(), 650);
+            }
+          } catch (err) {
+            st.setStatus(`❌ ${err.message}`);
+            this.showLockerToast(`❌ Save failed: ${err.message}`, true);
+          } finally {
+            if (saveBtn) {
+              saveBtn.disabled = false;
+              saveBtn.textContent = '💾 Save & Apply Background';
+            }
           }
         }
 
@@ -4490,32 +5364,43 @@ class FlappyBirdUIAndProgression {
 
         initSettings() {
           const DEFAULT_SETTINGS = {
-            graphicsQuality: 'high',
+            graphicsQuality: 'medium',
             theme: 'dark',
             volume: 1.0,
             screenShake: 'full',
             particles: true,
+            particleLevel: 'high',
+            startSpeeds: { easy: 1.0, medium: 1.0, hard: 1.0, extreme: 1.0 },
             cameraTilt: true,
             showFPS: true,
             showHitbox: false
           };
-          this.settings = { ...DEFAULT_SETTINGS };
+          this.settings = { ...DEFAULT_SETTINGS, startSpeeds: { ...DEFAULT_SETTINGS.startSpeeds } };
           try {
             const raw = localStorage.getItem('flappy3d_settings');
-            if (raw) Object.assign(this.settings, JSON.parse(raw));
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              Object.assign(this.settings, parsed);
+              if (parsed && parsed.startSpeeds && typeof parsed.startSpeeds === 'object') {
+                this.settings.startSpeeds = { ...DEFAULT_SETTINGS.startSpeeds, ...parsed.startSpeeds };
+              }
+              if (!parsed.particleLevel && typeof parsed.particles === 'boolean') {
+                this.settings.particleLevel = parsed.particles ? 'high' : 'off';
+              }
+            }
           } catch (_) {}
 
           this.applyGraphicsQuality(this.settings.graphicsQuality);
           this.applyTheme(this.settings.theme);
           this.applyAudioVolume(this.settings.volume);
+          this.applyParticleLevel(this.settings.particleLevel || 'high', false);
+          this.syncStartSpeedsUI();
 
           const shakeBtn = document.querySelector(`#setting-shake-segmented [data-shake="${this.settings.screenShake}"]`);
           if (shakeBtn) {
             document.querySelectorAll('#setting-shake-segmented .setting-seg-btn').forEach(b => b.classList.remove('active'));
             shakeBtn.classList.add('active');
           }
-          const partCb = document.getElementById('setting-particles');
-          if (partCb) partCb.checked = Boolean(this.settings.particles);
           const camCb = document.getElementById('setting-cam-tilt');
           if (camCb) camCb.checked = Boolean(this.settings.cameraTilt);
           const fpsCb = document.getElementById('setting-show-fps');
@@ -4535,8 +5420,67 @@ class FlappyBirdUIAndProgression {
           } catch (_) {}
         }
 
+        applyParticleLevel(level, shouldSave = true) {
+          const allowed = ['off', 'low', 'medium', 'high'];
+          const clean = allowed.includes(String(level || '').toLowerCase()) ? String(level).toLowerCase() : 'high';
+          this.settings.particleLevel = clean;
+          this.settings.particles = clean !== 'off';
+          if (shouldSave) this.saveSettings();
+
+          document.querySelectorAll('#setting-particles-segmented .setting-seg-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-particles') === clean);
+          });
+          const descEl = document.getElementById('setting-particles-desc');
+          if (descEl) {
+            const labels = {
+              off: 'Off (0 Particles): Zero particles spawned for maximum clarity & FPS',
+              low: 'Low (30%): Minimal subtle score, crash & aura particles',
+              medium: 'Medium (65%): Balanced particle bursts & skin trail effects',
+              high: 'High (100%): Full score bursts, crash sparks & skin aura trails'
+            };
+            descEl.textContent = labels[clean] || labels.high;
+          }
+          if (clean === 'off' && Array.isArray(this.particlePool)) {
+            for (let i = 0; i < this.particlePool.length; i++) {
+              this.particlePool[i].active = false;
+              this.particlePool[i].mesh.visible = false;
+            }
+          }
+        }
+
+        syncStartSpeedsUI() {
+          if (!this.settings.startSpeeds || typeof this.settings.startSpeeds !== 'object') {
+            this.settings.startSpeeds = { easy: 1.0, medium: 1.0, hard: 1.0, extreme: 1.0 };
+          }
+          ['easy', 'medium', 'hard', 'extreme'].forEach((mode) => {
+            const val = (typeof window.normalizeStartSpeedMult === 'function')
+              ? window.normalizeStartSpeedMult(this.settings.startSpeeds[mode])
+              : Math.max(1.0, Math.min(2.0, Math.round((Number(this.settings.startSpeeds[mode]) || 1.0) * 10) / 10));
+            this.settings.startSpeeds[mode] = val;
+            const slider = document.getElementById(`setting-start-speed-${mode}`);
+            const label = document.getElementById(`start-speed-val-${mode}`);
+            if (slider) slider.value = val.toFixed(1);
+            if (label) label.textContent = `${val.toFixed(1)}x`;
+          });
+        }
+
+        setModeStartSpeed(mode, rawVal) {
+          if (!['easy', 'medium', 'hard', 'extreme'].includes(mode)) return;
+          if (!this.settings.startSpeeds) {
+            this.settings.startSpeeds = { easy: 1.0, medium: 1.0, hard: 1.0, extreme: 1.0 };
+          }
+          const clean = (typeof window.normalizeStartSpeedMult === 'function')
+            ? window.normalizeStartSpeedMult(rawVal)
+            : Math.max(1.0, Math.min(2.0, Math.round((Number(rawVal) || 1.0) * 10) / 10));
+          this.settings.startSpeeds[mode] = clean;
+          this.saveSettings();
+          this.syncStartSpeedsUI();
+        }
+
         applyGraphicsQuality(quality) {
           this.settings.graphicsQuality = quality;
+          this._autoPerfTier = 0;
+          this._lowFpsStreak = 0;
           this.saveSettings();
 
           const isLow = quality === 'low';
@@ -4560,13 +5504,13 @@ class FlappyBirdUIAndProgression {
               this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
             } else if (isHigh) {
               this.renderer.shadowMap.enabled = true;
-              this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+              this.renderer.shadowMap.type = THREE.PCFShadowMap;
               if (this.dirLight) {
                 this.dirLight.castShadow = true;
-                this.dirLight.shadow.mapSize.width = 2048;
-                this.dirLight.shadow.mapSize.height = 2048;
+                this.dirLight.shadow.mapSize.width = 1024;
+                this.dirLight.shadow.mapSize.height = 1024;
               }
-              this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+              this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
             } else if (isUltra) {
               this.renderer.shadowMap.enabled = true;
               this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -4589,7 +5533,7 @@ class FlappyBirdUIAndProgression {
               : (isMed
                 ? 'Medium: 1024 Shadows, 1.25x Balanced Resolution'
                 : (isHigh
-                  ? 'High: 2048 PCFSoft Shadows, 1.75x Resolution & Particle Effects'
+                  ? 'High: 1024 PCF Shadows, 1.5x Resolution & Particle Effects'
                   : 'Ultra: 2048 Soft Shadows, Full Native Screen Pixel Ratio (120FPS+)'));
           }
         }
@@ -4630,14 +5574,14 @@ class FlappyBirdUIAndProgression {
             }
           }
 
-          // Re-render Leaderboard, Stats Menu, and Cosmetic Grids so mode-specific elements adapt in real-time
-          if (typeof this.renderStatsMenu === 'function') {
+          // Re-render only currently active views so theme switches/boot stay instant
+          if (this.currentAppView === 'stats' && typeof this.renderStatsMenu === 'function') {
             this.renderStatsMenu();
           }
           if (typeof this.renderLeaderboard === 'function') {
             this.renderLeaderboard();
           }
-          if (typeof this.renderAllCosmeticGrids === 'function') {
+          if (this.currentAppView === 'skins' && typeof this.renderAllCosmeticGrids === 'function') {
             this.renderAllCosmeticGrids();
           }
         }
@@ -4692,8 +5636,8 @@ class FlappyBirdUIAndProgression {
                 this.birdMeshGroup.rotation.set(0, 0, 0);
               }
             }
-            if (typeof this.renderAllCosmeticGrids === 'function') {
-              this.renderAllCosmeticGrids();
+            if (typeof this.updateProfileRecordPills === 'function') {
+              this.updateProfileRecordPills();
             }
           }
 
@@ -4728,7 +5672,12 @@ class FlappyBirdUIAndProgression {
               this.renderBirdSkinsGrid();
             }
           } else if (viewName === 'leaderboard') {
-            this.fetchLeaderboards(this.lbShowAllPlayers);
+            if (this._dirtyLobbyLb) {
+              this.renderLeaderboard();
+            }
+            if (!this._lastLeaderboardFetchAt || (Date.now() - this._lastLeaderboardFetchAt > 4000)) {
+              this.fetchLeaderboards(this.lbShowAllPlayers);
+            }
             if (typeof this.updateLeaderboardUniqueToggleUI === 'function') {
               this.updateLeaderboardUniqueToggleUI();
             }
@@ -4809,7 +5758,8 @@ class FlappyBirdUIAndProgression {
                 if (!this.currentUser || !res) return;
                 this.currentUser.customBackgroundImage = res.customBackgroundImage || null;
                 this.currentUser.customBackgroundVideo = res.customBackgroundVideo || null;
-                if (this.currentBackgroundSkin && (this.currentBackgroundSkin.id === 'bg_custom_image' || this.currentBackgroundSkin.id === 'bg_custom_video') && typeof this.applyBackgroundVisualsOnly === 'function') {
+                this.currentUser.customBackgroundDrawing = res.customBackgroundDrawing || null;
+                if (this.currentBackgroundSkin && (this.currentBackgroundSkin.id === 'bg_custom_image' || this.currentBackgroundSkin.id === 'bg_custom_video' || this.currentBackgroundSkin.id === 'bg_custom_draw') && typeof this.applyBackgroundVisualsOnly === 'function') {
                   this.applyBackgroundVisualsOnly(this.currentBackgroundSkin);
                 }
                 if (this.currentAppView === 'skins' && this.currentLockerTab === 'bg') {
@@ -4819,13 +5769,30 @@ class FlappyBirdUIAndProgression {
               .catch(() => {});
           }
 
-          // 2. Sync admin locked skins
+          // 2. Sync admin locked skins & earned/live Leaderboard Champion skins
           if (Array.isArray(userSync.adminLockedSkins)) {
             const oldL = JSON.stringify(this.currentUser.adminLockedSkins || []);
             const newL = JSON.stringify(userSync.adminLockedSkins);
             if (oldL !== newL) {
               this.currentUser.adminLockedSkins = [...userSync.adminLockedSkins];
               hasGridChanges = true;
+            }
+          }
+          if (Array.isArray(userSync.unlockedLeaderboardSkins)) {
+            const oldLb = JSON.stringify(this.currentUser.unlockedLeaderboardSkins || []);
+            const newLb = JSON.stringify(userSync.unlockedLeaderboardSkins);
+            if (oldLb !== newLb) {
+              this.currentUser.unlockedLeaderboardSkins = [...userSync.unlockedLeaderboardSkins];
+              hasGridChanges = true;
+            }
+          }
+          if (Array.isArray(userSync.activeAllTimeLbSkins)) {
+            const oldAll = JSON.stringify(this.currentUser.activeAllTimeLbSkins || []);
+            const newAll = JSON.stringify(userSync.activeAllTimeLbSkins);
+            if (oldAll !== newAll) {
+              this.currentUser.activeAllTimeLbSkins = [...userSync.activeAllTimeLbSkins];
+              hasGridChanges = true;
+              this.validateAndReconcileEquippedSkins();
             }
           }
 
@@ -4847,13 +5814,29 @@ class FlappyBirdUIAndProgression {
             }
           }
 
-          // 3. Sync player records
-          if (userSync.records && typeof userSync.records === 'object') {
+          // 3. Sync player records without ever letting a stale /api/chat poll overwrite a newer saved record
+          const srvRecVer = (typeof userSync.recordsVersion === 'number' && Number.isFinite(userSync.recordsVersion))
+            ? userSync.recordsVersion
+            : null;
+          const localRecVer = Number(this._localRecordsVersion) || 0;
+          const isStaleRecSync = srvRecVer !== null && srvRecVer < localRecVer;
+          const recentRunGrace = Boolean(this._lastRunFinishAt && (Date.now() - this._lastRunFinishAt < 6000));
+          if (userSync.records && typeof userSync.records === 'object' && !isStaleRecSync && !recentRunGrace) {
             const oldR = JSON.stringify(this.currentUser.records || {});
             const newR = JSON.stringify(userSync.records);
             if (oldR !== newR) {
               this.currentUser.records = { ...userSync.records };
+              this.localRecords = {
+                easy: Number(userSync.records.easy) || 0,
+                medium: Number(userSync.records.medium) || 0,
+                hard: Number(userSync.records.hard) || 0,
+                extreme: Number(userSync.records.extreme) || 0
+              };
+              this.saveLocalRecords();
               hasGridChanges = true;
+            }
+            if (srvRecVer !== null && srvRecVer > localRecVer) {
+              this._localRecordsVersion = srvRecVer;
             }
           }
 
@@ -4873,6 +5856,14 @@ class FlappyBirdUIAndProgression {
           }
           if (typeof userSync.duelElo === 'number') {
             this.currentUser.duelElo = userSync.duelElo;
+          }
+          if (typeof userSync.extremeAccessGranted === 'boolean') {
+            const prevGrant = Boolean(this.currentUser.extremeAccessGranted);
+            this.currentUser.extremeAccessGranted = userSync.extremeAccessGranted;
+            this.currentUser.extremeUnlocked = Boolean(userSync.extremeUnlocked);
+            if (prevGrant !== userSync.extremeAccessGranted && typeof this.updateExtremeUnlockUI === 'function') {
+              this.updateExtremeUnlockUI();
+            }
           }
 
           // 4-6. Sync equipped bird, pipe & background skins cleanly without reverting player's own recent choices
@@ -4954,6 +5945,8 @@ class FlappyBirdUIAndProgression {
               }
             } else if (this.currentAppView === 'stats' && typeof this.renderStatsMenu === 'function') {
               this.renderStatsMenu();
+            } else if (this.currentAppView === 'leaderboard' && typeof this.renderLeaderboardRewardBanner === 'function') {
+              this.renderLeaderboardRewardBanner();
             }
             this.updateHUD();
           }

@@ -21,10 +21,13 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { handleApiRequest, getLocalAddresses } = require('./src/routes/apiRoutes');
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const STATIC_CACHE = new Map();
+const COMPRESSIBLE_EXTS = new Set(['.html', '.css', '.js', '.json', '.svg']);
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -74,14 +77,39 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (fs.existsSync(safePath) && fs.statSync(safePath).isFile()) {
+        const stat = fs.statSync(safePath);
         const ext = path.extname(safePath).toLowerCase();
         const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-        const content = fs.readFileSync(safePath);
-        res.writeHead(200, {
+        const etag = `"${Math.floor(stat.mtimeMs)}-${stat.size}"`;
+
+        if (req.headers['if-none-match'] === etag) {
+          res.writeHead(304, { 'ETag': etag, 'Cache-Control': 'no-cache' });
+          return res.end();
+        }
+
+        let cached = STATIC_CACHE.get(safePath);
+        if (!cached || cached.mtimeMs !== stat.mtimeMs || cached.size !== stat.size) {
+          const rawBuf = fs.readFileSync(safePath);
+          const gzipBuf = (COMPRESSIBLE_EXTS.has(ext) && rawBuf.length > 2048)
+            ? zlib.gzipSync(rawBuf, { level: 6 })
+            : null;
+          cached = { mtimeMs: stat.mtimeMs, size: stat.size, rawBuf, gzipBuf, etag };
+          STATIC_CACHE.set(safePath, cached);
+        }
+
+        const acceptsGzip = /\bgzip\b/i.test(req.headers['accept-encoding'] || '');
+        const useGzip = Boolean(acceptsGzip && cached.gzipBuf);
+        const outHeaders = {
           'Content-Type': contentType,
-          'Cache-Control': 'no-cache'
-        });
-        return res.end(req.method === 'HEAD' ? undefined : content);
+          'Cache-Control': 'no-cache',
+          'ETag': cached.etag
+        };
+        if (useGzip) {
+          outHeaders['Content-Encoding'] = 'gzip';
+          outHeaders['Vary'] = 'Accept-Encoding';
+        }
+        res.writeHead(200, outHeaders);
+        return res.end(req.method === 'HEAD' ? undefined : (useGzip ? cached.gzipBuf : cached.rawBuf));
       }
     }
 

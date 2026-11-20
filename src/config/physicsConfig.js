@@ -63,16 +63,51 @@ function createSeededPRNG(seed) {
   };
 }
 
+function normalizeStartSpeedMult(raw) {
+  const num = Number(raw);
+  if (!Number.isFinite(num) || num <= 1.0) return 1.0;
+  return Math.max(1.0, Math.min(2.0, Math.round(num * 10) / 10));
+}
+
 /**
- * Compute speed, gap, and speed-scaled vertical physics for a given score and difficulty
+ * Deterministic pipe hole Y placement shared by client & server anti-cheat.
+ * On Hard mode, slightly caps consecutive vertical hole jumps (max 3.70m) so
+ * pipe holes cannot spawn wildly far apart while keeping Hard challenging & 100% clearable.
  */
-function getDifficultyParams(score, difficultyKey) {
+function computePipeGapCenterY(rand, pipeGap, difficultyKey, prevGapCenterY = null, simCfg = SIM_CONFIG) {
+  const minCenterY = 2.9 + pipeGap * 0.5;
+  const maxCenterY = simCfg.ceilingY - 2.6 - pipeGap * 0.5;
+  const u = rand();
+  if (difficultyKey === 'hard') {
+    if (typeof prevGapCenterY === 'number' && Number.isFinite(prevGapCenterY)) {
+      const maxDelta = 3.70;
+      const lo = Math.max(minCenterY, prevGapCenterY - maxDelta);
+      const hi = Math.min(maxCenterY, prevGapCenterY + maxDelta);
+      return lo + u * Math.max(0, hi - lo);
+    }
+    const startLo = Math.max(minCenterY, simCfg.birdStartY - 1.85);
+    const startHi = Math.min(maxCenterY, simCfg.birdStartY + 1.85);
+    return startLo + u * Math.max(0, startHi - startLo);
+  }
+  return minCenterY + u * (maxCenterY - minCenterY);
+}
+
+/**
+ * Compute speed, gap, and speed-scaled vertical physics for a given score and difficulty.
+ * `startSpeedMult` acts ONLY as a speed floor: the game runs at `startSpeedMult` until
+ * natural score-based progression catches up — max speed (2.0x) and ramp timing never change.
+ */
+function getDifficultyParams(score, difficultyKey, startSpeedMult = 1.0) {
   const diff = SIM_CONFIG.difficulties[difficultyKey] || SIM_CONFIG.difficulties.medium;
+  const floorMult = normalizeStartSpeedMult(startSpeedMult);
+  const floorSpeed = SIM_CONFIG.baseSpeed * floorMult;
+
   if (difficultyKey === 'extreme' || (typeof diff.gravity === 'number' && typeof diff.flapImpulse === 'number')) {
     const speedProgress = Math.min(Math.max(0, Number(score) || 0) / (diff.speedRampScore || 45), 1.0);
     const minSpd = diff.baseSpeed || SIM_CONFIG.baseSpeed;
     const maxSpd = Math.min(diff.maxSpeed || SIM_CONFIG.maxSpeed, SIM_CONFIG.baseSpeed * 2.0);
-    const speed = Math.min(maxSpd, minSpd + speedProgress * (maxSpd - minSpd));
+    const naturalSpeed = minSpd + speedProgress * (maxSpd - minSpd);
+    const speed = Math.min(maxSpd, Math.max(naturalSpeed, floorSpeed));
     const speedRatio = Math.min(2.0, speed / SIM_CONFIG.baseSpeed);
     const refRatio = speed / (diff.refSpeed || 12.0);
     return {
@@ -90,10 +125,11 @@ function getDifficultyParams(score, difficultyKey) {
   const speedProgress = Math.min(score / (diff.speedRampScore || 45), 1.0);
   const gapProgress = Math.min(score / 40, 1.0);
   const targetMaxSpeed = Math.min(diff.maxSpeed || SIM_CONFIG.maxSpeed, SIM_CONFIG.baseSpeed * 2.0);
+  const naturalSpeed = SIM_CONFIG.baseSpeed + speedProgress * (targetMaxSpeed - SIM_CONFIG.baseSpeed);
 
   const speed = Math.min(
     SIM_CONFIG.baseSpeed * 2.0,
-    SIM_CONFIG.baseSpeed + speedProgress * (targetMaxSpeed - SIM_CONFIG.baseSpeed)
+    Math.max(naturalSpeed, floorSpeed)
   );
   const pipeGap = diff.baseGap - gapProgress * (diff.baseGap - diff.minGap);
 
@@ -145,8 +181,9 @@ function collidesExtremePipe(by, px, pipe, simCfg = SIM_CONFIG) {
  * has an EXACT 2-frame window at 60Hz (a 30 FPS Frame-Perfect, ~33.3ms),
  * cannot be skipped with 0 flaps, and cannot be widened >2 frames with 2-flap setups.
  */
-function createExtremePipeSolver(seed, simCfg = SIM_CONFIG) {
+function createExtremePipeSolver(seed, simCfg = SIM_CONFIG, startSpeedMult = 1.0) {
   const extDiff = simCfg.difficulties.extreme;
+  const cleanStartMult = normalizeStartSpeedMult(startSpeedMult);
   const dt = simCfg.dt;
   const capReachX = simCfg.pipeCapRadius + simCfg.birdRadius - 0.08;
   const shaftReachX = simCfg.pipeRadius + simCfg.birdRadius - 0.08;
@@ -154,7 +191,7 @@ function createExtremePipeSolver(seed, simCfg = SIM_CONFIG) {
   const rand = createSeededPRNG(seed);
   const spawnDist = extDiff.spawnDistance;
   const firstDist = extDiff.firstPipeDist;
-  const initParams = getDifficultyParams(0, 'extreme');
+  const initParams = getDifficultyParams(0, 'extreme', cleanStartMult);
 
   let branches = [{
     y: simCfg.birdStartY,
@@ -303,8 +340,8 @@ function createExtremePipeSolver(seed, simCfg = SIM_CONFIG) {
 
   function nextPipe() {
     const k = pipeIndex++;
-    const pk = getDifficultyParams(k, 'extreme');
-    const pk1 = getDifficultyParams(k + 1, 'extreme');
+    const pk = getDifficultyParams(k, 'extreme', cleanStartMult);
+    const pk1 = getDifficultyParams(k + 1, 'extreme', cleanStartMult);
     const maxRel = Math.ceil((branches[0].px - simCfg.birdX) / (pk.speed * dt)) + 2;
     const branchMaps = branches.map(br => {
       const m = new Map();
@@ -460,6 +497,8 @@ function createExtremePipeSolver(seed, simCfg = SIM_CONFIG) {
 module.exports = {
   SIM_CONFIG,
   createSeededPRNG,
+  normalizeStartSpeedMult,
+  computePipeGapCenterY,
   getDifficultyParams,
   collidesExtremePipe,
   createExtremePipeSolver

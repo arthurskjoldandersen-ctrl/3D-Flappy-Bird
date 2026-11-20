@@ -41,7 +41,7 @@
       <button type="button" class="dock-tab" data-view="skins" id="dock-btn-skins">
         <span class="tab-icon">🎨</span>
         <span class="tab-label">Locker</span>
-        <span class="tab-badge" id="dock-skins-badge">2/103</span>
+        <span class="tab-badge" id="dock-skins-badge">3/167</span>
       </button>
       <button type="button" class="dock-tab" data-view="leaderboard" id="dock-btn-leaderboard">
         <span class="tab-icon">🏆</span>
@@ -62,7 +62,7 @@
       <button type="button" class="profile-capsule-btn" id="open-profile-btn" title="Player Account & Cloud Sync">
         <span class="capsule-avatar" id="capsule-avatar">👤</span>
         <span class="capsule-name" id="capsule-username">Guest Player</span>
-        <span class="capsule-count" id="capsule-owned-count">🎨 2/103</span>
+        <span class="capsule-count" id="capsule-owned-count">🎨 3/167</span>
       </button>
 
       <a href="/database" target="_blank" class="icon-tool-btn" id="btn-open-database" title="MeDonut Admin Only: Open Live Player & Leaderboard Database Manager (/database)" style="display:none; text-decoration:none;"><span>🗄️</span></a>
@@ -84,6 +84,28 @@
       </button>
     </div>
   </header>
+
+  <!-- Global Announcement & Coin Giveaway Top-of-Screen Popup Banner -->
+  <div id="global-broadcast-banner" class="global-broadcast-banner" role="alertdialog" aria-live="assertive" aria-label="Global Announcement" style="display: none;">
+    <div class="global-broadcast-glow"></div>
+    <div class="global-broadcast-inner">
+      <div class="global-broadcast-icon-wrap" id="global-broadcast-icon">📢</div>
+      <div class="global-broadcast-body">
+        <div class="global-broadcast-header">
+          <span class="global-broadcast-badge" id="global-broadcast-title">GLOBAL ANNOUNCEMENT</span>
+          <span class="global-broadcast-meta" id="global-broadcast-meta">from MeDonut</span>
+          <span class="global-broadcast-queue-pill" id="global-broadcast-queue-pill" style="display: none;">+1 more</span>
+        </div>
+        <div class="global-broadcast-text" id="global-broadcast-text"></div>
+        <div class="global-broadcast-giveaway-meta" id="global-broadcast-giveaway-meta" style="display: none;"></div>
+      </div>
+      <div class="global-broadcast-actions">
+        <button type="button" class="global-broadcast-enter-btn" id="global-broadcast-enter-btn" style="display: none;">🎁 Enter Giveaway!</button>
+        <button type="button" class="global-broadcast-dismiss-btn" id="global-broadcast-dismiss-btn" title="Acknowledge & Dismiss">✓ Got it!</button>
+      </div>
+    </div>
+    <div class="global-broadcast-timer-track"><div class="global-broadcast-timer-fill" id="global-broadcast-timer-fill"></div></div>
+  </div>
 
   <!-- Floating Global Live Chat Drawer (Right Side of Screen) -->
   <aside id="game-chat-panel" class="chat-panel" aria-label="Global Live Chat" style="display: none;">
@@ -108,9 +130,71 @@
       <span class="chat-warning-text" id="chat-warning-text">Message blocked: Prohibited language detected.</span>
     </div>
 
+    <!-- Active Coin Giveaway Pinned Card inside Chat -->
+    <div class="chat-giveaway-pin" id="chat-giveaway-pin" style="display: none;"></div>
+
     <!-- Chat Messages Scroll Container -->
     <div class="chat-messages-container" id="chat-messages-list">
       <!-- Dynamic chat messages and system announcements -->
+    </div>
+
+    <!-- MeDonut Admin Controls Bar (Visible ONLY to MeDonut) -->
+    <div class="chat-admin-bar" id="chat-admin-bar" style="display: none;">
+      <button type="button" class="chat-admin-btn chat-admin-global-btn" id="btn-chat-global-mode" title="Send a top-of-screen Global Announcement to all players">
+        📢 Global Msg
+      </button>
+      <button type="button" class="chat-admin-btn chat-admin-giveaway-btn" id="btn-chat-giveaway-open" title="Host a live Coin Giveaway in chat">
+        🎁 Host Giveaway
+      </button>
+    </div>
+
+    <!-- MeDonut Global Broadcast Composer Drawer -->
+    <div class="chat-admin-drawer" id="chat-global-drawer" style="display: none;">
+      <div class="chat-admin-drawer-head">
+        <span>📢 Global Screen Announcement</span>
+        <button type="button" class="chat-admin-drawer-close" id="btn-chat-global-cancel" title="Close">✕</button>
+      </div>
+      <div class="chat-admin-drawer-hint">Pops up at the top of everyone's screen (queued until after their run if playing).</div>
+      <textarea id="chat-global-input" class="chat-admin-textarea" rows="2" maxlength="280" placeholder="Type a global message for all players..."></textarea>
+      <div class="chat-admin-drawer-foot">
+        <span class="chat-admin-char-count" id="chat-global-char-count">0/280</span>
+        <button type="button" class="chat-admin-submit-btn global-submit" id="btn-chat-global-send">📢 Send Global</button>
+      </div>
+    </div>
+
+    <!-- MeDonut Coin Giveaway Composer Drawer -->
+    <div class="chat-admin-drawer" id="chat-giveaway-drawer" style="display: none;">
+      <div class="chat-admin-drawer-head">
+        <span>🎁 Host Coin Giveaway</span>
+        <button type="button" class="chat-admin-drawer-close" id="btn-giveaway-cancel" title="Close">✕</button>
+      </div>
+      <div class="giveaway-form-grid">
+        <label class="giveaway-field">
+          <span>🪙 Total Coins</span>
+          <input type="number" id="giveaway-coins-input" min="1" max="100000000" step="100" value="10000" />
+        </label>
+        <label class="giveaway-field">
+          <span>🏆 Winners</span>
+          <input type="number" id="giveaway-winners-input" min="1" max="50" step="1" value="2" />
+        </label>
+        <label class="giveaway-field">
+          <span>⏱️ Duration (s)</span>
+          <input type="number" id="giveaway-duration-input" min="10" max="86400" step="10" value="60" />
+        </label>
+      </div>
+      <div class="giveaway-presets-row">
+        <button type="button" class="giveaway-preset-btn" data-dur="30">30s</button>
+        <button type="button" class="giveaway-preset-btn active" data-dur="60">1m</button>
+        <button type="button" class="giveaway-preset-btn" data-dur="120">2m</button>
+        <button type="button" class="giveaway-preset-btn" data-dur="300">5m</button>
+      </div>
+      <div class="giveaway-split-preview" id="giveaway-split-preview">
+        Each winner gets: <strong>5,000 🪙</strong>
+      </div>
+      <div class="chat-admin-drawer-foot">
+        <span class="chat-admin-char-count">Whole coins only (decimals removed)</span>
+        <button type="button" class="chat-admin-submit-btn giveaway-submit" id="btn-giveaway-submit">🚀 Start Giveaway</button>
+      </div>
     </div>
 
     <!-- Active Reply Banner Preview -->
@@ -147,6 +231,12 @@
       <div class="chat-cooldown-bar-progress" id="chat-cooldown-bar-progress"></div>
     </div>
   </aside>
+
+  <!-- Floating Feedback & Update Suggestions Button (Positioned directly above Chat Button) -->
+  <button type="button" class="floating-feedback-btn" id="btn-feedback-toggle" title="Send Feedback or Update Suggestions" aria-label="Send Feedback or Update Suggestions">
+    <span class="floating-feedback-icon">💡</span>
+    <span class="floating-feedback-label">Feedback</span>
+  </button>
 
   <!-- Dedicated Bottom-Right Floating Chat Action Button -->
   <button type="button" class="floating-chat-btn" id="btn-chat-toggle" title="Global Live Chat (C)" aria-label="Open Live Chat">
@@ -535,13 +625,13 @@
           <div class="locker-top-nav">
             <div class="locker-tab-switch">
               <button type="button" class="locker-tab-btn active" id="tab-btn-bird-skins">
-                <span>🐦</span> Bird Skins (60)
+                <span>🐦</span> Bird Skins (96)
               </button>
               <button type="button" class="locker-tab-btn" id="tab-btn-pipe-skins">
                 <span>🏗️</span> Pipe Skins (43)
               </button>
               <button type="button" class="locker-tab-btn" id="tab-btn-bg-skins">
-                <span>🌄</span> Backgrounds (1/27)
+                <span>🌄</span> Backgrounds (1/28)
               </button>
             </div>
 
@@ -592,9 +682,10 @@
           <!-- Sub-Panel: Bird Skins Grid -->
           <div id="panel-view-bird-skins" class="locker-panel-view" style="display:flex;">
             <div class="locker-filter-bar" id="bird-filter-bar">
-              <button type="button" class="locker-filter-btn active" data-filter="all" id="bird-filter-all">✨ All (60)</button>
+              <button type="button" class="locker-filter-btn active" data-filter="all" id="bird-filter-all">✨ All (96)</button>
               <button type="button" class="locker-filter-btn" data-filter="owned" id="bird-filter-owned">✅ Owned</button>
               <button type="button" class="locker-filter-btn" data-filter="locked" id="bird-filter-locked">🔒 Locked</button>
+              <button type="button" class="locker-filter-btn" data-filter="leaderboard" id="bird-filter-leaderboard">🏆 Leaderboard (36)</button>
               <button type="button" class="locker-filter-btn" data-filter="pokemon" id="bird-filter-pokemon">🔴 Pokémon (17)</button>
               <button type="button" class="locker-filter-btn" data-filter="easy" id="bird-filter-easy">🟢 Easy (7)</button>
               <button type="button" class="locker-filter-btn" data-filter="medium" id="bird-filter-medium">🟡 Medium (5)</button>
@@ -622,11 +713,11 @@
           <!-- Sub-Panel: Background Skins Grid -->
           <div id="panel-view-bg-skins" class="locker-panel-view" style="display:none;">
             <div class="locker-filter-bar" id="bg-filter-bar">
-              <button type="button" class="locker-filter-btn active" data-filter="all" id="bg-filter-all">✨ All (27)</button>
+              <button type="button" class="locker-filter-btn active" data-filter="all" id="bg-filter-all">✨ All (28)</button>
               <button type="button" class="locker-filter-btn" data-filter="owned" id="bg-filter-owned">✅ Owned</button>
               <button type="button" class="locker-filter-btn" data-filter="locked" id="bg-filter-locked">🔒 Locked</button>
-              <button type="button" class="locker-filter-btn" data-filter="case_basic" id="bg-filter-basic">🎨 250 Case (10)</button>
-              <button type="button" class="locker-filter-btn" data-filter="case_pattern" id="bg-filter-pattern">🧩 500 Case (8)</button>
+              <button type="button" class="locker-filter-btn" data-filter="case_basic" id="bg-filter-basic">🎨 250 Case (11)</button>
+              <button type="button" class="locker-filter-btn" data-filter="case_pattern" id="bg-filter-pattern">🧩 500 Case (9)</button>
               <button type="button" class="locker-filter-btn" data-filter="case_ultimate" id="bg-filter-ultimate">🌌 1000 Case (8)</button>
             </div>
             <div class="skins-scroll-container" id="bg-skins-grid"></div>
@@ -687,6 +778,8 @@
             </div>
             <button type="button" class="btn-small" id="tab-btn-lb" style="display:none;">LB</button>
           </div>
+
+          <div class="lb-reward-banner" id="lb-reward-banner"></div>
 
           <div id="panel-view-lb" class="panel-view-animated" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
             <div class="lb-list-scrollable" id="lb-list">
@@ -750,13 +843,45 @@
 
           <div class="setting-row">
             <div class="setting-info">
-              <span class="setting-name">Ambient Particles & Auroras</span>
-              <span class="setting-desc">Clouds, pipe orbital rings, and score bursts</span>
+              <span class="setting-name">Particle Effects Density</span>
+              <span class="setting-desc" id="setting-particles-desc">High (100%): Full score bursts, crash sparks & skin aura trails</span>
             </div>
-            <label class="setting-switch" style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-              <input type="checkbox" id="setting-particles" checked style="width:18px; height:18px; cursor:pointer;" />
-              <span style="font-size:0.82rem; font-weight:800; color:var(--text-primary);">Enabled</span>
-            </label>
+            <div class="setting-seg-group" id="setting-particles-segmented">
+              <button type="button" class="setting-seg-btn" data-particles="off">🚫 0 Particles</button>
+              <button type="button" class="setting-seg-btn" data-particles="low">✨ Low</button>
+              <button type="button" class="setting-seg-btn" data-particles="medium">🌟 Medium</button>
+              <button type="button" class="setting-seg-btn active" data-particles="high">💥 High</button>
+            </div>
+          </div>
+
+          <div class="settings-section-title" style="justify-content: space-between;">
+            <span style="display:inline-flex; align-items:center; gap:8px;"><span>⚡</span> Starting Speed (Per Gamemode)</span>
+            <button type="button" class="setting-seg-btn" id="btn-reset-start-speeds" style="padding:4px 10px; font-size:0.72rem;">↺ Reset All to 1.0x</button>
+          </div>
+
+          <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 10px;">
+            <div class="setting-info">
+              <span class="setting-name">Custom Starting Speed Floor (1.0x – 2.0x)</span>
+              <span class="setting-desc">Starts each solo mode at your chosen speed until the game naturally catches up — max speed (2.0x) and progression timing never change.</span>
+            </div>
+            <div class="start-speed-grid" id="setting-start-speeds-grid">
+              <div class="start-speed-item">
+                <div class="start-speed-head"><span>🟢 Easy</span><strong id="start-speed-val-easy">1.0x</strong></div>
+                <input type="range" min="1.0" max="2.0" step="0.1" value="1.0" class="setting-slider start-speed-slider" id="setting-start-speed-easy" data-mode="easy" />
+              </div>
+              <div class="start-speed-item">
+                <div class="start-speed-head"><span>🟡 Medium</span><strong id="start-speed-val-medium">1.0x</strong></div>
+                <input type="range" min="1.0" max="2.0" step="0.1" value="1.0" class="setting-slider start-speed-slider" id="setting-start-speed-medium" data-mode="medium" />
+              </div>
+              <div class="start-speed-item">
+                <div class="start-speed-head"><span>🔴 Hard</span><strong id="start-speed-val-hard">1.0x</strong></div>
+                <input type="range" min="1.0" max="2.0" step="0.1" value="1.0" class="setting-slider start-speed-slider" id="setting-start-speed-hard" data-mode="hard" />
+              </div>
+              <div class="start-speed-item">
+                <div class="start-speed-head"><span>⚡ Extreme</span><strong id="start-speed-val-extreme">1.0x</strong></div>
+                <input type="range" min="1.0" max="2.0" step="0.1" value="1.0" class="setting-slider start-speed-slider" id="setting-start-speed-extreme" data-mode="extreme" />
+              </div>
+            </div>
           </div>
 
           <div class="settings-section-title"><span>🎨</span> UI Appearance & Theme</div>
@@ -912,13 +1037,13 @@
                   <div class="profile-hero-top-row">
                     <div class="profile-status-pill">🟢 Online & Authenticated</div>
                     <span class="profile-rank-pill" id="profile-rank-pill">🌱 Rookie Flyer</span>
-                    <span class="profile-hero-badge" id="unlocked-count-badge">🎨 2 / 96 Owned (2%)</span>
+                    <span class="profile-hero-badge" id="unlocked-count-badge">🎨 3 / 167 Owned (2%)</span>
                   </div>
                   <h3 class="profile-hero-name" id="profile-name-text">Guest Player</h3>
                   <div class="profile-mastery-wrap">
                     <div class="profile-mastery-labels">
                       <span>🎨 Overall 3D Cosmetic Mastery</span>
-                      <strong id="profile-mastery-pct">2 / 96 Skins (2%)</strong>
+                      <strong id="profile-mastery-pct">3 / 167 Skins (2%)</strong>
                     </div>
                     <div class="profile-mastery-track">
                       <div class="profile-mastery-fill" id="profile-mastery-bar-fill" style="width: 2%;"></div>
@@ -1095,7 +1220,7 @@
           </div>
 
           <div class="unlock-toast" id="unlock-toast">
-            🎉 NEW COSMETIC UNLOCKED! Check Bird Skins & Pipe Skins!
+            🎉 NEW COSMETIC UNLOCKED! Check Your Skins Locker!
           </div>
 
           <div class="scoreboard">
@@ -1606,6 +1731,170 @@
 
       <div class="public-profile-footer">
         <button type="button" class="btn-public-profile-close" id="public-profile-footer-close-btn">Close Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback & Update Suggestions Modal -->
+  <div id="feedback-modal" class="feedback-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title" style="display: none;">
+    <div class="feedback-modal-card">
+      <div class="feedback-modal-header">
+        <div class="feedback-modal-title-wrap">
+          <span class="feedback-modal-icon">💡</span>
+          <div>
+            <h3 id="feedback-modal-title">Feedback & Update Suggestions</h3>
+            <p class="feedback-modal-sub">Share ideas for new features, skins, balance tweaks, or bugs directly with MeDonut!</p>
+          </div>
+        </div>
+        <button type="button" class="feedback-modal-close-btn" id="btn-feedback-close" title="Close (Esc)">✕</button>
+      </div>
+
+      <form id="feedback-modal-form" class="feedback-modal-body">
+        <div class="feedback-category-row" id="feedback-category-row">
+          <button type="button" class="feedback-cat-btn active" data-cat="suggestion">✨ Update Idea</button>
+          <button type="button" class="feedback-cat-btn" data-cat="bug">🐛 Bug Report</button>
+          <button type="button" class="feedback-cat-btn" data-cat="feedback">💬 General Feedback</button>
+        </div>
+
+        <div class="feedback-input-wrap">
+          <textarea
+            id="feedback-message-input"
+            class="feedback-textarea"
+            rows="4"
+            maxlength="600"
+            placeholder="Write your update suggestion or feedback here... (e.g. new gamemode idea, skin suggestion, bug details)"
+          ></textarea>
+          <div class="feedback-input-meta">
+            <span id="feedback-sender-note">Sending as: <strong id="feedback-sender-name">Guest</strong></span>
+            <span id="feedback-char-counter">0/600</span>
+          </div>
+        </div>
+
+        <div class="feedback-status-msg" id="feedback-status-msg" style="display: none;"></div>
+
+        <div class="feedback-modal-footer">
+          <button type="button" class="feedback-cancel-btn" id="btn-feedback-cancel">Cancel</button>
+          <button type="submit" class="feedback-submit-btn" id="btn-feedback-submit">🚀 Send Feedback</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Pro 3D Background Drawing Studio Modal (for Draw-Your-Own Background Skin) -->
+  <div id="bg-draw-studio-modal" class="draw-studio-overlay" role="dialog" aria-modal="true" aria-labelledby="draw-studio-title" style="display: none;">
+    <div class="draw-studio-card">
+      <div class="draw-studio-header">
+        <div class="draw-studio-title-wrap">
+          <span class="draw-studio-icon">🎨</span>
+          <div>
+            <h3 id="draw-studio-title">3D Background Drawing Studio</h3>
+            <p class="draw-studio-sub">Paint your own custom 16:9 skybox background with brushes, glow, spray, shapes, symmetry &amp; flood fill!</p>
+          </div>
+        </div>
+        <div class="draw-studio-head-actions">
+          <button type="button" class="draw-tool-action-btn" id="btn-draw-undo" title="Undo (Ctrl+Z)">↩️ Undo</button>
+          <button type="button" class="draw-tool-action-btn" id="btn-draw-redo" title="Redo (Ctrl+Y)">↪️ Redo</button>
+          <button type="button" class="draw-tool-action-btn danger" id="btn-draw-clear" title="Clear Canvas">🗑️ Clear</button>
+          <button type="button" class="draw-studio-close-btn" id="btn-draw-studio-close" title="Close (Esc)">✕</button>
+        </div>
+      </div>
+
+      <div class="draw-studio-toolbar">
+        <!-- Tool Selector -->
+        <div class="draw-tools-group" id="draw-tools-group">
+          <button type="button" class="draw-tool-btn active" data-tool="brush" title="Soft Smooth Brush">🖌️ Brush</button>
+          <button type="button" class="draw-tool-btn" data-tool="pencil" title="Crisp Hard Pencil">✏️ Pencil</button>
+          <button type="button" class="draw-tool-btn" data-tool="neon" title="Neon Glow Brush">✨ Neon</button>
+          <button type="button" class="draw-tool-btn" data-tool="rainbow" title="Rainbow Hue Brush">🌈 Rainbow</button>
+          <button type="button" class="draw-tool-btn" data-tool="spray" title="Airbrush Spray">💨 Spray</button>
+          <button type="button" class="draw-tool-btn" data-tool="bucket" title="Paint Bucket Flood Fill">🪣 Fill</button>
+          <button type="button" class="draw-tool-btn" data-tool="line" title="Straight Line">📏 Line</button>
+          <button type="button" class="draw-tool-btn" data-tool="rect" title="Rectangle Outline">▭ Rect</button>
+          <button type="button" class="draw-tool-btn" data-tool="rect_fill" title="Filled Rectangle">⬛ Box</button>
+          <button type="button" class="draw-tool-btn" data-tool="circle" title="Circle Outline">⭕ Circle</button>
+          <button type="button" class="draw-tool-btn" data-tool="circle_fill" title="Filled Circle">🔵 Disc</button>
+          <button type="button" class="draw-tool-btn" data-tool="star" title="Star Stamp">⭐ Star</button>
+          <button type="button" class="draw-tool-btn" data-tool="eyedropper" title="Pick Color from Canvas">💧 Pick</button>
+          <button type="button" class="draw-tool-btn" data-tool="eraser" title="Eraser">🧽 Erase</button>
+        </div>
+
+        <!-- Sliders, Symmetry & Presets -->
+        <div class="draw-controls-row">
+          <label class="draw-ctrl-pill">
+            <span>Size <strong id="draw-size-val">16px</strong></span>
+            <input type="range" id="draw-size-slider" min="1" max="96" step="1" value="16" />
+          </label>
+          <label class="draw-ctrl-pill">
+            <span>Opacity <strong id="draw-opacity-val">100%</strong></span>
+            <input type="range" id="draw-opacity-slider" min="10" max="100" step="5" value="100" />
+          </label>
+          <label class="draw-ctrl-pill">
+            <span>Symmetry</span>
+            <select id="draw-symmetry-select">
+              <option value="none" selected>Off</option>
+              <option value="horizontal">↔ Mirror H</option>
+              <option value="vertical">↕ Mirror V</option>
+              <option value="quad">✥ Quad 4x</option>
+            </select>
+          </label>
+          <label class="draw-ctrl-pill">
+            <span>Sky Base</span>
+            <select id="draw-preset-select">
+              <option value="">✨ Apply Backdrop...</option>
+              <option value="sky_day">🌤️ Classic Day Sky</option>
+              <option value="sky_sunset">🌅 Golden Sunset</option>
+              <option value="sky_night">🌌 Starry Midnight</option>
+              <option value="sky_cyber">👾 Cyber Neon Grid</option>
+              <option value="sky_aurora">🌠 Arctic Aurora</option>
+              <option value="solid_white">⬜ Pure White</option>
+              <option value="solid_black">⬛ Pitch Black</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Color Picker + 18 Pro Swatches -->
+        <div class="draw-colors-row">
+          <label class="draw-color-picker-wrap" title="Custom Hex Color">
+            <input type="color" id="draw-color-picker" value="#38bdf8" />
+            <span id="draw-color-hex">#38BDF8</span>
+          </label>
+          <div class="draw-swatches" id="draw-swatches">
+            <button type="button" class="draw-swatch" data-color="#ffffff" style="background:#ffffff;"></button>
+            <button type="button" class="draw-swatch" data-color="#0f172a" style="background:#0f172a;"></button>
+            <button type="button" class="draw-swatch" data-color="#ef4444" style="background:#ef4444;"></button>
+            <button type="button" class="draw-swatch" data-color="#f97316" style="background:#f97316;"></button>
+            <button type="button" class="draw-swatch" data-color="#facc15" style="background:#facc15;"></button>
+            <button type="button" class="draw-swatch" data-color="#22c55e" style="background:#22c55e;"></button>
+            <button type="button" class="draw-swatch" data-color="#14b8a6" style="background:#14b8a6;"></button>
+            <button type="button" class="draw-swatch active" data-color="#38bdf8" style="background:#38bdf8;"></button>
+            <button type="button" class="draw-swatch" data-color="#2563eb" style="background:#2563eb;"></button>
+            <button type="button" class="draw-swatch" data-color="#6366f1" style="background:#6366f1;"></button>
+            <button type="button" class="draw-swatch" data-color="#a855f7" style="background:#a855f7;"></button>
+            <button type="button" class="draw-swatch" data-color="#ec4899" style="background:#ec4899;"></button>
+            <button type="button" class="draw-swatch" data-color="#fb7185" style="background:#fb7185;"></button>
+            <button type="button" class="draw-swatch" data-color="#fde047" style="background:#fde047;"></button>
+            <button type="button" class="draw-swatch" data-color="#86efac" style="background:#86efac;"></button>
+            <button type="button" class="draw-swatch" data-color="#bae6fd" style="background:#bae6fd;"></button>
+            <button type="button" class="draw-swatch" data-color="#78350f" style="background:#78350f;"></button>
+            <button type="button" class="draw-swatch" data-color="#94a3b8" style="background:#94a3b8;"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 16:9 Full HD (1920x1080) Interactive Drawing Canvas Stage -->
+      <div class="draw-canvas-stage" id="draw-canvas-stage">
+        <div class="draw-canvas-frame">
+          <canvas id="bg-draw-main-canvas" width="1920" height="1080"></canvas>
+          <canvas id="bg-draw-preview-canvas" width="1920" height="1080"></canvas>
+        </div>
+      </div>
+
+      <div class="draw-studio-footer">
+        <span class="draw-studio-status" id="draw-studio-status">Ready to paint! Hold &amp; drag on the canvas.</span>
+        <div class="draw-studio-footer-btns">
+          <button type="button" class="draw-tool-action-btn" id="btn-draw-download">⬇️ Download PNG</button>
+          <button type="button" class="draw-save-apply-btn" id="btn-draw-save-apply">💾 Save &amp; Apply Background</button>
+        </div>
       </div>
     </div>
   </div>

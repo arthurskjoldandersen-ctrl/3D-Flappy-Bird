@@ -5,6 +5,89 @@
  */
 'use strict';
 
+      /**
+       * ======================================================================
+       * REWRITTEN DETERMINISTIC BIRD JUMP CONTROLLER (BirdJumpController)
+       * ======================================================================
+       * Legacy system backed up verbatim in backups/legacy-flight-system-backup/.
+       * - FIFO jump intent buffer (max 2 queued jumps, 16-tick TTL)
+       * - Explicit key-down/key-up tracking + focus/blur recovery (no stuck keys)
+       * - Zero cross-channel lockout (Space + Mouse alternating taps always register)
+       * - Strict >= 2-tick anti-cheat spacing matching server antiCheat.js
+       * - Identical gravity, flapImpulse, maxFallSpeed, jump height & hang time
+       */
+      class BirdJumpController {
+        constructor() {
+          this.queue = [];
+          this.pressedKeys = new Set();
+          this.lastFlapTick = -2;
+          this.lastSameChannelMs = { kbd: -1000, ptr: -1000, auto: -1000 };
+          this.maxBuffered = 2;
+          this.bufferTtlTicks = 16;
+          this.minTickSpacing = 2;
+          this.sameChannelBounceMs = 6;
+        }
+
+        resetForNewRun() {
+          this.queue.length = 0;
+          this.pressedKeys.clear();
+          this.lastFlapTick = -2;
+          this.lastSameChannelMs.kbd = -1000;
+          this.lastSameChannelMs.ptr = -1000;
+          this.lastSameChannelMs.auto = -1000;
+        }
+
+        clearPressedKeys() {
+          this.pressedKeys.clear();
+        }
+
+        onKeyDown(keyId) {
+          if (keyId && this.pressedKeys.has(keyId)) return false;
+          if (keyId) this.pressedKeys.add(keyId);
+          return this.enqueue('kbd');
+        }
+
+        onKeyUp(keyId) {
+          if (keyId) this.pressedKeys.delete(keyId);
+        }
+
+        enqueue(source = 'auto') {
+          const chan = (source === 'kbd' || source === 'ptr') ? source : 'auto';
+          const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          const prevMs = this.lastSameChannelMs[chan] !== undefined ? this.lastSameChannelMs[chan] : -1000;
+          if ((now - prevMs) < this.sameChannelBounceMs) {
+            return false;
+          }
+          this.lastSameChannelMs[chan] = now;
+          if (this.queue.length < this.maxBuffered) {
+            this.queue.push({ ttlTicks: this.bufferTtlTicks, source: chan, queuedAtMs: now });
+          } else {
+            this.queue[this.queue.length - 1].ttlTicks = this.bufferTtlTicks;
+          }
+          return true;
+        }
+
+        hasPendingJump() {
+          return this.queue.length > 0;
+        }
+
+        consumeForTick(currentTick) {
+          if (this.queue.length === 0) return false;
+          if ((currentTick - this.lastFlapTick) >= this.minTickSpacing) {
+            this.queue.shift();
+            this.lastFlapTick = currentTick;
+            return true;
+          }
+          for (let i = this.queue.length - 1; i >= 0; i--) {
+            this.queue[i].ttlTicks -= 1;
+            if (this.queue[i].ttlTicks <= 0) {
+              this.queue.splice(i, 1);
+            }
+          }
+          return false;
+        }
+      }
+
       class FlappyBirdOnline {
         constructor() {
           this.container = document.getElementById('game-canvas-container');
@@ -56,6 +139,22 @@
           this.prefetchPromise = null;
           this.prefetchingDifficulty = null;
           this.activeRunPromise = null;
+          this._gameOverGen = 0;
+          this._gameOverShowTimer = null;
+          this._lastLeaderboardFetchAt = 0;
+          this._dirtyLobbyLb = false;
+          this._dirtyGameOverLb = false;
+          this._autoPerfTier = 0;
+          this._lowFpsStreak = 0;
+          this._fpsAccumMs = 0;
+          this._fpsSampleCount = 0;
+          this._localRecordsVersion = 0;
+          this._lastRunFinishAt = 0;
+          this._flushingPendingRuns = false;
+          this._hasPendingRunFinishes = true;
+          this._lastHudScore = null;
+          this._lastHudSpeed = null;
+          this._lastHudMode = null;
 
           // Anti-Cheat & Sub-Tick Interpolation State
           this.activeRunId = null;
@@ -65,14 +164,7 @@
           this.lastExtremeFrameTime = 0;
           this.currentTick = 0;
           this.flapTicks = [];
-          this.pendingFlap = false;
-          this.queuedFlaps = 0;
-          this.flapBufferTicks = 0;
-          this.lastFlapTick = -2;
-          this.lastQueueFlapTime = -1000;
-          this.lastKbdQueueTime = -1000;
-          this.lastPtrQueueTime = -1000;
-          this.lastQueueSource = '';
+          this.jumpController = new BirdJumpController();
           this.physicsAccumulator = 0;
 
           // Authoritative 60Hz coordinates + Previous tick coordinates for 120Hz/144Hz interpolation
@@ -131,8 +223,25 @@
             if (document.hidden) return;
             if (this.state === GAME_STATE.START || this.state === GAME_STATE.GAMEOVER) {
               this.fetchLeaderboards(this.lbShowAllPlayers);
+              if (this._hasPendingRunFinishes && typeof this.flushPendingRunFinishes === 'function') {
+                this.flushPendingRunFinishes();
+              }
             }
           }, 5000);
+
+          if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+            window.addEventListener('online', () => {
+              this._hasPendingRunFinishes = true;
+              if (typeof this.flushPendingRunFinishes === 'function') {
+                this.flushPendingRunFinishes();
+              }
+            });
+          }
+          setTimeout(() => {
+            if (typeof this.flushPendingRunFinishes === 'function') {
+              this.flushPendingRunFinishes();
+            }
+          }, 900);
 
           this.startLiveUserSyncPolling();
           this.initResetCountdownTimer();
@@ -190,6 +299,14 @@
             if (cookieModal && (cookieModal.classList.contains('active') || cookieModal.classList.contains('visible') || (cookieModal.style.display && cookieModal.style.display !== 'none'))) {
               return true;
             }
+            const feedbackModal = document.getElementById('feedback-modal');
+            if (feedbackModal && (feedbackModal.classList.contains('active') || feedbackModal.classList.contains('visible') || (feedbackModal.style.display && feedbackModal.style.display !== 'none'))) {
+              return true;
+            }
+            const drawStudioModal = document.getElementById('bg-draw-studio-modal');
+            if (drawStudioModal && (drawStudioModal.classList.contains('active') || drawStudioModal.classList.contains('visible') || (drawStudioModal.style.display && drawStudioModal.style.display !== 'none'))) {
+              return true;
+            }
             return false;
           };
 
@@ -203,14 +320,22 @@
             this.startGame();
           };
 
+          const getJumpKeyId = (e) => {
+            if (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar' || e.keyCode === 32) return 'Space';
+            if (e.code === 'ArrowUp' || e.key === 'ArrowUp' || e.keyCode === 38) return 'ArrowUp';
+            if (e.code === 'KeyW' || e.key === 'w' || e.key === 'W' || e.keyCode === 87) return 'KeyW';
+            return '';
+          };
+
+          window.addEventListener('blur', () => {
+            if (this.jumpController) this.jumpController.clearPressedKeys();
+          });
+
           window.addEventListener('keydown', (e) => {
             const activeEl = document.activeElement;
             const tag = activeEl && activeEl.tagName;
-            const isJumpKey = (
-              e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW' ||
-              e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' ||
-              e.keyCode === 32 || e.keyCode === 38 || e.keyCode === 87
-            );
+            const jumpKeyId = getJumpKeyId(e);
+            const isJumpKey = Boolean(jumpKeyId);
 
             if (this.state === GAME_STATE.PLAYING && isJumpKey) {
               // Capture phase: never let lingering input focus, chat drawer, or child stopPropagation swallow a jump!
@@ -223,7 +348,7 @@
               e.preventDefault();
               e.stopPropagation();
               if (e.repeat) return;
-              this.queueFlap('kbd');
+              this.queueFlap('kbd', jumpKeyId);
               return;
             }
 
@@ -262,6 +387,16 @@
                 if (pModal && pModal.classList.contains('active')) {
                   this.toggleProfileModal(false);
                 }
+                const fbModal = document.getElementById('feedback-modal');
+                if (fbModal && (fbModal.classList.contains('active') || (fbModal.style.display && fbModal.style.display !== 'none'))) {
+                  if (typeof this.closeFeedbackModal === 'function') this.closeFeedbackModal();
+                  else { fbModal.classList.remove('active'); fbModal.style.display = 'none'; }
+                }
+                const drawModal = document.getElementById('bg-draw-studio-modal');
+                if (drawModal && (drawModal.classList.contains('active') || (drawModal.style.display && drawModal.style.display !== 'none'))) {
+                  if (typeof this.closeBackgroundDrawStudio === 'function') this.closeBackgroundDrawStudio();
+                  else { drawModal.classList.remove('active'); drawModal.style.display = 'none'; }
+                }
               }
               return;
             }
@@ -290,15 +425,14 @@
             }
           }, { capture: true });
 
-          let lastPointerActionTime = 0;
-
           const isInsideMenuUi = (el) => {
             if (!el || typeof el.closest !== 'function') return false;
             return Boolean(
               el.closest(
                 'button, a, input, textarea, select, option, label, ' +
                 'header, nav, .app-header, #top-app-bar, #main-nav-dock, .nav-dock, ' +
-                '#game-chat-panel, #btn-chat-toggle, .floating-chat-btn, .chat-panel, ' +
+                '#game-chat-panel, #btn-chat-toggle, .floating-chat-btn, #btn-feedback-toggle, .floating-feedback-btn, .chat-panel, ' +
+                '#global-broadcast-banner, .global-broadcast-banner, #feedback-modal, #bg-draw-studio-modal, ' +
                 '.card, .play-deck-card, .lb-full-card, .locker-full-card, .locker-panel-card, ' +
                 '.stats-full-card, .duels-full-card, .duels-container, .duels-arena-card, .duels-shop-card, .duels-tabs-bar, .duels-tab-btn, .duels-tab-panel, #view-duels, ' +
                 '#duel-overlay-backdrop, #duel-spectator-overlay, #duel-live-hud, .duel-modal-box, .duel-lobby-row, ' +
@@ -319,18 +453,11 @@
               if (this.state !== GAME_STATE.PLAYING && e.isPrimary === false) return;
             }
 
-            const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-            // Deduplicate synthetic / hardware bounce only (<14ms), allowing fast intentional double-taps
-            if (now - lastPointerActionTime < 14) {
-              return;
-            }
-            lastPointerActionTime = now;
-
             const target = e.target;
 
-            // During active gameplay, tapping anywhere (except interactive chat/buttons) triggers an instant jump!
+            // During active gameplay, tapping anywhere on the playfield triggers an instant buffered jump!
             if (this.state === GAME_STATE.PLAYING) {
-              if (target && target.closest && target.closest('button, a, input, textarea, select, option, #top-app-bar, #game-chat-panel, #btn-chat-toggle, .floating-chat-btn')) {
+              if (target && target.closest && target.closest('button, a, input, textarea, select, option, #top-app-bar, #game-chat-panel, #btn-chat-toggle, .floating-chat-btn, #btn-feedback-toggle, .floating-feedback-btn, #global-broadcast-banner, #feedback-modal')) {
                 return;
               }
               if (document.activeElement && typeof document.activeElement.blur === 'function') {
@@ -366,10 +493,14 @@
           }
 
           window.addEventListener('keyup', (e) => {
-            if (this.state === GAME_STATE.PLAYING && (e.code === 'Space' || e.key === ' ')) {
+            const jumpKeyId = getJumpKeyId(e);
+            if (jumpKeyId && this.jumpController) {
+              this.jumpController.onKeyUp(jumpKeyId);
+            }
+            if (this.state === GAME_STATE.PLAYING && jumpKeyId === 'Space') {
               e.preventDefault();
             }
-          });
+          }, { capture: true });
 
           const bindStartButton = (btnId) => {
             const btn = document.getElementById(btnId);
@@ -952,12 +1083,33 @@
             });
           });
 
-          // Settings Controls: Ambient Particles Checkbox
-          const cbPart = document.getElementById('setting-particles');
-          if (cbPart) {
-            cbPart.addEventListener('change', (e) => {
-              this.settings.particles = e.target.checked;
-              this.saveSettings();
+          // Settings Controls: 4-Level Particle Effects Density (Off = 0 Particles, Low, Medium, High)
+          document.querySelectorAll('#setting-particles-segmented .setting-seg-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const lvl = btn.getAttribute('data-particles') || 'high';
+              if (typeof this.applyParticleLevel === 'function') {
+                this.applyParticleLevel(lvl, true);
+              }
+            });
+          });
+
+          // Settings Controls: Per-Gamemode Starting Speed Floor (1.0x - 2.0x)
+          document.querySelectorAll('.start-speed-slider').forEach(slider => {
+            slider.addEventListener('input', (e) => {
+              const mode = slider.getAttribute('data-mode');
+              if (mode && typeof this.setModeStartSpeed === 'function') {
+                this.setModeStartSpeed(mode, e.target.value);
+              }
+            });
+          });
+          const resetSpeedsBtn = document.getElementById('btn-reset-start-speeds');
+          if (resetSpeedsBtn) {
+            resetSpeedsBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              ['easy', 'medium', 'hard', 'extreme'].forEach(m => {
+                if (typeof this.setModeStartSpeed === 'function') this.setModeStartSpeed(m, 1.0);
+              });
             });
           }
 
@@ -1265,12 +1417,16 @@
           const easy = Number(rec.easy) || 0;
           const medium = Number(rec.medium) || 0;
           const hard = Number(rec.hard) || 0;
+          const granted = Boolean(this.currentUser && this.currentUser.extremeAccessGranted);
+          const natural = easy >= reqs.easy && medium >= reqs.medium && hard >= reqs.hard;
           return {
             easy,
             medium,
             hard,
             reqs,
-            unlocked: easy >= reqs.easy && medium >= reqs.medium && hard >= reqs.hard
+            granted,
+            natural,
+            unlocked: granted || natural
           };
         }
 
@@ -1338,6 +1494,11 @@
         }
 
         showLobbyScreen() {
+          if (this._gameOverShowTimer) {
+            clearTimeout(this._gameOverShowTimer);
+            this._gameOverShowTimer = null;
+          }
+          this._gameOverGen = (this._gameOverGen || 0) + 1;
           document.body.classList.remove('in-game');
           document.getElementById('gameover-screen').classList.remove('active');
           document.getElementById('start-screen').classList.add('active');
@@ -1363,7 +1524,12 @@
           if (this.currentAppView === 'skins') {
             this.renderAllCosmeticGrids();
           }
-          this.fetchLeaderboards();
+          if (!this._lastLeaderboardFetchAt || (Date.now() - this._lastLeaderboardFetchAt > 4000)) {
+            this.fetchLeaderboards();
+          }
+          if (this._hasPendingRunFinishes && typeof this.flushPendingRunFinishes === 'function') {
+            this.flushPendingRunFinishes();
+          }
           this.prefetchRunSession(this.selectedDifficulty);
         }
 
@@ -1383,7 +1549,7 @@
           }
 
           this.prefetchingDifficulty = diffKey;
-          this.prefetchPromise = this.apiRequest('/api/run/start', 'POST', { difficulty: diffKey })
+          this.prefetchPromise = this.apiRequest('/api/run/start', 'POST', { difficulty: diffKey }, 3)
             .then(data => {
               if (data && data.runId) {
                 this.prefetchedRun = {
@@ -1410,6 +1576,11 @@
             return;
           }
           this.isStartingRun = true;
+          if (this._gameOverShowTimer) {
+            clearTimeout(this._gameOverShowTimer);
+            this._gameOverShowTimer = null;
+          }
+          this._gameOverGen = (this._gameOverGen || 0) + 1;
           document.body.classList.add('in-game');
           const topBarEl2 = document.getElementById('top-app-bar');
           if (topBarEl2) {
@@ -1444,7 +1615,7 @@
           this.activeRunPromise = null;
 
           if (this.currentUser && this.authToken) {
-            // 1. Consume instant pre-fetched token if available (0ms delay)
+            // 1. Consume instant pre-fetched token (including nextRun piggybacked from /api/run/finish) -> 0ms start!
             if (this.prefetchedRun &&
                 this.prefetchedRun.difficulty === targetDifficulty &&
                 (Date.now() - this.prefetchedRun.fetchedAt < 10 * 60 * 1000)) {
@@ -1455,11 +1626,11 @@
               // 2. Generate local seed so gameplay starts INSTANTLY with 0ms network latency!
               this.activeSeed = (Math.floor(Math.random() * 0x7fffffff)) | 1;
               const seedToSend = this.activeSeed;
-              this.activeRunPromise = this.apiRequest('/api/run/start', 'POST', {
+              const startedRunPromise = this.apiRequest('/api/run/start', 'POST', {
                 difficulty: targetDifficulty,
                 seed: seedToSend
-              }).then(runData => {
-                if (runData && runData.runId) {
+              }, 4).then(runData => {
+                if (runData && runData.runId && this.activeRunPromise === startedRunPromise) {
                   this.activeRunId = runData.runId;
                 }
                 return runData;
@@ -1467,14 +1638,13 @@
                 if (err && String(err.message).toLowerCase().includes('log in')) {
                   this.clearLoggedInUser();
                 }
-                this.activeRunId = null;
+                if (this.activeRunPromise === startedRunPromise) {
+                  this.activeRunId = null;
+                }
+                return null;
               });
+              this.activeRunPromise = startedRunPromise;
             }
-
-            // Schedule background prefetch for subsequent runs
-            setTimeout(() => {
-              this.prefetchRunSession(this.selectedDifficulty);
-            }, 120);
           } else {
             this.activeSeed = (Math.floor(Math.random() * 0x7fffffff)) | 1;
           }
@@ -1486,21 +1656,18 @@
             window.focus();
           }
 
+          this.activeRunStartSpeedMult = (typeof this.getActiveStartSpeedMult === 'function')
+            ? this.getActiveStartSpeedMult(targetDifficulty)
+            : 1.0;
+          this.lastSpawnedGapCenterY = null;
           this.prng = createSeededPRNG(this.activeSeed);
           this.extremeSolver = (targetDifficulty === 'extreme' && typeof createExtremePipeSolver === 'function')
-            ? createExtremePipeSolver(this.activeSeed, CONFIG)
+            ? createExtremePipeSolver(this.activeSeed, CONFIG, this.activeRunStartSpeedMult)
             : null;
           this.lastExtremeFrameTime = 0;
           this.currentTick = 0;
           this.flapTicks = [];
-          this.pendingFlap = false;
-          this.queuedFlaps = 0;
-          this.flapBufferTicks = 0;
-          this.lastFlapTick = -2;
-          this.lastQueueFlapTime = -1000;
-          this.lastKbdQueueTime = -1000;
-          this.lastPtrQueueTime = -1000;
-          this.lastQueueSource = '';
+          this.jumpController = new BirdJumpController();
           this.physicsAccumulator = 0;
 
           // Reset any lingering particles from prior crash/score
@@ -1542,13 +1709,7 @@
 
           this.birdVelocityY = this.getDifficultyParams().flapImpulse;
           this.wingFlapBoost = 1.0;
-          this.pendingFlap = false;
-          this.queuedFlaps = 0;
-          this.flapBufferTicks = 0;
-          this.lastQueueFlapTime = -1000;
-          this.lastKbdQueueTime = -1000;
-          this.lastPtrQueueTime = -1000;
-          this.lastQueueSource = '';
+          if (this.jumpController) this.jumpController.resetForNewRun();
           if (document.activeElement && typeof document.activeElement.blur === 'function') {
             document.activeElement.blur();
           }
@@ -1557,37 +1718,211 @@
           this.sound.playFlap();
         }
 
-        queueFlap(source = 'auto') {
-          if (this.state !== GAME_STATE.PLAYING) return;
-          const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-          const lastAny = this.lastQueueFlapTime || 0;
-          const isSameSource = source !== 'auto' && this.lastQueueSource === source;
-          const lastChanTime = source === 'kbd' ? (this.lastKbdQueueTime || 0) : (source === 'ptr' ? (this.lastPtrQueueTime || 0) : lastAny);
+        queueFlap(source = 'auto', keyId = '') {
+          if (this.state !== GAME_STATE.PLAYING) return false;
+          if (!this.jumpController) this.jumpController = new BirdJumpController();
+          const accepted = (source === 'kbd' && keyId)
+            ? this.jumpController.onKeyDown(keyId)
+            : this.jumpController.enqueue(source);
+          if (!accepted) return false;
 
-          // Prevent switch bounce (<18ms same channel) or accidental simultaneous Space+Click overlap (<24ms cross-channel),
-          // while allowing a second intentional rapid tap (>=32ms later) to buffer without being dropped.
-          if (isSameSource && (now - lastChanTime < 18)) {
-            return;
-          }
-          if (!isSameSource && (now - lastAny < 24)) {
-            return;
-          }
-
-          const elapsedSinceLastQueue = now - lastAny;
-          this.lastQueueFlapTime = now;
-          this.lastQueueSource = source;
-          if (source === 'kbd') this.lastKbdQueueTime = now;
-          else if (source === 'ptr') this.lastPtrQueueTime = now;
-
-          this.pendingFlap = true;
-          this.queuedFlaps = (elapsedSinceLastQueue >= 32 && (this.queuedFlaps || 0) >= 1)
-            ? Math.min(2, this.queuedFlaps + 1)
-            : 1;
-          this.flapBufferTicks = 12;
+          // Immediate 0ms tactile visual wing & pitch cue while authoritative physics executes on next 60Hz tick
           this.wingFlapBoost = 1.0;
+          if (this.birdGroup && this.birdGroup.rotation) {
+            this.birdGroup.rotation.z = Math.max(this.birdGroup.rotation.z, 0.16);
+          }
+          return true;
         }
 
-        async triggerGameOver() {
+        getPendingRunFinishesStorageKey() {
+          return 'flappy3d_pending_run_finishes_v1';
+        }
+
+        readPendingRunFinishes() {
+          try {
+            if (typeof localStorage === 'undefined') return [];
+            const raw = localStorage.getItem(this.getPendingRunFinishesStorageKey());
+            if (!raw) return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (_) {
+            return [];
+          }
+        }
+
+        writePendingRunFinishes(list) {
+          try {
+            if (typeof localStorage === 'undefined') return;
+            if (!Array.isArray(list) || list.length === 0) {
+              localStorage.removeItem(this.getPendingRunFinishesStorageKey());
+              this._hasPendingRunFinishes = false;
+            } else {
+              localStorage.setItem(this.getPendingRunFinishesStorageKey(), JSON.stringify(list.slice(-15)));
+              this._hasPendingRunFinishes = true;
+            }
+          } catch (_) {}
+        }
+
+        enqueuePendingRunFinish(entry) {
+          if (!entry || !entry.runId) return false;
+          const existing = this.readPendingRunFinishes().filter(item => item && item.runId !== entry.runId);
+          existing.push(entry);
+          this.writePendingRunFinishes(existing.slice(-15));
+          return true;
+        }
+
+        applyVerifiedRunResult(verifyRes, diffKey, expectedUserKey, allowPrefetchNextRun = true) {
+          if (!verifyRes) return;
+          const safeDiff = CONFIG.difficulties[diffKey] ? diffKey : 'medium';
+
+          if (allowPrefetchNextRun && verifyRes.nextRun && verifyRes.nextRun.runId && !this.prefetchedRun &&
+              (!this.currentUser || (this.currentUser.username || '').toLowerCase() === expectedUserKey)) {
+            this.prefetchedRun = {
+              difficulty: verifyRes.nextRun.difficulty,
+              runId: verifyRes.nextRun.runId,
+              seed: verifyRes.nextRun.seed,
+              fetchedAt: Date.now()
+            };
+          }
+
+          if (this.currentUser && (!expectedUserKey || (this.currentUser.username || '').toLowerCase() === expectedUserKey)) {
+            if (verifyRes.records) {
+              this.currentUser.records = verifyRes.records;
+              this.localRecords = {
+                easy: Number(verifyRes.records.easy) || 0,
+                medium: Number(verifyRes.records.medium) || 0,
+                hard: Number(verifyRes.records.hard) || 0,
+                extreme: Number(verifyRes.records.extreme) || 0
+              };
+              this.saveLocalRecords();
+            }
+            if (Array.isArray(verifyRes.unlockedLeaderboardSkins)) {
+              this.currentUser.unlockedLeaderboardSkins = [...verifyRes.unlockedLeaderboardSkins];
+            }
+            if (Array.isArray(verifyRes.activeAllTimeLbSkins)) {
+              this.currentUser.activeAllTimeLbSkins = [...verifyRes.activeAllTimeLbSkins];
+              if (typeof this.validateAndReconcileEquippedSkins === 'function') {
+                this.validateAndReconcileEquippedSkins();
+              }
+            }
+            if (typeof verifyRes.recordsVersion === 'number' && Number.isFinite(verifyRes.recordsVersion)) {
+              this._localRecordsVersion = Math.max(this._localRecordsVersion || 0, verifyRes.recordsVersion);
+            }
+            this._lastRunFinishAt = Date.now();
+          }
+
+          // Merge lean single-difficulty update (or full payload if provided)
+          if (verifyRes.difficultyLeaderboards) {
+            const dl = verifyRes.difficultyLeaderboards;
+            if (!this.leaderboards) this.leaderboards = { easy: [], medium: [], hard: [], extreme: [] };
+            if (!this.timeframeLeaderboards) {
+              this.timeframeLeaderboards = { all: {}, weekly: {}, daily: {} };
+            }
+            if (Array.isArray(dl.all)) {
+              this.leaderboards[safeDiff] = dl.all;
+              if (!this.timeframeLeaderboards.all) this.timeframeLeaderboards.all = {};
+              this.timeframeLeaderboards.all[safeDiff] = dl.all;
+            }
+            if (Array.isArray(dl.weekly)) {
+              if (!this.timeframeLeaderboards.weekly) this.timeframeLeaderboards.weekly = {};
+              this.timeframeLeaderboards.weekly[safeDiff] = dl.weekly;
+            }
+            if (Array.isArray(dl.daily)) {
+              if (!this.timeframeLeaderboards.daily) this.timeframeLeaderboards.daily = {};
+              this.timeframeLeaderboards.daily[safeDiff] = dl.daily;
+            }
+          } else {
+            if (verifyRes.leaderboards) this.leaderboards = verifyRes.leaderboards;
+            if (verifyRes.timeframeLeaderboards) this.timeframeLeaderboards = verifyRes.timeframeLeaderboards;
+          }
+
+          if (verifyRes.resetBoundaries) {
+            this.resetBoundaries = verifyRes.resetBoundaries;
+            if (typeof verifyRes.resetBoundaries.serverTime === 'number') {
+              this.clientServerTimeOffset = verifyRes.resetBoundaries.serverTime - Date.now();
+            }
+          }
+
+          this._dirtyLobbyLb = true;
+          this._lastLeaderboardFetchAt = Date.now();
+        }
+
+        async flushPendingRunFinishes() {
+          if (this._flushingPendingRuns || !this.currentUser || !this.authToken) return 0;
+          const queue = this.readPendingRunFinishes();
+          if (queue.length === 0) {
+            this._hasPendingRunFinishes = false;
+            return 0;
+          }
+
+          const expectedUserKey = (this.currentUser.username || '').toLowerCase();
+          this._flushingPendingRuns = true;
+          const remaining = [];
+          let flushedCount = 0;
+          const maxQueueAgeMs = 6 * 60 * 60 * 1000;
+          const now = Date.now();
+
+          try {
+            for (let i = 0; i < queue.length; i += 1) {
+              const item = queue[i];
+              if (!item || !item.runId || !item.difficulty) continue;
+              if (item.queuedAt && (now - Number(item.queuedAt) > maxQueueAgeMs)) continue;
+
+              const itemUserKey = String(item.username || '').toLowerCase();
+              if (itemUserKey && expectedUserKey && itemUserKey !== expectedUserKey) {
+                remaining.push(item);
+                continue;
+              }
+
+              try {
+                const verifyRes = await this.apiRequest('/api/run/finish', 'POST', {
+                  runId: item.runId,
+                  flapTicks: Array.isArray(item.flapTicks) ? item.flapTicks : [],
+                  totalTicks: Number(item.totalTicks) || 0,
+                  claimedScore: Number(item.claimedScore) || 0
+                }, 2);
+                this.applyVerifiedRunResult(verifyRes, item.difficulty, expectedUserKey, false);
+                flushedCount += 1;
+              } catch (err) {
+                const st = Number(err && err.status) || 0;
+                const transient = !st || st === 429 || st >= 500;
+                if (transient) {
+                  remaining.push(item);
+                  for (let j = i + 1; j < queue.length; j += 1) {
+                    if (queue[j]) remaining.push(queue[j]);
+                  }
+                  break;
+                }
+                // Permanent 4xx rejection drops cleanly from queue
+              }
+            }
+
+            this.writePendingRunFinishes(remaining);
+            if (flushedCount > 0 && this.state !== GAME_STATE.PLAYING) {
+              if (typeof this.updateProfileRecordPills === 'function') {
+                this.updateProfileRecordPills();
+              }
+              if (this.currentAppView === 'skins' && typeof this.renderAllCosmeticGrids === 'function') {
+                this.renderAllCosmeticGrids();
+              }
+              if (typeof this.renderLeaderboardInto === 'function') {
+                const lbEl = this.state === GAME_STATE.GAMEOVER
+                  ? document.getElementById('gameover-lb-list')
+                  : document.getElementById('lobby-lb-list');
+                const lbDiff = this.state === GAME_STATE.GAMEOVER
+                  ? (this.selectedDifficulty || 'medium')
+                  : (this.activeLbTab || this.selectedDifficulty || 'medium');
+                if (lbEl) this.renderLeaderboardInto(lbEl, lbDiff, null);
+              }
+            }
+          } finally {
+            this._flushingPendingRuns = false;
+          }
+
+          return flushedCount;
+        }
+
+        triggerGameOver() {
           if (this.state === GAME_STATE.CRASHING || this.state === GAME_STATE.GAMEOVER) return;
 
           if (this.activeDuelLobbyId && this.activeDuelLobby && this.duelRoundPlaying) {
@@ -1595,28 +1930,41 @@
             return;
           }
 
-          const unlockedBefore = this.getUnlockedBirdSkinCount() + this.getUnlockedPipeSkinCount();
+          const unlockedBefore = this.getCosmeticCollectionCounts().totalUnlocked;
+          const runGen = ++this._gameOverGen;
+          if (this._gameOverShowTimer) {
+            clearTimeout(this._gameOverShowTimer);
+            this._gameOverShowTimer = null;
+          }
+
+          // Snapshot run tracking immediately so clicking Play Again quickly never mixes two runs
+          let runIdForFinish = this.activeRunId;
+          const runPromiseForFinish = this.activeRunPromise;
+          this.activeRunId = null;
+          this.activeRunPromise = null;
 
           this.state = GAME_STATE.CRASHING;
           this.sound.playCollision();
-          this.shakeTimer = 0.30;
-
-          // Start pre-fetching the NEXT run token immediately on crash so it's ready when player clicks "Play Again"!
-          this.prefetchRunSession(this.selectedDifficulty);
+          this.shakeTimer = 0.25;
 
           const flash = document.getElementById('damage-flash');
-          flash.style.opacity = '0.72';
-          setTimeout(() => { flash.style.opacity = '0'; }, 90);
+          if (flash) {
+            flash.style.opacity = '0.72';
+            setTimeout(() => { flash.style.opacity = '0'; }, 90);
+          }
 
           this.extremeSolver = null;
           this.spawnCrashParticles(this.birdGroup.position.x, this.birdGroup.position.y);
 
-          const diffKey = this.selectedDifficulty;
+          const diffKey = this.selectedDifficulty || 'medium';
           const diffLabel = CONFIG.difficulties[diffKey].label;
           const finalTicks = this.currentTick;
           const recordedFlaps = this.flapTicks.slice();
           const achievedScore = this.score;
           const runFlaps = recordedFlaps.length + 1;
+          const expectedUserKey = (this.currentUser && this.currentUser.username)
+            ? this.currentUser.username.toLowerCase()
+            : '';
 
           // Update Lifetime & Per-Gamemode Career Flight Telemetry
           this.careerStats.totalRuns += 1;
@@ -1643,7 +1991,7 @@
 
           this.saveCareerStats();
 
-          // Update all Meme Quests & Pokémon Quests
+          // Update all Meme Quests & Pokémon Quests (quests-sync is debounced cleanly inside UI mixin)
           this.recordTrollQuestRun(achievedScore, diffKey, recordedFlaps.length);
 
           let isNewRecord = false;
@@ -1659,95 +2007,36 @@
 
           const statusPill = document.getElementById('anticheat-status-pill');
           const badge = document.getElementById('new-record-badge');
-          badge.classList.toggle('visible', isNewRecord && achievedScore > 0);
-
-          // If activeRunPromise was still in-flight, await it here before finishing the run
-          if (this.activeRunPromise && !this.activeRunId) {
-            try {
-              await this.activeRunPromise;
-            } catch (_) {}
-          }
-          this.activeRunPromise = null;
-
-          if (this.activeRunId && this.currentUser) {
-            statusPill.className = 'anticheat-status';
-            statusPill.textContent = '🛡️ Verifying run replay with server anti-cheat...';
-
-            try {
-              const verifyRes = await this.apiRequest('/api/run/finish', 'POST', {
-                runId: this.activeRunId,
-                flapTicks: recordedFlaps,
-                totalTicks: finalTicks,
-                claimedScore: achievedScore
-              });
-
-              this.currentUser.records = verifyRes.records;
-              if (verifyRes.records) {
-                this.localRecords = {
-                  easy: Number(verifyRes.records.easy) || 0,
-                  medium: Number(verifyRes.records.medium) || 0,
-                  hard: Number(verifyRes.records.hard) || 0,
-                  extreme: Number(verifyRes.records.extreme) || 0
-                };
-                this.saveLocalRecords();
-              }
-              if (typeof this.updateProfileRecordPills === 'function') {
-                this.updateProfileRecordPills();
-              }
-              this.leaderboards = verifyRes.leaderboards || this.leaderboards;
-              if (verifyRes.timeframeLeaderboards) {
-                this.timeframeLeaderboards = verifyRes.timeframeLeaderboards;
-              }
-              if (verifyRes.resetBoundaries) {
-                this.resetBoundaries = verifyRes.resetBoundaries;
-                if (typeof verifyRes.resetBoundaries.serverTime === 'number') {
-                  this.clientServerTimeOffset = verifyRes.resetBoundaries.serverTime - Date.now();
-                }
-              }
-              if (typeof this.updateResetTimerUI === 'function') {
-                this.updateResetTimerUI();
-              }
-              if (this.currentAppView === 'skins') {
-                this.renderAllCosmeticGrids();
-              }
-              this.renderLeaderboard(verifyRes.entryId || null);
-
-              document.getElementById('final-score').textContent = String(verifyRes.verifiedScore);
-              document.getElementById('best-score').textContent = String(this.getBestForDifficulty(diffKey));
-              badge.classList.toggle('visible', Boolean(verifyRes.isNewRecord && verifyRes.verifiedScore > 0));
-
-              statusPill.className = 'anticheat-status verified';
-              if (verifyRes.autoHidden) {
-                statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • 🕒 Weekend / Off-Hours — Saved & Hidden from Leaderboard`;
-              } else if (verifyRes.timeframePlacements) {
-                const p = verifyRes.timeframePlacements;
-                statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • #${p.daily} Daily · #${p.weekly} Weekly · #${p.all} All-Time!`;
-              } else {
-                statusPill.textContent = `🛡️ Anti-Cheat Verified (${finalTicks} ticks) • Added to ${diffLabel} Leaderboard!`;
-              }
-            } catch (err) {
-              statusPill.className = 'anticheat-status rejected';
-              statusPill.textContent = `⚠️ ${err.message}`;
-              this.fetchLeaderboards();
-            }
-          } else {
-            if (this.currentAppView === 'skins') {
-              this.renderAllCosmeticGrids();
-            }
-            statusPill.className = 'anticheat-status';
-            statusPill.textContent = 'ℹ️ Guest Run — Log in on the Start screen to rank on the Online Leaderboard!';
-            this.fetchLeaderboards();
-          }
-
-          const unlockedAfter = this.getUnlockedBirdSkinCount() + this.getUnlockedPipeSkinCount();
+          if (badge) badge.classList.toggle('visible', isNewRecord && achievedScore > 0);
           const unlockToast = document.getElementById('unlock-toast');
-          if (unlockedAfter > unlockedBefore) {
-            unlockToast.classList.add('visible');
-          } else {
-            unlockToast.classList.remove('visible');
+          if (unlockToast) unlockToast.classList.remove('visible');
+
+          if (statusPill) {
+            if (this.currentUser && (runIdForFinish || runPromiseForFinish)) {
+              statusPill.className = 'anticheat-status';
+              statusPill.textContent = '🛡️ Verifying run replay with server anti-cheat...';
+            } else if (!this.currentUser) {
+              statusPill.className = 'anticheat-status';
+              statusPill.textContent = 'ℹ️ Guest Run — Log in on the Start screen to rank on the Online Leaderboard!';
+            }
           }
 
-          setTimeout(() => {
+          // Render cached Game Over leaderboard immediately so the popup opens instantaneously without waiting for network
+          const tfKey = this.activeTimeframeTab || 'all';
+          const tfLabel = tfKey === 'daily' ? 'Daily' : (tfKey === 'weekly' ? 'Weekly' : 'All-Time');
+          const goTitle = document.getElementById('gameover-lb-title');
+          if (goTitle) {
+            goTitle.textContent = `🏆 Live Leaderboard (${tfLabel} · ${diffLabel})`;
+          }
+          if (typeof this.renderLeaderboardInto === 'function') {
+            this.renderLeaderboardInto(document.getElementById('gameover-lb-list'), diffKey, null);
+            this._dirtyGameOverLb = false;
+          }
+
+          // Show Game Over menu & enable instant Play Again after a crisp 130ms impact beat (NEVER blocked by network!)
+          this._gameOverShowTimer = setTimeout(() => {
+            this._gameOverShowTimer = null;
+            if (this._gameOverGen !== runGen) return;
             if (this.activeDuelLobbyId && this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting') {
               return;
             }
@@ -1764,8 +2053,143 @@
                 else topBarEl.style.display = '';
               }
             }
-            document.getElementById('gameover-screen').classList.add('active');
-          }, 380);
+            const goScreen = document.getElementById('gameover-screen');
+            if (goScreen) goScreen.classList.add('active');
+          }, 130);
+
+          // Submit & verify run asynchronously in the background
+          (async () => {
+            if (runPromiseForFinish && !runIdForFinish) {
+              try {
+                const startRes = await runPromiseForFinish;
+                if (startRes && startRes.runId) {
+                  runIdForFinish = startRes.runId;
+                }
+              } catch (_) {}
+            }
+
+            const sameLoggedUser = this.currentUser && (!expectedUserKey || (this.currentUser.username || '').toLowerCase() === expectedUserKey);
+            const stillViewingThisGameOver = () => (
+              this._gameOverGen === runGen &&
+              (this.state === GAME_STATE.CRASHING || this.state === GAME_STATE.GAMEOVER)
+            );
+
+            if (runIdForFinish && sameLoggedUser) {
+              try {
+                const verifyRes = await this.apiRequest('/api/run/finish', 'POST', {
+                  runId: runIdForFinish,
+                  flapTicks: recordedFlaps,
+                  totalTicks: finalTicks,
+                  claimedScore: achievedScore,
+                  startSpeedMult: typeof this.activeRunStartSpeedMult === 'number' ? this.activeRunStartSpeedMult : 1.0
+                }, 4);
+
+                this.applyVerifiedRunResult(verifyRes, diffKey, expectedUserKey, true);
+
+                // If player ALREADY started the next run, do ZERO heavy DOM mutations mid-flight!
+                if (!stillViewingThisGameOver()) {
+                  this._pendingLiveSyncUiRefresh = true;
+                  this._dirtyGameOverLb = true;
+                  return;
+                }
+
+                if (typeof this.updateProfileRecordPills === 'function') {
+                  this.updateProfileRecordPills();
+                }
+                if (typeof this.updateResetTimerUI === 'function') {
+                  this.updateResetTimerUI();
+                }
+                if (this.currentAppView === 'skins') {
+                  this.renderAllCosmeticGrids();
+                }
+                if (typeof this.renderLeaderboardInto === 'function') {
+                  this.renderLeaderboardInto(
+                    document.getElementById('gameover-lb-list'),
+                    diffKey,
+                    verifyRes.entryId || null
+                  );
+                }
+
+                document.getElementById('final-score').textContent = String(verifyRes.verifiedScore);
+                document.getElementById('best-score').textContent = String(this.getBestForDifficulty(diffKey));
+                if (badge) badge.classList.toggle('visible', Boolean(verifyRes.isNewRecord && verifyRes.verifiedScore > 0));
+
+                if (statusPill) {
+                  statusPill.className = 'anticheat-status verified';
+                  if (verifyRes.autoHidden) {
+                    statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • 🕒 Weekend / Off-Hours — Saved & Hidden from Leaderboard`;
+                  } else if (verifyRes.timeframePlacements) {
+                    const p = verifyRes.timeframePlacements;
+                    statusPill.textContent = `🛡️ Verified (${finalTicks} ticks) • #${p.daily} Daily · #${p.weekly} Weekly · #${p.all} All-Time!`;
+                  } else {
+                    statusPill.textContent = `🛡️ Anti-Cheat Verified (${finalTicks} ticks) • Added to ${diffLabel} Leaderboard!`;
+                  }
+                }
+
+                const unlockedAfter = this.getCosmeticCollectionCounts().totalUnlocked;
+                if (unlockToast) {
+                  unlockToast.classList.toggle('visible', unlockedAfter > unlockedBefore);
+                }
+              } catch (err) {
+                const errStatus = Number(err && err.status) || 0;
+                const isTransient = !errStatus || errStatus === 429 || errStatus >= 500;
+                if (isTransient && sameLoggedUser) {
+                  this.enqueuePendingRunFinish({
+                    username: expectedUserKey,
+                    difficulty: diffKey,
+                    runId: runIdForFinish,
+                    flapTicks: recordedFlaps,
+                    totalTicks: finalTicks,
+                    claimedScore: achievedScore,
+                    queuedAt: Date.now()
+                  });
+                }
+                if (stillViewingThisGameOver()) {
+                  if (statusPill) {
+                    if (isTransient) {
+                      statusPill.className = 'anticheat-status';
+                      statusPill.textContent = '💾 Connection hiccup — Score queued locally & retrying automatically...';
+                    } else {
+                      statusPill.className = 'anticheat-status rejected';
+                      statusPill.textContent = `⚠️ ${err.message}`;
+                    }
+                  }
+                  if (!this._lastLeaderboardFetchAt || (Date.now() - this._lastLeaderboardFetchAt > 8000)) {
+                    this.fetchLeaderboards();
+                  }
+                  const unlockedAfter = this.getCosmeticCollectionCounts().totalUnlocked;
+                  if (unlockToast) {
+                    unlockToast.classList.toggle('visible', unlockedAfter > unlockedBefore);
+                  }
+                }
+              }
+            } else {
+              if (!this.prefetchedRun && this.currentUser && this.authToken) {
+                this.prefetchRunSession(diffKey);
+              }
+              if (!this._lastLeaderboardFetchAt || (Date.now() - this._lastLeaderboardFetchAt > 8000)) {
+                this.fetchLeaderboards();
+              }
+              if (stillViewingThisGameOver()) {
+                if (statusPill && this.currentUser && !runIdForFinish && sameLoggedUser) {
+                  if (achievedScore === 0) {
+                    statusPill.className = 'anticheat-status';
+                    statusPill.textContent = 'ℹ️ Score 0 — Ready for next flight!';
+                  } else {
+                    statusPill.className = 'anticheat-status rejected';
+                    statusPill.textContent = '⚠️ Connection issue during takeoff — server run token unavailable.';
+                  }
+                }
+                if (this.currentAppView === 'skins') {
+                  this.renderAllCosmeticGrids();
+                }
+                const unlockedAfter = this.getCosmeticCollectionCounts().totalUnlocked;
+                if (unlockToast) {
+                  unlockToast.classList.toggle('visible', unlockedAfter > unlockedBefore);
+                }
+              }
+            }
+          })();
         }
 
         updateHUD(pop = false) {
@@ -1778,10 +2202,22 @@
           }
           const { scoreEl, speedEl, modeEl } = this.cachedHud;
 
-          if (scoreEl) scoreEl.textContent = String(this.score);
+          const scoreStr = String(this.score);
+          if (scoreEl && this._lastHudScore !== scoreStr) {
+            scoreEl.textContent = scoreStr;
+            this._lastHudScore = scoreStr;
+          }
           const diff = this.getDifficultyParams();
-          if (speedEl) speedEl.textContent = `${diff.speedMult}x`;
-          if (modeEl) modeEl.textContent = diff.label.toUpperCase();
+          const speedStr = `${diff.speedMult}x`;
+          if (speedEl && this._lastHudSpeed !== speedStr) {
+            speedEl.textContent = speedStr;
+            this._lastHudSpeed = speedStr;
+          }
+          const modeStr = diff.label.toUpperCase();
+          if (modeEl && this._lastHudMode !== modeStr) {
+            modeEl.textContent = modeStr;
+            this._lastHudMode = modeStr;
+          }
 
           if (pop && scoreEl) {
             scoreEl.classList.remove('score-pop');
@@ -1856,29 +2292,12 @@
             this.pipes[i].prevX = this.pipes[i].x;
           }
 
-          // Bulletproof non-dropping jump execution: checks if jump is queued and valid against anti-cheat rate limit (>= 2 ticks)
-          if (this.queuedFlaps > 0 || this.pendingFlap) {
-            if ((this.currentTick - this.lastFlapTick) >= 2) {
-              this.birdVelocityY = flapImpulse;
-              this.wingFlapBoost = 1.0;
-              this.flapTicks.push(this.currentTick);
-              this.lastFlapTick = this.currentTick;
-              if (this.sound) this.sound.playFlap();
-              if (this.queuedFlaps > 0) {
-                this.queuedFlaps--;
-              }
-              this.pendingFlap = (this.queuedFlaps > 0);
-              this.flapBufferTicks = (this.queuedFlaps > 0) ? 20 : 0;
-            } else {
-              // Only 1 tick elapsed since last flap (tick T+1). Retain queued jump for tick T+2!
-              if (this.flapBufferTicks > 0) {
-                this.flapBufferTicks--;
-              }
-              if (this.flapBufferTicks <= 0) {
-                this.pendingFlap = false;
-                this.queuedFlaps = 0;
-              }
-            }
+          // Rewritten deterministic jump execution via BirdJumpController (exact >= 2 tick anti-cheat spacing, zero dropped flaps)
+          if (this.jumpController && this.jumpController.consumeForTick(this.currentTick)) {
+            this.birdVelocityY = flapImpulse;
+            this.wingFlapBoost = 1.0;
+            this.flapTicks.push(this.currentTick);
+            if (this.sound) this.sound.playFlap();
           }
 
           this.birdVelocityY += gravity * dt;
@@ -2013,39 +2432,31 @@
                 }
               }
             } else {
-              const is60HzFrame = (frameDt >= 0.0148 && frameDt <= 0.0188);
-              this.physicsAccumulator += frameDt;
-              let ran60HzDirect = false;
-              if (is60HzFrame && this.physicsAccumulator >= (CONFIG.dt - 0.0015) && this.physicsAccumulator < CONFIG.dt * 1.5) {
-                this.physicsAccumulator = Math.max(-0.0015, this.physicsAccumulator - CONFIG.dt);
+              // Soft 60Hz VSync phase smoothing eliminates micro-stutter on standard 60Hz monitors
+              // while keeping 120Hz/144Hz/240Hz displays smoothly fixed at 60Hz physics ticks.
+              const stepDt = (Math.abs(frameDt - CONFIG.dt) < 0.0025) ? CONFIG.dt : frameDt;
+              this.physicsAccumulator = Math.min(CONFIG.dt * 4, this.physicsAccumulator + stepDt);
+              const maxSteps = 4;
+              let steps = 0;
+              while (this.physicsAccumulator >= CONFIG.dt && steps < maxSteps && this.state === GAME_STATE.PLAYING) {
+                this.physicsAccumulator -= CONFIG.dt;
                 this.stepPlayingPhysics();
-                ran60HzDirect = true;
-              } else {
-                const maxSteps = 5;
-                let steps = 0;
-                while (this.physicsAccumulator >= CONFIG.dt && steps < maxSteps && this.state === GAME_STATE.PLAYING) {
-                  this.physicsAccumulator -= CONFIG.dt;
-                  this.stepPlayingPhysics();
-                  steps++;
-                }
+                steps++;
               }
 
-              // Sub-tick interpolation factor alpha in [0, 1) (or direct post-tick pose on 60Hz) eliminates jump stutter
+              // Forward sub-tick visual prediction eliminates 16.7ms interpolation lag and eliminates
+              // backward pose snaps across 60Hz/120Hz/144Hz/240Hz without altering authoritative 60Hz physics!
               if (this.state === GAME_STATE.PLAYING) {
-                if (ran60HzDirect) {
-                  this.birdGroup.position.y = this.simBirdY;
-                  for (let i = 0; i < this.pipes.length; i++) {
-                    const p = this.pipes[i];
-                    p.group.position.x = p.x;
-                  }
-                } else {
-                  const alpha = Math.max(0, Math.min(1, this.physicsAccumulator / CONFIG.dt));
-                  this.birdGroup.position.y = this.prevBirdY + (this.simBirdY - this.prevBirdY) * alpha;
-
-                  for (let i = 0; i < this.pipes.length; i++) {
-                    const p = this.pipes[i];
-                    p.group.position.x = p.prevX + (p.x - p.prevX) * alpha;
-                  }
+                const subDt = Math.max(0, Math.min(CONFIG.dt, this.physicsAccumulator));
+                const activeStepDiff = this.getDifficultyParams();
+                const predictedY = this.simBirdY + this.birdVelocityY * subDt + 0.5 * activeStepDiff.gravity * subDt * subDt;
+                this.birdGroup.position.y = Math.max(
+                  CONFIG.groundY + CONFIG.birdRadius,
+                  Math.min(CONFIG.ceilingY, predictedY)
+                );
+                for (let i = 0; i < this.pipes.length; i++) {
+                  const p = this.pipes[i];
+                  p.group.position.x = p.x - activeStepDiff.speed * subDt;
                 }
               }
             }
@@ -2183,6 +2594,52 @@
           }
         }
 
+        stepDownAutoPerformanceTier() {
+          const nextTier = Math.min(2, (this._autoPerfTier || 0) + 1);
+          if (nextTier === this._autoPerfTier) return;
+          this._autoPerfTier = nextTier;
+          if (!this.renderer) return;
+          const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+          if (typeof this.renderer.setPixelRatio === 'function') {
+            this.renderer.setPixelRatio(Math.min(dpr, 1.0));
+          }
+          if (nextTier === 1) {
+            if (this.renderer.shadowMap && this.renderer.shadowMap.enabled && typeof THREE !== 'undefined') {
+              this.renderer.shadowMap.type = THREE.BasicShadowMap;
+            }
+          } else if (nextTier >= 2) {
+            if (this.renderer.shadowMap) {
+              this.renderer.shadowMap.enabled = false;
+            }
+            if (this.dirLight) {
+              this.dirLight.castShadow = false;
+            }
+          }
+        }
+
+        updateAutoPerformanceTier(rawDt) {
+          if ((typeof document !== 'undefined' && document.hidden) || !Number.isFinite(rawDt) || rawDt <= 0.002 || rawDt >= 0.25) {
+            return;
+          }
+          if ((this._autoPerfTier || 0) >= 2) return;
+          this._fpsAccumMs = (this._fpsAccumMs || 0) + (rawDt * 1000);
+          this._fpsSampleCount = (this._fpsSampleCount || 0) + 1;
+          if (this._fpsSampleCount < 45) return;
+
+          const avgFps = (this._fpsSampleCount * 1000) / Math.max(1, this._fpsAccumMs);
+          this._fpsAccumMs = 0;
+          this._fpsSampleCount = 0;
+          if (avgFps < 40) {
+            this._lowFpsStreak = (this._lowFpsStreak || 0) + 1;
+            if (this._lowFpsStreak >= 2) {
+              this._lowFpsStreak = 0;
+              this.stepDownAutoPerformanceTier();
+            }
+          } else if (avgFps >= 52) {
+            this._lowFpsStreak = 0;
+          }
+        }
+
         animate(now) {
           requestAnimationFrame(this.animate);
           const activeDiffAnim = (typeof this.getActiveDifficulty === 'function')
@@ -2208,6 +2665,7 @@
 
           const rawDt = (now - (this.lastFrameTime || now)) * 0.001;
           this.lastFrameTime = now;
+          this.updateAutoPerformanceTier(rawDt);
           const dt = isExtremeLocked
             ? CONFIG.dt
             : (Number.isFinite(rawDt) ? Math.max(0.0001, Math.min(rawDt, 0.05)) : 0.016);
@@ -2292,7 +2750,11 @@
 
           this.hideAllDuelOverlays();
 
-          if (this._duelPollTimer) clearInterval(this._duelPollTimer);
+          if (this._duelPollTimer) {
+            clearTimeout(this._duelPollTimer);
+            clearInterval(this._duelPollTimer);
+            this._duelPollTimer = null;
+          }
           if (!this._duelVisibilityHandlerAdded) {
             this._duelVisibilityHandlerAdded = true;
             document.addEventListener('visibilitychange', () => {
@@ -2333,7 +2795,11 @@
             window.addEventListener('pagehide', sendTabCloseForfeit);
             window.addEventListener('beforeunload', sendTabCloseForfeit);
           }
-          this._duelPollTimer = setInterval(() => {
+          const scheduleDuelPoll = (delayMs) => {
+            if (this._duelPollTimer) clearTimeout(this._duelPollTimer);
+            this._duelPollTimer = setTimeout(runDuelPollCycle, delayMs);
+          };
+          const runDuelPollCycle = () => {
             const inActiveMatch = Boolean(
               this.activeDuelLobbyId &&
               this.activeDuelLobby &&
@@ -2347,6 +2813,7 @@
                 this.lastDuelPollAt = now;
                 this.fetchDuelsState();
               }
+              scheduleDuelPoll(inActiveMatch ? 1000 : 1500);
               return;
             }
             const isLiveSpectating = Boolean(
@@ -2361,12 +2828,28 @@
             );
             const isFastPoll = Boolean(this.activeDuelLobbyId || this.duelSpectatingLobbyId);
             const intervalMs = (isLiveSpectating || isNearCountdownEnd) ? 75 : (isFastPoll ? 200 : 1200);
-            if (!isFastPoll && this.currentAppView !== 'duels') return;
+            if (!isFastPoll && this.currentAppView !== 'duels') {
+              scheduleDuelPoll(1200);
+              return;
+            }
             if (now - this.lastDuelPollAt >= intervalMs) {
               this.lastDuelPollAt = now;
               this.fetchDuelsState();
             }
-          }, 50);
+            const nextDelay = (isLiveSpectating || isNearCountdownEnd)
+              ? 75
+              : (isFastPoll ? 200 : 600);
+            scheduleDuelPoll(nextDelay);
+          };
+          if (!this._duelVisBound && typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+            this._duelVisBound = true;
+            document.addEventListener('visibilitychange', () => {
+              if (!document.hidden && (this.activeDuelLobbyId || this.duelSpectatingLobbyId || this.currentAppView === 'duels')) {
+                scheduleDuelPoll(40);
+              }
+            });
+          }
+          scheduleDuelPoll(120);
 
           if (this._duelCountdownTicker) clearInterval(this._duelCountdownTicker);
           this._duelCountdownTicker = setInterval(() => {
@@ -3194,21 +3677,16 @@
 
           this.activeRunId = null;
           this.activeSeed = (typeof roundSeed === 'number' && roundSeed > 0) ? roundSeed : ((Math.floor(Math.random() * 0x7fffffff)) | 1);
+          this.activeRunStartSpeedMult = 1.0;
+          this.lastSpawnedGapCenterY = null;
           this.prng = createSeededPRNG(this.activeSeed);
           this.extremeSolver = (roundDiff === 'extreme' && typeof createExtremePipeSolver === 'function')
-            ? createExtremePipeSolver(this.activeSeed, CONFIG)
+            ? createExtremePipeSolver(this.activeSeed, CONFIG, 1.0)
             : null;
           this.lastExtremeFrameTime = 0;
           this.currentTick = 0;
           this.flapTicks = [];
-          this.pendingFlap = false;
-          this.queuedFlaps = 0;
-          this.flapBufferTicks = 0;
-          this.lastFlapTick = -2;
-          this.lastQueueFlapTime = -1000;
-          this.lastKbdQueueTime = -1000;
-          this.lastPtrQueueTime = -1000;
-          this.lastQueueSource = '';
+          this.jumpController = new BirdJumpController();
           this.physicsAccumulator = 0;
 
           if (this.particlePool) {
@@ -3492,7 +3970,7 @@
           grid.className = 'duels-cases-grid';
 
           for (const box of BACKGROUND_CASES) {
-            const boxItems = BACKGROUND_SKINS.filter(b => b.caseId === box.id);
+            const boxItems = BACKGROUND_SKINS.filter(b => b.caseId === box.id || (Array.isArray(b.caseIds) && b.caseIds.includes(box.id)));
             const ownedInCase = boxItems.filter(b => this.isCosmeticUnlocked(b)).length;
             const canAfford = isLoggedIn && coins >= box.price && !this._caseSpinning;
 
@@ -3500,11 +3978,14 @@
             card.className = `duel-case-card ${tierClasses[box.id] || ''}`;
 
             const chipsHtml = boxItems.map(item => {
-              const is1Pct = item.id === 'bg_custom_image';
+              const effDropPct = (item.caseDropPcts && typeof item.caseDropPcts[box.id] === 'number')
+                ? item.caseDropPcts[box.id]
+                : item.dropPct;
+              const is1Pct = item.id === 'bg_custom_image' || item.id === 'bg_custom_draw';
               const is01Pct = item.id === 'bg_custom_video';
               const extraCls = is01Pct ? ' special-01pct' : (is1Pct ? ' special-1pct' : '');
               const ownedMark = this.isCosmeticUnlocked(item) ? ' ✓' : '';
-              return `<span class="duel-case-chip${extraCls}" title="${item.desc}">${item.emoji} ${item.name} (${item.dropPct}%)${ownedMark}</span>`;
+              return `<span class="duel-case-chip${extraCls}" title="${item.desc}">${item.emoji} ${item.name} (${effDropPct}%)${ownedMark}</span>`;
             }).join('');
 
             card.innerHTML = `
@@ -3653,13 +4134,18 @@
                 if (actionsEl) actionsEl.style.display = 'flex';
 
                 if (gotoUploadBtn) {
-                  const isCustomUpload = won.id === 'bg_custom_image' || won.id === 'bg_custom_video';
+                  const isCustomDraw = won.id === 'bg_custom_draw';
+                  const isCustomUpload = won.id === 'bg_custom_image' || won.id === 'bg_custom_video' || isCustomDraw;
                   gotoUploadBtn.style.display = isCustomUpload ? 'inline-flex' : 'none';
+                  gotoUploadBtn.textContent = isCustomDraw ? '🎨 Open Drawing Studio' : '🖼️ Upload Media';
                   gotoUploadBtn.onclick = () => {
                     closeSpinnerModal();
                     this.applyBackgroundSkin(won.id, true);
                     this.switchView('skins');
                     if (typeof this.switchLockerTabFn === 'function') this.switchLockerTabFn('bg');
+                    if (isCustomDraw && typeof this.openBackgroundDrawStudio === 'function') {
+                      setTimeout(() => this.openBackgroundDrawStudio(), 120);
+                    }
                   };
                 }
                 if (equipBtn) {

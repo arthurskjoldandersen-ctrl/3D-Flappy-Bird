@@ -1067,8 +1067,9 @@
       function createBackgroundTexture(bgItem, reuseCanvas = null, timeSec = 0) {
         const canvas = reuseCanvas || document.createElement('canvas');
         if (!reuseCanvas) {
-          canvas.width = 512;
-          canvas.height = 512;
+          const size = (bgItem && bgItem.animated) ? 320 : 512;
+          canvas.width = size;
+          canvas.height = size;
         }
         const ctx = canvas.getContext('2d');
         drawBackgroundPatternToCanvas(bgItem, ctx, canvas.width, canvas.height, timeSec);

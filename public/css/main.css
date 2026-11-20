@@ -239,11 +239,9 @@
       pointer-events: none;
       opacity: 0;
       visibility: hidden;
-      transform: scale(0.95) translateY(10px);
-      transition:
-        opacity 0.25s ease,
-        transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-        visibility 0.25s;
+      transform: scale(0.97) translateY(6px);
+      transition: none;
+      will-change: opacity, transform;
       z-index: 12;
     }
 
@@ -251,7 +249,16 @@
       opacity: 1;
       visibility: visible;
       transform: scale(1) translateY(0);
+      transition:
+        opacity 0.11s ease-out,
+        transform 0.11s cubic-bezier(0.2, 0.8, 0.2, 1);
       pointer-events: auto;
+    }
+
+    body.in-game .screen-overlay {
+      transition: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
     }
 
     /* Main Hub Layout (Start Screen + Skins Locker & Leaderboard) */
@@ -278,8 +285,6 @@
 
     .card {
       background: rgba(255, 255, 255, 0.96);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
       border: 3.5px solid var(--ui-border);
       border-radius: 26px;
       padding: 18px 20px;
@@ -640,6 +645,17 @@
     }
     .diff-btn.active[data-diff="hard"] .diff-meta {
       background: #dc2626;
+      color: #ffffff;
+    }
+
+    .diff-btn.active[data-diff="extreme"] {
+      background: linear-gradient(180deg, #f3e8ff 0%, #e9d5ff 100%);
+      border-color: #a855f7;
+      box-shadow: 0 4px 0 #7e22ce;
+      transform: translateY(-1px);
+    }
+    .diff-btn.active[data-diff="extreme"] .diff-meta {
+      background: #9333ea;
       color: #ffffff;
     }
 
@@ -1184,23 +1200,29 @@
 
     .lb-tabs {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 6px;
       background: #f1f5f9;
-      padding: 4px;
-      border-radius: 11px;
+      padding: 5px;
+      border-radius: 12px;
       margin-bottom: 8px;
+      width: 100%;
     }
 
     .lb-tab {
-      border: none;
+      border: 1.5px solid transparent;
       background: transparent;
-      padding: 6px 8px;
-      border-radius: 8px;
+      padding: 8px 10px;
+      border-radius: 9px;
       font-weight: 900;
-      font-size: 0.78rem;
+      font-size: 0.80rem;
       color: var(--text-muted);
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      white-space: nowrap;
       transition: all 0.16s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -1747,6 +1769,7 @@
     .rarity-COMMON { background: #e2e8f0; color: #475569; }
     .rarity-RARE { background: #e0f2fe; color: #0369a1; }
     .rarity-EPIC { background: #f3e8ff; color: #7e22ce; }
+    .rarity-LEGENDARY { background: linear-gradient(90deg, #f59e0b, #fbbf24); color: #451a03; }
     .rarity-MYTHIC { background: #fef3c7; color: #b45309; }
     .rarity-GODLIKE { background: linear-gradient(90deg, #ef4444, #f59e0b); color: #ffffff; }
     .rarity-MEME, .rarity-TROLL { background: linear-gradient(90deg, #ec4899, #8b5cf6); color: #ffffff; }
@@ -1760,6 +1783,11 @@
       text-transform: uppercase;
       letter-spacing: 0.4px;
       flex-shrink: 0;
+    }
+    .mode-tag.mode-leaderboard {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #451a03;
+      border: 1px solid #d97706;
     }
     .mode-tag.mode-easy {
       background: #dcfce7;

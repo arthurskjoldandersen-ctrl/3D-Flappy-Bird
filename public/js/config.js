@@ -69,13 +69,41 @@ try {
         })
       });
 
-      function getDifficultyParamsFor(score, difficultyKey, simCfg = CONFIG) {
+      function normalizeStartSpeedMult(raw) {
+        const num = Number(raw);
+        if (!Number.isFinite(num) || num <= 1.0) return 1.0;
+        return Math.max(1.0, Math.min(2.0, Math.round(num * 10) / 10));
+      }
+
+      function computePipeGapCenterY(rand, pipeGap, difficultyKey, prevGapCenterY = null, simCfg = CONFIG) {
+        const minCenterY = 2.9 + pipeGap * 0.5;
+        const maxCenterY = simCfg.ceilingY - 2.6 - pipeGap * 0.5;
+        const u = rand();
+        if (difficultyKey === 'hard') {
+          if (typeof prevGapCenterY === 'number' && Number.isFinite(prevGapCenterY)) {
+            const maxDelta = 3.70;
+            const lo = Math.max(minCenterY, prevGapCenterY - maxDelta);
+            const hi = Math.min(maxCenterY, prevGapCenterY + maxDelta);
+            return lo + u * Math.max(0, hi - lo);
+          }
+          const startLo = Math.max(minCenterY, simCfg.birdStartY - 1.85);
+          const startHi = Math.min(maxCenterY, simCfg.birdStartY + 1.85);
+          return startLo + u * Math.max(0, startHi - startLo);
+        }
+        return minCenterY + u * (maxCenterY - minCenterY);
+      }
+
+      function getDifficultyParamsFor(score, difficultyKey, simCfg = CONFIG, startSpeedMult = 1.0) {
         const diff = simCfg.difficulties[difficultyKey] || simCfg.difficulties.medium;
+        const floorMult = normalizeStartSpeedMult(startSpeedMult);
+        const floorSpeed = simCfg.baseSpeed * floorMult;
+
         if (difficultyKey === 'extreme' || (typeof diff.gravity === 'number' && typeof diff.flapImpulse === 'number')) {
           const speedProgress = Math.min(Math.max(0, Number(score) || 0) / (diff.speedRampScore || 45), 1.0);
           const minSpd = diff.baseSpeed || simCfg.baseSpeed;
           const maxSpd = Math.min(diff.maxSpeed || simCfg.maxSpeed, simCfg.baseSpeed * 2.0);
-          const speed = Math.min(maxSpd, minSpd + speedProgress * (maxSpd - minSpd));
+          const naturalSpeed = minSpd + speedProgress * (maxSpd - minSpd);
+          const speed = Math.min(maxSpd, Math.max(naturalSpeed, floorSpeed));
           const speedRatio = Math.min(2.0, speed / simCfg.baseSpeed);
           const refRatio = speed / (diff.refSpeed || 12.0);
           return {
@@ -93,9 +121,10 @@ try {
         const speedProgress = Math.min(score / (diff.speedRampScore || 45), 1.0);
         const gapProgress = Math.min(score / 40, 1.0);
         const targetMaxSpeed = Math.min(diff.maxSpeed || simCfg.maxSpeed, simCfg.baseSpeed * 2.0);
+        const naturalSpeed = simCfg.baseSpeed + speedProgress * (targetMaxSpeed - simCfg.baseSpeed);
         const speed = Math.min(
           simCfg.baseSpeed * 2.0,
-          simCfg.baseSpeed + speedProgress * (targetMaxSpeed - simCfg.baseSpeed)
+          Math.max(naturalSpeed, floorSpeed)
         );
         const pipeGap = diff.baseGap - gapProgress * (diff.baseGap - diff.minGap);
         const speedRatio = Math.min(2.0, speed / simCfg.baseSpeed);
@@ -136,8 +165,9 @@ try {
        * Deterministic 60Hz 30-FPS Frame-Perfect Pipe Solver for Extreme Mode.
        * Must remain 100% identical to src/config/physicsConfig.js.
        */
-      function createExtremePipeSolver(seed, simCfg = CONFIG) {
+      function createExtremePipeSolver(seed, simCfg = CONFIG, startSpeedMult = 1.0) {
         const extDiff = simCfg.difficulties.extreme;
+        const cleanStartMult = normalizeStartSpeedMult(startSpeedMult);
         const dt = simCfg.dt;
         const capReachX = simCfg.pipeCapRadius + simCfg.birdRadius - 0.08;
         const shaftReachX = simCfg.pipeRadius + simCfg.birdRadius - 0.08;
@@ -145,7 +175,7 @@ try {
         const rand = createSeededPRNG(seed);
         const spawnDist = extDiff.spawnDistance;
         const firstDist = extDiff.firstPipeDist;
-        const initParams = getDifficultyParamsFor(0, 'extreme', simCfg);
+        const initParams = getDifficultyParamsFor(0, 'extreme', simCfg, cleanStartMult);
 
         let branches = [{
           y: simCfg.birdStartY,
@@ -294,8 +324,8 @@ try {
 
         function nextPipe() {
           const k = pipeIndex++;
-          const pk = getDifficultyParamsFor(k, 'extreme', simCfg);
-          const pk1 = getDifficultyParamsFor(k + 1, 'extreme', simCfg);
+          const pk = getDifficultyParamsFor(k, 'extreme', simCfg, cleanStartMult);
+          const pk1 = getDifficultyParamsFor(k + 1, 'extreme', simCfg, cleanStartMult);
           const maxRel = Math.ceil((branches[0].px - simCfg.birdX) / (pk.speed * dt)) + 2;
           const branchMaps = branches.map(br => {
             const m = new Map();
@@ -449,6 +479,8 @@ try {
 
 window.createSeededPRNG = createSeededPRNG;
 window.CONFIG = CONFIG;
+window.normalizeStartSpeedMult = normalizeStartSpeedMult;
+window.computePipeGapCenterY = computePipeGapCenterY;
 window.getDifficultyParamsFor = getDifficultyParamsFor;
 window.collidesExtremePipe = collidesExtremePipe;
 window.createExtremePipeSolver = createExtremePipeSolver;

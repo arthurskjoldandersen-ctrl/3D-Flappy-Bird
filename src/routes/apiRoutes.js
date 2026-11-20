@@ -7,6 +7,7 @@
 const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
+const zlib = require('zlib');
 const { SIM_CONFIG, createSeededPRNG, getDifficultyParams, collidesExtremePipe, createExtremePipeSolver } = require('../config/physicsConfig');
 const { verifyGameReplay } = require('../services/antiCheat');
 const { checkProhibitedLanguage } = require('../services/antiSlur');
@@ -33,6 +34,9 @@ const {
   resetAllRecordsAdmin,
   formatReadableTimestamp,
   isSkinUnlockedForUser,
+  settleCompletedLeaderboardPeriods,
+  getUserActiveAllTimeLbSkins,
+  getUserAllTimePlacements,
   mergeUserProgressionData,
   openBackgroundCaseForUser,
   saveUserCustomBackgroundMedia,
@@ -42,6 +46,15 @@ const {
   isWithinDanishWindow,
   getChatMessages,
   addChatMessage,
+  createGlobalAnnouncementAdmin,
+  getRecentGlobalAnnouncements,
+  createCoinGiveawayAdmin,
+  enterCoinGiveaway,
+  settleExpiredGiveaways,
+  getActiveGiveawaysForClient,
+  addFeedbackSubmission,
+  getFeedbackSubmissions,
+  deleteFeedbackSubmissionAdmin,
   calculateDuelEloUpdate,
   recordDuelMatchResult,
   getPlayerRankedDuelHistory,
@@ -56,7 +69,8 @@ const {
   areUsersAltLinked,
   ALL_MODES,
   EXTREME_UNLOCK_REQS,
-  hasUnlockedExtremeMode
+  hasUnlockedExtremeMode,
+  adminSetExtremeAccess
 } = require('../services/database');
 
 function parseCookies(req) {
@@ -152,8 +166,136 @@ function getSkinEmoji(skinId) {
   return (found && found.emoji) ? found.emoji : '🐤';
 }
 
-// In-memory active single-use game runs
-const activeRuns = new Map(); // runId -> { runId, seed, difficulty, usernameKey, startedAt }
+// In-memory active single-use game runs + HMAC-SHA256 stateless token resilience across server restarts
+const activeRuns = new Map(); // runId -> { runId, rid, seed, difficulty, usernameKey, startedAt }
+const usedRunTokens = new Map(); // rid -> { exp, uKey, replayHash, payload }
+
+function getRunTokenSecret() {
+  if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16) {
+    return process.env.SESSION_SECRET;
+  }
+  const db = getDb();
+  if (!db.adminSettings || typeof db.adminSettings !== 'object') {
+    db.adminSettings = {};
+  }
+  if (!db.adminSettings.runTokenSecret || typeof db.adminSettings.runTokenSecret !== 'string') {
+    db.adminSettings.runTokenSecret = crypto.randomBytes(32).toString('hex');
+    saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
+  }
+  return db.adminSettings.runTokenSecret;
+}
+
+function issueSignedRunToken({ usernameKey, difficulty, seed, startedAt = Date.now() }) {
+  const rid = crypto.randomBytes(12).toString('hex');
+  const payloadObj = {
+    rid,
+    u: String(usernameKey || '').toLowerCase(),
+    d: difficulty,
+    s: seed,
+    t: startedAt
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payloadObj), 'utf8').toString('base64url');
+  const sig = crypto.createHmac('sha256', getRunTokenSecret()).update(payloadB64).digest('base64url');
+  const runId = `rt_${payloadB64}.${sig}`;
+  const runObj = {
+    runId,
+    rid,
+    seed,
+    difficulty,
+    usernameKey: payloadObj.u,
+    startedAt
+  };
+  if (activeRuns.size > 2000) {
+    for (const [oldId, oldRun] of activeRuns.entries()) {
+      if (startedAt - (oldRun.startedAt || 0) > 45 * 60 * 1000) {
+        activeRuns.delete(oldId);
+      }
+    }
+  }
+  activeRuns.set(runId, runObj);
+  return runObj;
+}
+
+function resolveRunTokenForFinish(runId, authUsernameKey, replayHash = '') {
+  if (!runId || typeof runId !== 'string') {
+    return { errorStatus: 400, error: 'Anti-Cheat Rejection: Invalid or expired run token. Scores cannot be submitted manually from the console.' };
+  }
+  const now = Date.now();
+  if (usedRunTokens.size > 5000) {
+    for (const [oldRid, meta] of usedRunTokens.entries()) {
+      if (!meta || now > (meta.exp || 0)) usedRunTokens.delete(oldRid);
+    }
+  }
+
+  let runObj = activeRuns.get(runId) || null;
+  let rid = runObj ? runObj.rid : '';
+
+  if (!runObj && runId.startsWith('rt_')) {
+    const dotIdx = runId.indexOf('.');
+    if (dotIdx > 3) {
+      const payloadB64 = runId.slice(3, dotIdx);
+      const sigProvided = runId.slice(dotIdx + 1);
+      const sigExpected = crypto.createHmac('sha256', getRunTokenSecret()).update(payloadB64).digest('base64url');
+      const bufA = Buffer.from(sigProvided, 'utf8');
+      const bufB = Buffer.from(sigExpected, 'utf8');
+      if (bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB)) {
+        try {
+          const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+          if (parsed && parsed.rid && typeof parsed.s === 'number' && parsed.d && parsed.u && typeof parsed.t === 'number') {
+            if (now - parsed.t <= 6 * 3600 * 1000) {
+              rid = String(parsed.rid);
+              runObj = {
+                runId,
+                rid,
+                seed: parsed.s,
+                difficulty: parsed.d,
+                usernameKey: String(parsed.u).toLowerCase(),
+                startedAt: parsed.t
+              };
+            }
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  if (rid && usedRunTokens.has(rid)) {
+    const used = usedRunTokens.get(rid);
+    if (used && used.uKey === authUsernameKey && used.replayHash && used.replayHash === replayHash && used.payload) {
+      return { idempotentPayload: used.payload };
+    }
+    return { errorStatus: 400, error: 'Anti-Cheat Rejection: Run token already redeemed.' };
+  }
+
+  if (!runObj) {
+    return { errorStatus: 400, error: 'Anti-Cheat Rejection: Invalid or expired run token. Scores cannot be submitted manually from the console.' };
+  }
+  if (runObj.usernameKey !== authUsernameKey) {
+    return { errorStatus: 403, error: 'Anti-Cheat Rejection: Run token belongs to a different player.' };
+  }
+
+  return { run: runObj, rid: rid || runId };
+}
+
+function markRunTokenUsed(rid, uKey, replayHash, payload) {
+  if (!rid) return;
+  // Retain full idempotency payload for only recent <= 250 runs to stay tiny in RAM
+  if (usedRunTokens.size >= 250) {
+    let trimmed = 0;
+    for (const [k, v] of usedRunTokens.entries()) {
+      if (v && v.payload) {
+        v.payload = null;
+        if (++trimmed >= 80) break;
+      }
+    }
+  }
+  usedRunTokens.set(rid, {
+    exp: Date.now() + 6 * 3600 * 1000,
+    uKey,
+    replayHash,
+    payload
+  });
+}
 
 // 3-second cooldown tracker per user/sender
 const chatCooldowns = new Map(); // key -> lastSentTimestamp
@@ -830,6 +972,20 @@ function sendJSON(res, statusCode, payload, setCookies = null) {
   if (Array.isArray(setCookies) && setCookies.length > 0) {
     headers['Set-Cookie'] = setCookies;
   }
+  if (res._acceptGzip && body.length > 1536) {
+    zlib.gzip(body, { level: 5 }, (gzErr, gzBuf) => {
+      if (!gzErr && gzBuf) {
+        headers['Content-Encoding'] = 'gzip';
+        headers['Vary'] = 'Accept-Encoding';
+        res.writeHead(statusCode, headers);
+        res.end(gzBuf);
+        return;
+      }
+      res.writeHead(statusCode, headers);
+      res.end(body);
+    });
+    return;
+  }
   res.writeHead(statusCode, headers);
   res.end(body);
 }
@@ -972,10 +1128,14 @@ function formatClientUserPayload(u) {
     unlockedBackgrounds: Array.isArray(u.unlockedBackgrounds) ? u.unlockedBackgrounds : [],
     customBackgroundImage: u.customBackgroundImage || null,
     customBackgroundVideo: u.customBackgroundVideo || null,
+    customBackgroundDrawing: u.customBackgroundDrawing || null,
     customBgUpdatedAt: Number(u.customBgUpdatedAt) || 0,
     avatarSkinId: u.avatarSkinId || u.selectedSkin || 'classic',
     grantedSkins: u.grantedSkins || [],
     adminLockedSkins: u.adminLockedSkins || [],
+    unlockedLeaderboardSkins: Array.isArray(u.unlockedLeaderboardSkins) ? u.unlockedLeaderboardSkins : [],
+    activeAllTimeLbSkins: getUserActiveAllTimeLbSkins(u),
+    allTimeLbPlacements: getUserAllTimePlacements(u),
     maxAccounts: (typeof u.maxAccounts === 'number' && u.maxAccounts >= 1) ? u.maxAccounts : null,
     effectiveMaxAccounts: Number(u.effectiveMaxAccounts) || 5,
     overAccountLimit: Boolean(u.overAccountLimit),
@@ -987,6 +1147,8 @@ function formatClientUserPayload(u) {
     duelMatches: u.duelMatches || 0,
     duelCoins: Math.round(Number(u.duelCoins) || 0),
     records: u.records,
+    recordsVersion: Number(u.recordsVersion) || 0,
+    extremeAccessGranted: Boolean(u.extremeAccessGranted),
     extremeUnlocked: hasUnlockedExtremeMode(u),
     extremeUnlockReqs: EXTREME_UNLOCK_REQS,
     trollQuests: u.trollQuests || null,
@@ -994,7 +1156,7 @@ function formatClientUserPayload(u) {
   };
 }
 
-function processVerifiedRunSubmission(user, diffKey, verifiedScore) {
+function processVerifiedRunSubmission(user, diffKey, verifiedScore, options = {}) {
   const { isNewRecord, newRunId, previousBest, autoHidden, withinWindow } = recordVerifiedRun(user, diffKey, verifiedScore);
 
   let timeframePlacements = { daily: 1, weekly: 1, all: 1 };
@@ -1246,7 +1408,8 @@ function processVerifiedRunSubmission(user, diffKey, verifiedScore) {
     console.warn('Chat announcement notice:', annErr.message);
   }
 
-  return {
+  const allTf = buildAllTimeframeLeaderboards(100);
+  const basePayload = {
     verified: true,
     verifiedScore,
     difficulty: diffKey,
@@ -1257,17 +1420,34 @@ function processVerifiedRunSubmission(user, diffKey, verifiedScore) {
     entryId: newRunId,
     timeframePlacements,
     records: user.records,
-    leaderboards: buildLeaderboards(),
-    timeframeLeaderboards: {
-      all: buildLeaderboards(100, 'all'),
-      weekly: buildLeaderboards(100, 'weekly'),
-      daily: buildLeaderboards(100, 'daily')
-    },
-    resetBoundaries: getLeaderboardResetBoundaries()
+    recordsVersion: Number(user.recordsVersion) || 0,
+    cosmeticsVersion: Number(user.cosmeticsVersion) || 0,
+    selectedSkin: user.selectedSkin || 'classic',
+    unlockedLeaderboardSkins: Array.isArray(user.unlockedLeaderboardSkins) ? user.unlockedLeaderboardSkins : [],
+    activeAllTimeLbSkins: getUserActiveAllTimeLbSkins(user),
+    resetBoundaries: allTf.resetBoundaries
   };
+
+  if (options && options.leanDifficultyOnly) {
+    basePayload.difficultyLeaderboards = {
+      all: (allTf.all && allTf.all[diffKey]) || [],
+      weekly: (allTf.weekly && allTf.weekly[diffKey]) || [],
+      daily: (allTf.daily && allTf.daily[diffKey]) || []
+    };
+    return basePayload;
+  }
+
+  basePayload.leaderboards = allTf.all;
+  basePayload.timeframeLeaderboards = {
+    all: allTf.all,
+    weekly: allTf.weekly,
+    daily: allTf.daily
+  };
+  return basePayload;
 }
 
 async function handleApiRequest(req, res, pathname, port) {
+  res._acceptGzip = Boolean(req && req.headers && /\bgzip\b/i.test(req.headers['accept-encoding'] || ''));
   const db = getDb();
   const parsedUrl = new URL(req.url, 'http://localhost');
   const query = Object.fromEntries(parsedUrl.searchParams.entries());
@@ -1484,6 +1664,7 @@ async function handleApiRequest(req, res, pathname, port) {
       selectedBackground: 'bg_classic',
       cosmeticsVersion: 1,
       unlockedBackgrounds: [],
+      unlockedLeaderboardSkins: [],
       grantedSkins: [],
       adminLockedSkins: [],
       ...(allowance.inheritedLimit !== null ? { maxAccounts: allowance.inheritedLimit, maxAccountsUpdatedAt: now } : {}),
@@ -1715,7 +1896,7 @@ async function handleApiRequest(req, res, pathname, port) {
       return sendJSON(res, 401, { error: 'Please log in to upload custom background media!' });
     }
     try {
-      const body = await readJsonBody(req, 3 * 1024 * 1024);
+      const body = await readJsonBody(req, 8 * 1024 * 1024);
       const result = saveUserCustomBackgroundMedia(auth.user.username, body);
       return sendJSON(res, 200, result);
     } catch (err) {
@@ -1733,6 +1914,7 @@ async function handleApiRequest(req, res, pathname, port) {
       selectedBackground: auth.user.selectedBackground || 'bg_classic',
       customBackgroundImage: auth.user.customBackgroundImage || null,
       customBackgroundVideo: auth.user.customBackgroundVideo || null,
+      customBackgroundDrawing: auth.user.customBackgroundDrawing || null,
       customBgUpdatedAt: Number(auth.user.customBgUpdatedAt) || 0
     });
   }
@@ -1829,16 +2011,16 @@ async function handleApiRequest(req, res, pathname, port) {
     const requestedTimeframe = parsedUrl.query && parsedUrl.query.timeframe;
     const timeframe = (requestedTimeframe === 'daily' || requestedTimeframe === 'weekly') ? requestedTimeframe : 'all';
     const limit = showAll ? 0 : 100;
-    const boundaries = getLeaderboardResetBoundaries();
+    const allTf = buildAllTimeframeLeaderboards(limit);
     return sendJSON(res, 200, {
-      leaderboards: buildLeaderboards(limit, timeframe),
+      leaderboards: allTf[timeframe] || allTf.all,
       timeframeLeaderboards: {
-        all: buildLeaderboards(limit, 'all'),
-        weekly: buildLeaderboards(limit, 'weekly'),
-        daily: buildLeaderboards(limit, 'daily')
+        all: allTf.all,
+        weekly: allTf.weekly,
+        daily: allTf.daily
       },
       timeframe,
-      resetBoundaries: boundaries,
+      resetBoundaries: allTf.resetBoundaries,
       isAll: Boolean(showAll),
       databaseStatus: db.databaseStatus
     });
@@ -1863,21 +2045,19 @@ async function handleApiRequest(req, res, pathname, port) {
       });
     }
 
-    const runId = crypto.randomBytes(16).toString('hex');
     const seed = (typeof clientSeed === 'number' && Number.isInteger(clientSeed) && clientSeed > 0)
       ? clientSeed
       : crypto.randomInt(1, 0x7fffffff);
 
-    activeRuns.set(runId, {
-      runId,
-      seed,
-      difficulty: diffKey,
+    const runObj = issueSignedRunToken({
       usernameKey: auth.usernameKey,
+      difficulty: diffKey,
+      seed,
       startedAt: Date.now()
     });
 
     return sendJSON(res, 200, {
-      runId,
+      runId: runObj.runId,
       seed,
       difficulty: diffKey,
       simConfig: SIM_CONFIG
@@ -1891,21 +2071,29 @@ async function handleApiRequest(req, res, pathname, port) {
       return sendJSON(res, 401, { error: 'Authentication required to submit scores.' });
     }
 
-    const { runId, flapTicks, totalTicks, claimedScore } = await readJsonBody(req);
-    if (!runId || !activeRuns.has(runId)) {
-      return sendJSON(res, 400, {
-        error: 'Anti-Cheat Rejection: Invalid or expired run token. Scores cannot be submitted manually from the console.'
-      });
+    const { runId, flapTicks, totalTicks, claimedScore, startSpeedMult } = await readJsonBody(req);
+    const cleanStartSpeedMult = (typeof startSpeedMult === 'number' && Number.isFinite(startSpeedMult))
+      ? Math.max(1.0, Math.min(2.0, Math.round(startSpeedMult * 10) / 10))
+      : 1.0;
+    const replayHash = crypto.createHash('sha256')
+      .update(`${runId || ''}|${totalTicks}|${claimedScore}|${cleanStartSpeedMult}|${Array.isArray(flapTicks) ? flapTicks.length : 0}|${Array.isArray(flapTicks) && flapTicks.length ? flapTicks[flapTicks.length - 1] : 0}`)
+      .digest('hex')
+      .slice(0, 24);
+
+    const resolved = resolveRunTokenForFinish(runId, auth.usernameKey, replayHash);
+    if (resolved.idempotentPayload) {
+      return sendJSON(res, 200, resolved.idempotentPayload);
+    }
+    if (resolved.error) {
+      return sendJSON(res, resolved.errorStatus || 400, { error: resolved.error });
     }
 
-    const run = activeRuns.get(runId);
+    const run = resolved.run;
+    const rid = resolved.rid;
     activeRuns.delete(runId);
 
-    if (run.usernameKey !== auth.usernameKey) {
-      return sendJSON(res, 403, { error: 'Anti-Cheat Rejection: Run token belongs to a different player.' });
-    }
-
     if (run.difficulty === 'extreme' && !hasUnlockedExtremeMode(auth.user)) {
+      markRunTokenUsed(rid, auth.usernameKey, '', null);
       return sendJSON(res, 403, {
         error: `Extreme Mode Locked! Reach ${EXTREME_UNLOCK_REQS.easy} Easy, ${EXTREME_UNLOCK_REQS.medium} Medium, and ${EXTREME_UNLOCK_REQS.hard} Hard first.`,
         extremeLocked: true,
@@ -1915,7 +2103,10 @@ async function handleApiRequest(req, res, pathname, port) {
 
     const elapsedWallMs = Date.now() - run.startedAt;
     const simulatedDurationMs = (totalTicks / SIM_CONFIG.tickRate) * 1000;
-    if (simulatedDurationMs > elapsedWallMs + 3500) {
+    // Allow generous startup latency + 8% margin so slow /api/run/start Wi-Fi/Render wakeups never cause false rejections
+    const allowedExtraMs = 12000 + Math.round(Math.max(0, elapsedWallMs) * 0.08);
+    if (simulatedDurationMs > elapsedWallMs + allowedExtraMs) {
+      markRunTokenUsed(rid, auth.usernameKey, '', null);
       return sendJSON(res, 400, {
         error: 'Anti-Cheat Rejection: Speedhack / fast-forward time manipulation detected.'
       });
@@ -1926,16 +2117,36 @@ async function handleApiRequest(req, res, pathname, port) {
       difficulty: run.difficulty,
       flapTicks,
       totalTicks,
-      claimedScore
+      claimedScore,
+      startSpeedMult: cleanStartSpeedMult
     });
 
     if (!verification.valid) {
+      markRunTokenUsed(rid, auth.usernameKey, '', null);
       return sendJSON(res, 400, {
         error: verification.reason || 'Anti-Cheat Rejection: Replay verification failed.'
       });
     }
 
-    const resultPayload = processVerifiedRunSubmission(auth.user, run.difficulty, verification.verifiedScore);
+    const resultPayload = processVerifiedRunSubmission(auth.user, run.difficulty, verification.verifiedScore, { leanDifficultyOnly: true });
+
+    // Piggyback a signed pre-issued run token for instant 0ms "Play Again" without an extra /api/run/start round-trip
+    if (run.difficulty !== 'extreme' || hasUnlockedExtremeMode(auth.user)) {
+      const nextSeed = crypto.randomInt(1, 0x7fffffff);
+      const nextRunObj = issueSignedRunToken({
+        usernameKey: auth.usernameKey,
+        difficulty: run.difficulty,
+        seed: nextSeed,
+        startedAt: Date.now()
+      });
+      resultPayload.nextRun = {
+        runId: nextRunObj.runId,
+        seed: nextSeed,
+        difficulty: run.difficulty
+      };
+    }
+
+    markRunTokenUsed(rid, auth.usernameKey, replayHash, resultPayload);
     return sendJSON(res, 200, resultPayload);
   }
 
@@ -1946,6 +2157,7 @@ async function handleApiRequest(req, res, pathname, port) {
     const parsedUrl = new URL(req.url, 'http://localhost');
     const since = parseInt(parsedUrl.searchParams.get('since') || '0', 10);
     const limit = parseInt(parsedUrl.searchParams.get('limit') || '60', 10);
+    settleExpiredGiveaways(Date.now());
     const auth = getAuthenticatedUser(req);
     let userSync = null;
     if (auth && auth.user) {
@@ -1959,14 +2171,21 @@ async function handleApiRequest(req, res, pathname, port) {
         customBgUpdatedAt: Number(auth.user.customBgUpdatedAt) || 0,
         grantedSkins: Array.isArray(auth.user.grantedSkins) ? auth.user.grantedSkins : [],
         adminLockedSkins: Array.isArray(auth.user.adminLockedSkins) ? auth.user.adminLockedSkins : [],
-        duelCoins: Math.round(Number(auth.user.duelCoins) || 0),
+        unlockedLeaderboardSkins: Array.isArray(auth.user.unlockedLeaderboardSkins) ? auth.user.unlockedLeaderboardSkins : [],
+        activeAllTimeLbSkins: getUserActiveAllTimeLbSkins(auth.user),
+        duelCoins: Math.floor(Number(auth.user.duelCoins) || 0),
         duelElo: typeof auth.user.duelElo === 'number' ? auth.user.duelElo : 1000,
         records: auth.user.records || {},
+        recordsVersion: Number(auth.user.recordsVersion) || 0,
+        extremeAccessGranted: Boolean(auth.user.extremeAccessGranted),
+        extremeUnlocked: hasUnlockedExtremeMode(auth.user),
         unlockedQuestIds: Object.keys((auth.user.trollQuests && auth.user.trollQuests.unlockedIds) || {})
       };
     }
     return sendJSON(res, 200, {
       messages: getChatMessages(limit, since),
+      announcements: getRecentGlobalAnnouncements(0),
+      activeGiveaways: getActiveGiveawaysForClient(auth ? auth.usernameKey : ''),
       serverTime: Date.now(),
       userSync
     });
@@ -2062,6 +2281,122 @@ async function handleApiRequest(req, res, pathname, port) {
       message: newMsg,
       messages: getChatMessages(60)
     });
+  }
+
+  // 10.6. MEDONUT GLOBAL BROADCAST ANNOUNCEMENTS (/api/chat/global)
+  if (req.method === 'POST' && pathname === '/api/chat/global') {
+    const auth = getAuthenticatedUser(req);
+    const isAdmin = Boolean(auth && auth.user && auth.usernameKey === 'medonut');
+    if (!isAdmin) {
+      return sendJSON(res, 403, { error: 'Only MeDonut can send Global Broadcast messages.' });
+    }
+    const body = await readJsonBody(req);
+    const rawText = String(body.text || '').trim();
+    if (!rawText) {
+      return sendJSON(res, 400, { error: 'Global message cannot be empty.' });
+    }
+    if (rawText.length > 280) {
+      return sendJSON(res, 400, { error: 'Global message cannot exceed 280 characters.' });
+    }
+    try {
+      const announcement = createGlobalAnnouncementAdmin((auth && auth.user && auth.user.username) || 'MeDonut', rawText);
+      return sendJSON(res, 201, {
+        ok: true,
+        announcement,
+        announcements: getRecentGlobalAnnouncements(0),
+        messages: getChatMessages(60)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  // 10.7. MEDONUT CHAT COIN GIVEAWAYS (/api/giveaway/create & /api/giveaway/enter)
+  if (req.method === 'POST' && pathname === '/api/giveaway/create') {
+    const auth = getAuthenticatedUser(req);
+    const isAdmin = Boolean(auth && auth.user && auth.usernameKey === 'medonut');
+    if (!isAdmin) {
+      return sendJSON(res, 403, { error: 'Only MeDonut can host Coin Giveaways.' });
+    }
+    const body = await readJsonBody(req);
+    try {
+      const result = createCoinGiveawayAdmin((auth && auth.user && auth.user.username) || 'MeDonut', {
+        totalCoins: body.totalCoins,
+        winnerCount: body.winnerCount,
+        durationSec: body.durationSec
+      });
+      return sendJSON(res, 201, {
+        ok: true,
+        giveaway: result.giveaway,
+        announcement: result.announcement,
+        activeGiveaways: getActiveGiveawaysForClient(auth ? auth.usernameKey : ''),
+        announcements: getRecentGlobalAnnouncements(0),
+        messages: getChatMessages(60)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/giveaway/enter') {
+    const auth = getAuthenticatedUser(req);
+    if (!auth || !auth.user) {
+      return sendJSON(res, 401, { error: 'Please log in to enter Coin Giveaways!' });
+    }
+    const body = await readJsonBody(req);
+    try {
+      const entry = enterCoinGiveaway(String(body.giveawayId || '').trim(), auth.user);
+      return sendJSON(res, 200, {
+        ok: true,
+        entry,
+        activeGiveaways: getActiveGiveawaysForClient(auth.usernameKey)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  // 10.8. PLAYER FEEDBACK & UPDATE SUGGESTIONS (/api/feedback)
+  if (req.method === 'POST' && pathname === '/api/feedback') {
+    const auth = getAuthenticatedUser(req);
+    const body = await readJsonBody(req);
+    const rawMsg = String(body.message || '').trim();
+    if (!rawMsg || rawMsg.length < 3) {
+      return sendJSON(res, 400, { error: 'Please enter at least 3 characters for your feedback or suggestion.' });
+    }
+    if (rawMsg.length > 600) {
+      return sendJSON(res, 400, { error: 'Feedback cannot exceed 600 characters.' });
+    }
+    const slurCheck = checkProhibitedLanguage(rawMsg);
+    if (slurCheck.isBlocked) {
+      return sendJSON(res, 400, { error: 'Feedback blocked: Please keep suggestions respectful!' });
+    }
+    const fbCooldownKey = 'fb_' + (auth ? auth.usernameKey : (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'guest'));
+    const now = Date.now();
+    const FEEDBACK_COOLDOWN_MS = 5 * 60 * 1000; // 5-minute cooldown between feedback submissions
+    const lastFb = chatCooldowns.get(fbCooldownKey) || 0;
+    if (now - lastFb < FEEDBACK_COOLDOWN_MS) {
+      const remSec = Math.ceil((FEEDBACK_COOLDOWN_MS - (now - lastFb)) / 1000);
+      const mins = Math.floor(remSec / 60);
+      const secs = remSec % 60;
+      const waitLabel = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+      return sendJSON(res, 429, { error: `Please wait ${waitLabel} before sending another feedback submission (5-minute cooldown).` });
+    }
+    chatCooldowns.set(fbCooldownKey, now);
+
+    const submitter = (auth && auth.user && auth.user.username)
+      ? auth.user.username
+      : (String(body.guestName || 'Guest').trim().slice(0, 24) || 'Guest');
+    try {
+      const item = addFeedbackSubmission({
+        username: submitter,
+        category: body.category || 'suggestion',
+        message: rawMsg
+      });
+      return sendJSON(res, 201, { ok: true, feedback: item });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -2559,7 +2894,7 @@ async function handleApiRequest(req, res, pathname, port) {
               claimedScore: cleanScore
             });
             if (verification.valid && verification.verifiedScore > 0) {
-              runResult = processVerifiedRunSubmission(auth.user, rKey, verification.verifiedScore);
+              runResult = processVerifiedRunSubmission(auth.user, rKey, verification.verifiedScore, { leanDifficultyOnly: true });
             }
           }
         }
@@ -2782,7 +3117,8 @@ async function handleApiRequest(req, res, pathname, port) {
       activityFeed: (db.activityFeed || []).slice(0, 100),
       leaderboards: buildLeaderboards(),
       allRuns: getAllRunsAdmin(),
-      loginHistory: (db.loginHistory || []).slice(0, 300)
+      loginHistory: (db.loginHistory || []).slice(0, 300),
+      feedbackSubmissions: getFeedbackSubmissions()
     });
   }
 
@@ -2807,12 +3143,12 @@ async function handleApiRequest(req, res, pathname, port) {
   }
 
   if (req.method === 'POST' && pathname === '/api/database/update-record') {
-    const { username, records, selectedSkin, selectedPipeSkin, duelElo } = await readJsonBody(req);
+    const { username, records, selectedSkin, selectedPipeSkin, duelElo, duelCoins } = await readJsonBody(req);
     if (!username) {
       return sendJSON(res, 400, { error: 'Username is required.' });
     }
     try {
-      const updatedOverview = updatePlayerRecordsAdmin(username, records, selectedSkin, selectedPipeSkin, duelElo);
+      const updatedOverview = updatePlayerRecordsAdmin(username, records, selectedSkin, selectedPipeSkin, duelElo, duelCoins);
       return sendJSON(res, 200, {
         ok: true,
         success: true,
@@ -2822,11 +3158,53 @@ async function handleApiRequest(req, res, pathname, port) {
         activityFeed: (db.activityFeed || []).slice(0, 100),
         leaderboards: buildLeaderboards(),
         allRuns: getAllRunsAdmin(),
-        loginHistory: (db.loginHistory || []).slice(0, 300)
+        loginHistory: (db.loginHistory || []).slice(0, 300),
+        feedbackSubmissions: getFeedbackSubmissions()
       });
     } catch (err) {
       return sendJSON(res, 400, { error: err.message });
     }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/database/toggle-extreme-access') {
+    const { username, granted } = await readJsonBody(req);
+    if (!username) {
+      return sendJSON(res, 400, { error: 'Username is required.' });
+    }
+    try {
+      const updatedPlayer = adminSetExtremeAccess(username, Boolean(granted));
+      return sendJSON(res, 200, {
+        ok: true,
+        updatedPlayer,
+        databaseStatus: db.databaseStatus,
+        playerRecordsOverview: db.playerRecordsOverview,
+        activityFeed: (db.activityFeed || []).slice(0, 100),
+        leaderboards: buildLeaderboards(),
+        allRuns: getAllRunsAdmin(),
+        loginHistory: (db.loginHistory || []).slice(0, 300),
+        feedbackSubmissions: getFeedbackSubmissions()
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: err.message });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/database/delete-feedback') {
+    const { id } = await readJsonBody(req);
+    if (!id) {
+      return sendJSON(res, 400, { error: 'Feedback ID is required.' });
+    }
+    const resDel = deleteFeedbackSubmissionAdmin(String(id).trim());
+    if (!resDel.deleted) {
+      return sendJSON(res, 404, { error: 'Feedback submission not found.' });
+    }
+    return sendJSON(res, 200, {
+      ok: true,
+      deletedId: id,
+      feedbackSubmissions: getFeedbackSubmissions(),
+      databaseStatus: db.databaseStatus,
+      activityFeed: (db.activityFeed || []).slice(0, 100)
+    });
   }
 
   if (req.method === 'POST' && pathname === '/api/database/update-run') {
@@ -3106,7 +3484,8 @@ async function handleApiRequest(req, res, pathname, port) {
       activityFeed: (db.activityFeed || []).slice(0, 100),
       leaderboards: buildLeaderboards(),
       allRuns: getAllRunsAdmin(),
-      loginHistory: (db.loginHistory || []).slice(0, 300)
+      loginHistory: (db.loginHistory || []).slice(0, 300),
+      feedbackSubmissions: getFeedbackSubmissions()
     });
   }
 

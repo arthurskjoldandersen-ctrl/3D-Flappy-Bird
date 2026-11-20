@@ -6,9 +6,9 @@
  * to verify the exact score achieved without trusting the client's score variable.
  */
 
-const { SIM_CONFIG, createSeededPRNG, getDifficultyParams, createExtremePipeSolver } = require('../config/physicsConfig');
+const { SIM_CONFIG, createSeededPRNG, normalizeStartSpeedMult, computePipeGapCenterY, getDifficultyParams, createExtremePipeSolver } = require('../config/physicsConfig');
 
-function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScore }) {
+function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScore, startSpeedMult = 1.0 }) {
   if (!SIM_CONFIG.difficulties[difficulty]) {
     return { valid: false, reason: 'Invalid difficulty mode.' };
   }
@@ -39,18 +39,20 @@ function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScor
     prevTick = t;
   }
 
+  const cleanStartSpeedMult = normalizeStartSpeedMult(startSpeedMult);
   const rand = createSeededPRNG(seed);
-  const extremeSolver = difficulty === 'extreme' ? createExtremePipeSolver(seed, SIM_CONFIG) : null;
+  const extremeSolver = difficulty === 'extreme' ? createExtremePipeSolver(seed, SIM_CONFIG, cleanStartSpeedMult) : null;
   const dt = SIM_CONFIG.dt;
 
   let score = 0;
   let birdY = SIM_CONFIG.birdStartY;
-  let birdVelocityY = getDifficultyParams(0, difficulty).flapImpulse;
+  let birdVelocityY = getDifficultyParams(0, difficulty, cleanStartSpeedMult).flapImpulse;
   let distanceSinceLastPipe = 0;
+  let lastGapCenterY = null;
   const pipes = [];
 
   function spawnPipePair(spawnX) {
-    const params = getDifficultyParams(score, difficulty);
+    const params = getDifficultyParams(score, difficulty, cleanStartSpeedMult);
     let pipeGap = params.pipeGap;
     let gapCenterY;
     if (extremeSolver) {
@@ -58,10 +60,9 @@ function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScor
       pipeGap = solved.gapSize;
       gapCenterY = solved.gapCenterY;
     } else {
-      const minCenterY = 2.9 + pipeGap * 0.5;
-      const maxCenterY = SIM_CONFIG.ceilingY - 2.6 - pipeGap * 0.5;
-      gapCenterY = minCenterY + rand() * (maxCenterY - minCenterY);
+      gapCenterY = computePipeGapCenterY(rand, pipeGap, difficulty, lastGapCenterY, SIM_CONFIG);
     }
+    lastGapCenterY = gapCenterY;
 
     pipes.push({
       x: spawnX,
@@ -124,7 +125,7 @@ function verifyGameReplay({ seed, difficulty, flapTicks, totalTicks, claimedScor
   let crashedAtTick = -1;
 
   for (let tick = 1; tick <= totalTicks; tick++) {
-    const { speed: scrollSpeed, gravity, flapImpulse, maxFallSpeed, spawnDistance } = getDifficultyParams(score, difficulty);
+    const { speed: scrollSpeed, gravity, flapImpulse, maxFallSpeed, spawnDistance } = getDifficultyParams(score, difficulty, cleanStartSpeedMult);
 
     if (flapSet.has(tick)) {
       birdVelocityY = flapImpulse;

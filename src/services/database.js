@@ -39,6 +39,8 @@ let BIRD_SKINS = [];
 let PIPE_SKINS = [];
 let BACKGROUND_SKINS = [];
 let BACKGROUND_CASES = [];
+let LEADERBOARD_SKINS = [];
+const LEADERBOARD_SKIN_MAP = new Map();
 const BACKGROUND_SKIN_IDS = new Set();
 const VALID_QUEST_IDS = new Set();
 try {
@@ -47,6 +49,10 @@ try {
   PIPE_SKINS = skinsModule.PIPE_SKINS || [];
   BACKGROUND_SKINS = skinsModule.BACKGROUND_SKINS || [];
   BACKGROUND_CASES = skinsModule.BACKGROUND_CASES || [];
+  LEADERBOARD_SKINS = skinsModule.LEADERBOARD_SKINS || BIRD_SKINS.filter(s => s && s.reqMode === 'leaderboard');
+  for (const lb of LEADERBOARD_SKINS) {
+    if (lb && lb.id) LEADERBOARD_SKIN_MAP.set(String(lb.id), lb);
+  }
   for (const b of BACKGROUND_SKINS) {
     if (b && b.id) BACKGROUND_SKIN_IDS.add(String(b.id));
   }
@@ -59,7 +65,7 @@ try {
 const ALL_MODES = ['easy', 'medium', 'hard', 'extreme'];
 const EXTREME_UNLOCK_REQS = { easy: 40, medium: 20, hard: 15 };
 
-function hasUnlockedExtremeMode(user) {
+function hasNaturallyUnlockedExtremeMode(user) {
   if (!user || typeof user !== 'object') return false;
   const r = user.records || {};
   return (
@@ -67,6 +73,12 @@ function hasUnlockedExtremeMode(user) {
     (Number(r.medium) || 0) >= EXTREME_UNLOCK_REQS.medium &&
     (Number(r.hard) || 0) >= EXTREME_UNLOCK_REQS.hard
   );
+}
+
+function hasUnlockedExtremeMode(user) {
+  if (!user || typeof user !== 'object') return false;
+  if (user.extremeAccessGranted) return true;
+  return hasNaturallyUnlockedExtremeMode(user);
 }
 
 /**
@@ -201,7 +213,7 @@ function mergeUserProgressionData(user, payload = {}, shouldSave = false) {
   }
 
   if (changed && shouldSave) {
-    saveDatabase(false);
+    saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
   }
   return changed;
 }
@@ -219,6 +231,18 @@ function isSkinNaturallyUnlockedForUser(skinId, user) {
 
   const item = [...BIRD_SKINS, ...PIPE_SKINS].find(s => s && s.id === skinId);
   if (!item) return false;
+
+  if (item.reqMode === 'leaderboard') {
+    const uKey = user.username ? String(user.username).toLowerCase() : '';
+    if (!uKey) return false;
+    if (item.lbTimeframe === 'all') {
+      const liveState = getLiveAllTimeSkinState();
+      const set = liveState.byUser.get(uKey);
+      return Boolean(set && set.has(skinId));
+    }
+    return Array.isArray(user.unlockedLeaderboardSkins) && user.unlockedLeaderboardSkins.includes(skinId);
+  }
+
   if (item.reqScore <= 0) return true;
 
   const rec = user.records || {};
@@ -294,9 +318,9 @@ function isSkinUnlockedForUser(skinId, user) {
   const grantedList = Array.isArray(user.grantedSkins) ? user.grantedSkins : [];
   if (grantedList.includes(skinId)) return true;
 
-  // 2.5. Any case-unlocked background or currently equipped skin is unlocked
+  // 2.5. Any case-unlocked background or currently equipped non-leaderboard skin is unlocked
   if (Array.isArray(user.unlockedBackgrounds) && user.unlockedBackgrounds.includes(skinId)) return true;
-  if (user.selectedSkin === skinId || user.selectedPipeSkin === skinId || user.selectedBackground === skinId) return true;
+  if (!LEADERBOARD_SKIN_MAP.has(skinId) && (user.selectedSkin === skinId || user.selectedPipeSkin === skinId || user.selectedBackground === skinId)) return true;
 
   if (BACKGROUND_SKIN_IDS.has(skinId)) {
     return false;
@@ -592,8 +616,261 @@ function hashPassword(password, salt) {
 let isInternalWrite = false;
 let lastInternalSavedMtime = 0;
 let lastInternalWriteAt = 0;
-let cachedLeaderboards = null;
-let cachedAllLeaderboards = null;
+let cachedLeaderboards = new Map();
+let cachedAllLeaderboards = new Map();
+let cachedLiveAllTimeSkinState = null;
+let cachedLbDayKey = 0;
+let cachedLbWeekKey = 0;
+
+function invalidateLeaderboardCaches() {
+  cachedLeaderboards.clear();
+  cachedAllLeaderboards.clear();
+  cachedLiveAllTimeSkinState = null;
+  cachedLbDayKey = 0;
+  cachedLbWeekKey = 0;
+}
+
+function getLeaderboardRewardSkinIds(mode, timeframe, rank) {
+  if (!mode || !timeframe || rank < 1 || rank > 3) return [];
+  // Finishing 1st unlocks all 3 placement skins for that mode + timeframe!
+  if (rank === 1) {
+    return [1, 2, 3]
+      .map(r => `lb_${mode}_${timeframe}_${r}`)
+      .filter(id => LEADERBOARD_SKIN_MAP.has(id));
+  }
+  const singleId = `lb_${mode}_${timeframe}_${rank}`;
+  return LEADERBOARD_SKIN_MAP.has(singleId) ? [singleId] : [];
+}
+
+function getTop3UniquePlayersForWindow(diffKey, minCreatedAt = 0, maxCreatedAt = Infinity) {
+  const runsList = (db.runs && Array.isArray(db.runs[diffKey])) ? db.runs[diffKey] : [];
+  const bestByPlayer = new Map();
+  for (let i = 0; i < runsList.length; i++) {
+    const entry = runsList[i];
+    if (!entry || typeof entry.score !== 'number' || entry.score <= 0 || entry.hidden) continue;
+    const rawUsername = entry.username ? String(entry.username).trim() : '';
+    if (!rawUsername) continue;
+    const uKey = rawUsername.toLowerCase();
+    const usr = db.users && db.users[uKey];
+    if (!usr || usr.banned || usr.overAccountLimit) continue;
+    const ts = Number(entry.createdAt) || 0;
+    if (minCreatedAt > 0 && ts < minCreatedAt) continue;
+    if (maxCreatedAt < Infinity && ts >= maxCreatedAt) continue;
+    if (!entry.adminOverride) {
+      if (entry.isWithinDanishWindow === undefined) {
+        entry.isWithinDanishWindow = isWithinDanishWindow(ts);
+      }
+      if (!entry.isWithinDanishWindow) continue;
+    }
+    const prev = bestByPlayer.get(uKey);
+    if (!prev || entry.score > prev.score || (entry.score === prev.score && ts < prev.createdAt)) {
+      bestByPlayer.set(uKey, {
+        usernameKey: uKey,
+        username: usr.username || rawUsername,
+        score: entry.score,
+        createdAt: ts
+      });
+    }
+  }
+  const ranked = Array.from(bestByPlayer.values());
+  ranked.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.createdAt - b.createdAt;
+  });
+  return ranked.slice(0, 3);
+}
+
+function getLiveAllTimeSkinState() {
+  if (cachedLiveAllTimeSkinState) {
+    return cachedLiveAllTimeSkinState;
+  }
+  const byUser = new Map();
+  const placementsByUser = new Map();
+  ALL_MODES.forEach((diffKey) => {
+    const top3 = getTop3UniquePlayersForWindow(diffKey, 0, Infinity);
+    top3.forEach((row, idx) => {
+      const rank = idx + 1;
+      const skinIds = getLeaderboardRewardSkinIds(diffKey, 'all', rank);
+      let userSet = byUser.get(row.usernameKey);
+      if (!userSet) {
+        userSet = new Set();
+        byUser.set(row.usernameKey, userSet);
+      }
+      skinIds.forEach(id => userSet.add(id));
+
+      let pObj = placementsByUser.get(row.usernameKey);
+      if (!pObj) {
+        pObj = {};
+        placementsByUser.set(row.usernameKey, pObj);
+      }
+      pObj[diffKey] = rank;
+    });
+  });
+  cachedLiveAllTimeSkinState = { byUser, placementsByUser };
+  return cachedLiveAllTimeSkinState;
+}
+
+function getUserActiveAllTimeLbSkins(user) {
+  if (!user || !user.username) return [];
+  const uKey = String(user.username).toLowerCase();
+  const locked = new Set(Array.isArray(user.adminLockedSkins) ? user.adminLockedSkins : []);
+  const state = getLiveAllTimeSkinState();
+  const set = state.byUser.get(uKey);
+  if (!set) return [];
+  const out = [];
+  for (const id of set) {
+    if (!locked.has(id)) out.push(id);
+  }
+  return out;
+}
+
+function getUserAllTimePlacements(user) {
+  if (!user || !user.username) return {};
+  const uKey = String(user.username).toLowerCase();
+  const state = getLiveAllTimeSkinState();
+  return state.placementsByUser.get(uKey) ? { ...state.placementsByUser.get(uKey) } : {};
+}
+
+function reconcileUsersLostAllTimeSkins() {
+  if (!db || !db.users) return 0;
+  let changed = 0;
+  for (const u of Object.values(db.users)) {
+    if (!u || !u.selectedSkin || !LEADERBOARD_SKIN_MAP.has(u.selectedSkin)) continue;
+    if (!isSkinUnlockedForUser(u.selectedSkin, u)) {
+      const lostSkin = u.selectedSkin;
+      u.selectedSkin = 'classic';
+      u.cosmeticsVersion = (Number(u.cosmeticsVersion) || 0) + 1;
+      changed += 1;
+      logDatabaseEvent(
+        'LEADERBOARD_SKIN_LOST',
+        u.username,
+        `📉 ${u.username} lost All-Time Leaderboard skin "${lostSkin}" after losing placement — reverted to Sunny Canary.`,
+        { lostSkin }
+      );
+    }
+  }
+  return changed;
+}
+
+function getNextDailyResetAfter(resetMs) {
+  const nextParts = getDanishDateParts(resetMs + 28 * 3600 * 1000);
+  return danishTimeToUtcMs(nextParts.year, nextParts.month, nextParts.day, 7, 0, 0);
+}
+
+function getNextWeeklyResetAfter(resetMs) {
+  const b = getLeaderboardResetBoundaries(resetMs + 7 * 24 * 3600 * 1000 + 6 * 3600 * 1000);
+  return b.weekly.currentResetMs;
+}
+
+function awardFinishedWindowLeaderboardSkins(tfKey, winStartMs, winEndMs, ledger) {
+  let awarded = 0;
+  const awardBatch = [];
+  ALL_MODES.forEach((diffKey) => {
+    const top3 = getTop3UniquePlayersForWindow(diffKey, winStartMs, winEndMs);
+    top3.forEach((row, idx) => {
+      const rank = idx + 1;
+      const usr = db.users && db.users[row.usernameKey];
+      if (!usr) return;
+      if (!Array.isArray(usr.unlockedLeaderboardSkins)) usr.unlockedLeaderboardSkins = [];
+      const rewardIds = getLeaderboardRewardSkinIds(diffKey, tfKey, rank);
+      const newlyUnlocked = [];
+      for (const skinId of rewardIds) {
+        if (!usr.unlockedLeaderboardSkins.includes(skinId)) {
+          usr.unlockedLeaderboardSkins.push(skinId);
+          newlyUnlocked.push(skinId);
+          awarded += 1;
+        }
+      }
+      if (newlyUnlocked.length > 0) {
+        usr.cosmeticsVersion = (Number(usr.cosmeticsVersion) || 0) + 1;
+        awardBatch.push({
+          username: usr.username,
+          timeframe: tfKey,
+          difficulty: diffKey,
+          rank,
+          score: row.score,
+          skins: newlyUnlocked,
+          settledAt: Date.now()
+        });
+        logDatabaseEvent(
+          'LEADERBOARD_SKIN_AWARDED',
+          usr.username,
+          `🏆 ${usr.username} finished #${rank} in ${tfKey.toUpperCase()} ${diffKey.toUpperCase()} (${row.score} pts) and unlocked: ${newlyUnlocked.join(', ')}`,
+          { timeframe: tfKey, difficulty: diffKey, rank, score: row.score, skins: newlyUnlocked }
+        );
+      }
+    });
+  });
+  if (awardBatch.length > 0) {
+    if (!Array.isArray(ledger.awardedHistory)) ledger.awardedHistory = [];
+    ledger.awardedHistory = awardBatch.concat(ledger.awardedHistory).slice(0, 200);
+  }
+  return awarded;
+}
+
+function settleCompletedLeaderboardPeriods(nowMs = Date.now(), opts = {}) {
+  if (!db || !db.runs || !db.users) return 0;
+  const bounds = getLeaderboardResetBoundaries(nowMs);
+  const currentDailyResetMs = bounds.daily.currentResetMs;
+  const currentWeeklyResetMs = bounds.weekly.currentResetMs;
+
+  if (!db.leaderboardSkinLedger || typeof db.leaderboardSkinLedger !== 'object') {
+    db.leaderboardSkinLedger = {
+      lastSettledDailyResetMs: currentDailyResetMs,
+      lastSettledWeeklyResetMs: currentWeeklyResetMs,
+      awardedHistory: []
+    };
+    return 0;
+  }
+
+  const ledger = db.leaderboardSkinLedger;
+  if (typeof ledger.lastSettledDailyResetMs !== 'number' || !Number.isFinite(ledger.lastSettledDailyResetMs)) {
+    ledger.lastSettledDailyResetMs = currentDailyResetMs;
+  }
+  if (typeof ledger.lastSettledWeeklyResetMs !== 'number' || !Number.isFinite(ledger.lastSettledWeeklyResetMs)) {
+    ledger.lastSettledWeeklyResetMs = currentWeeklyResetMs;
+  }
+
+  let totalAwarded = 0;
+  let ledgerChanged = false;
+
+  // 1. Settle any finished Daily windows since lastSettledDailyResetMs
+  let dCursor = ledger.lastSettledDailyResetMs;
+  let dSteps = 0;
+  while (dCursor < currentDailyResetMs && dSteps < 35) {
+    const dNext = getNextDailyResetAfter(dCursor);
+    if (dNext <= dCursor) break;
+    totalAwarded += awardFinishedWindowLeaderboardSkins('daily', dCursor, Math.min(dNext, currentDailyResetMs), ledger);
+    dCursor = dNext;
+    ledgerChanged = true;
+    dSteps += 1;
+  }
+  if (ledger.lastSettledDailyResetMs !== currentDailyResetMs) {
+    ledger.lastSettledDailyResetMs = currentDailyResetMs;
+    ledgerChanged = true;
+  }
+
+  // 2. Settle any finished Weekly windows since lastSettledWeeklyResetMs
+  let wCursor = ledger.lastSettledWeeklyResetMs;
+  let wSteps = 0;
+  while (wCursor < currentWeeklyResetMs && wSteps < 12) {
+    const wNext = getNextWeeklyResetAfter(wCursor);
+    if (wNext <= wCursor) break;
+    totalAwarded += awardFinishedWindowLeaderboardSkins('weekly', wCursor, Math.min(wNext, currentWeeklyResetMs), ledger);
+    wCursor = wNext;
+    ledgerChanged = true;
+    wSteps += 1;
+  }
+  if (ledger.lastSettledWeeklyResetMs !== currentWeeklyResetMs) {
+    ledger.lastSettledWeeklyResetMs = currentWeeklyResetMs;
+    ledgerChanged = true;
+  }
+
+  if ((totalAwarded > 0 || ledgerChanged) && opts.saveOnAward !== false) {
+    saveDatabase(false, { skipOverviewSync: totalAwarded === 0, keepLeaderboardCache: true });
+  }
+  return totalAwarded;
+}
 
 let db = {
   databaseStatus: {},
@@ -602,6 +879,10 @@ let db = {
   loginHistory: [],
   adminSettings: { defaultMaxAccounts: 5 },
   banRegistry: { groups: {} },
+  leaderboardSkinLedger: null,
+  globalAnnouncements: [],
+  giveaways: [],
+  feedbackSubmissions: [],
   users: {},
   runs: { easy: [], medium: [], hard: [], extreme: [] },
   sessions: {},
@@ -723,7 +1004,11 @@ function recalculateUserBestFromVisibleRuns(username, diff) {
     .filter(r => r && r.username && r.username.toLowerCase() === uLower && !r.hidden)
     .reduce((max, r) => Math.max(max, Number(r.score) || 0), 0);
 
+  const prevBest = Number(user.records[diff]) || 0;
   user.records[diff] = highestVisible;
+  if (highestVisible !== prevBest) {
+    user.recordsVersion = (Number(user.recordsVersion) || 0) + 1;
+  }
   if (user._lastSyncedRecords) {
     user._lastSyncedRecords[diff] = highestVisible;
   }
@@ -735,7 +1020,7 @@ function recalculateUserBestFromVisibleRuns(username, diff) {
  * If someone manually edited `playerRecordsOverview[username].records` or `users[key].records`
  * in `data/db.json`, this applies those edits and ensures the Top 100 leaderboard reflects them!
  */
-function syncAndRebuildOverview(fromExternalFileLoad = false) {
+function syncAndRebuildOverview(fromExternalFileLoad = false, onlyDiff = null) {
   if (!db.users || typeof db.users !== 'object') db.users = {};
   if (!db.runs || typeof db.runs !== 'object') db.runs = { easy: [], medium: [], hard: [], extreme: [] };
   ALL_MODES.forEach(diff => {
@@ -743,6 +1028,9 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
   });
   if (!db.sessions || typeof db.sessions !== 'object') db.sessions = {};
   if (!Array.isArray(db.activityFeed)) db.activityFeed = [];
+  const modesToProcess = (!fromExternalFileLoad && onlyDiff && ALL_MODES.includes(onlyDiff))
+    ? [onlyDiff]
+    : ALL_MODES;
 
   // 1. If loaded from external file edit, check if the owner edited `playerRecordsOverview` directly
   if (fromExternalFileLoad && db.playerRecordsOverview && typeof db.playerRecordsOverview === 'object') {
@@ -760,6 +1048,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
           const prev = Number(user.records[diff]) || 0;
           const cleanVal = Math.max(0, Math.floor(ovScore));
           user.records[diff] = cleanVal;
+          user.recordsVersion = (Number(user.recordsVersion) || 0) + 1;
           if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0, extreme: 0 };
           user.recordTimestamps[diff] = Date.now();
           user.lastNewBestAt = Date.now();
@@ -785,18 +1074,44 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
 
   // 2. Ensure every user's best records exist in `db.runs` and track synced state
   const sessionList = Object.values(db.sessions || {});
+  const sessionsByUserKey = new Map();
+  for (let i = 0; i < sessionList.length; i++) {
+    const s = sessionList[i];
+    if (!s) continue;
+    const sk = String(s.usernameKey || s.username || '').toLowerCase();
+    if (!sk) continue;
+    const createdAt = Number(s.createdAt) || 0;
+    const cur = sessionsByUserKey.get(sk);
+    if (!cur) {
+      sessionsByUserKey.set(sk, { count: 1, maxAt: createdAt });
+    } else {
+      cur.count++;
+      if (createdAt > cur.maxAt) cur.maxAt = createdAt;
+    }
+  }
+  const existingRunKeysByDiff = {};
+  modesToProcess.forEach(diff => {
+    const set = new Set();
+    const list = db.runs[diff];
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (r && r.username) {
+        set.add(`${String(r.username).toLowerCase()}:${Number(r.score) || 0}`);
+      }
+    }
+    existingRunKeysByDiff[diff] = set;
+  });
+
   for (const user of Object.values(db.users)) {
     if (!user || !user.username) continue;
     if (!user.records) user.records = { easy: 0, medium: 0, hard: 0, extreme: 0 };
     if (!user.recordTimestamps) user.recordTimestamps = { easy: 0, medium: 0, hard: 0, extreme: 0 };
 
-    // Backfill historical login count & last login timestamp from active sessions + account registration
+    // Backfill historical login count & last login timestamp from indexed sessions + account registration
     const uKeyLower = user.username.toLowerCase();
-    const userSessions = sessionList.filter(
-      s => s && ((s.usernameKey && s.usernameKey.toLowerCase() === uKeyLower) || (s.username && s.username.toLowerCase() === uKeyLower))
-    );
-    const maxSessionTime = userSessions.reduce((maxT, s) => Math.max(maxT, Number(s.createdAt) || 0), 0);
-    const derivedLoginCount = Math.max(userSessions.length, user.createdAt ? 1 : 0);
+    const userSessMeta = sessionsByUserKey.get(uKeyLower);
+    const maxSessionTime = userSessMeta ? userSessMeta.maxAt : 0;
+    const derivedLoginCount = Math.max(userSessMeta ? userSessMeta.count : 0, user.createdAt ? 1 : 0);
     if (typeof user.loginCount !== 'number' || user.loginCount < derivedLoginCount) {
       user.loginCount = derivedLoginCount;
     }
@@ -813,6 +1128,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
         const prev = Number(user._lastSyncedRecords[diff]) || 0;
         if (cur !== prev) {
           user.records[diff] = cur;
+          user.recordsVersion = (Number(user.recordsVersion) || 0) + 1;
           user.recordTimestamps[diff] = Date.now();
           user.lastNewBestAt = Date.now();
           user.lastNewBestText = `🏆 Updated ${diff.toUpperCase()} Best: ${cur} pts (was ${prev} pts)`;
@@ -827,13 +1143,13 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       });
     }
 
-    ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
+    modesToProcess.forEach(diff => {
       const best = Number(user.records[diff]) || 0;
       if (best > 0) {
-        const alreadyInRuns = db.runs[diff].some(
-          r => r && r.username && r.username.toLowerCase() === user.username.toLowerCase() && r.score === best
-        );
-        if (!alreadyInRuns) {
+        const keySet = existingRunKeysByDiff[diff];
+        const runKey = `${uKeyLower}:${best}`;
+        if (!keySet.has(runKey)) {
+          keySet.add(runKey);
           db.runs[diff].push({
             id: crypto.randomBytes(8).toString('hex'),
             username: user.username,
@@ -853,33 +1169,33 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     };
   }
 
+  // Settle any completed Daily/Weekly leaderboard periods BEFORE pruning older runs
+  settleCompletedLeaderboardPeriods(Date.now(), { saveOnAward: false });
+
   // 3. Keep the 100 highest runs in each mode from EACH PLAYER + ALL runs from the current Weekly/Daily window!
   const resetBounds = getLeaderboardResetBoundaries();
   const weeklyResetStartMs = (resetBounds && resetBounds.weekly && resetBounds.weekly.currentResetMs) || 0;
 
-  ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
+  modesToProcess.forEach(diff => {
     const list = Array.isArray(db.runs[diff]) ? db.runs[diff] : [];
-    const validRuns = list
-      .filter(r => r && typeof r.score === 'number' && r.score > 0 && r.username)
-      .map(r => {
-        if (r.adminOverride) {
-          return { ...r, hidden: Boolean(r.hidden) };
-        }
-        const isOffHours = !isWithinDanishWindow(r.createdAt);
-        return {
-          ...r,
-          hidden: r.hidden !== undefined ? Boolean(r.hidden) : isOffHours
-        };
-      });
-
-    // Group runs by player (lowercase username)
     const runsByPlayer = new Map();
-    for (const r of validRuns) {
-      const uKey = String(r.username).toLowerCase();
-      if (!runsByPlayer.has(uKey)) {
-        runsByPlayer.set(uKey, []);
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
+      if (!r || typeof r.score !== 'number' || r.score <= 0 || !r.username) continue;
+      if (r.adminOverride) {
+        r.hidden = Boolean(r.hidden);
+      } else if (r.hidden === undefined) {
+        r.hidden = !isWithinDanishWindow(r.createdAt);
+      } else {
+        r.hidden = Boolean(r.hidden);
       }
-      runsByPlayer.get(uKey).push(r);
+      const uKey = String(r.username).toLowerCase();
+      let arr = runsByPlayer.get(uKey);
+      if (!arr) {
+        arr = [];
+        runsByPlayer.set(uKey, arr);
+      }
+      arr.push(r);
     }
 
     // Keep up to 100 highest all-time runs for EACH PLAYER + preserve ALL runs from the active Weekly/Daily timeframe!
@@ -889,11 +1205,9 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
         if (b.score !== a.score) return b.score - a.score;
         return (b.createdAt || 0) - (a.createdAt || 0);
       });
-      const keptIds = new Set();
       for (let i = 0; i < pRuns.length; i++) {
         const item = pRuns[i];
         if (i < 100 || (weeklyResetStartMs > 0 && (item.createdAt || 0) >= weeklyResetStartMs)) {
-          keptIds.add(item.id);
           prunedRuns.push(item);
         }
       }
@@ -909,6 +1223,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
   });
 
   // 4. Rebuild `playerRecordsOverview` sorted by highest all-time best score so `db.json` is super easy to inspect & edit
+  cachedLiveAllTimeSkinState = null;
   const sortedUsers = Object.values(db.users)
     .filter(u => u && u.username)
     .sort((a, b) => {
@@ -978,6 +1293,7 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
 
     if (!u.grantedSkins) u.grantedSkins = [];
     if (!u.adminLockedSkins) u.adminLockedSkins = [];
+    if (!Array.isArray(u.unlockedLeaderboardSkins)) u.unlockedLeaderboardSkins = [];
     if (!Array.isArray(u.unlockedBackgrounds)) u.unlockedBackgrounds = [];
     if (!u.selectedBackground || typeof u.selectedBackground !== 'string') u.selectedBackground = 'bg_classic';
     if (!u.loginHistory) u.loginHistory = [];
@@ -991,12 +1307,19 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
     u.duelBestMatchPoints = Math.max(0, Math.floor(u.duelBestMatchPoints));
     if (u.duelBestMatchBreakdown && typeof u.duelBestMatchBreakdown !== 'object') u.duelBestMatchBreakdown = null;
 
-    // Clean grantedSkins: never count default skins or skins the player already naturally unlocked via their scores!
-    u.grantedSkins = u.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && id !== 'bg_classic' && !isSkinNaturallyUnlockedForUser(id, u));
+    // Clean grantedSkins: never count default skins or permanent skins the player already naturally unlocked via scores!
+    // Never auto-strip live All-Time leaderboard admin grants because All-Time placement can change dynamically.
+    u.grantedSkins = u.grantedSkins.filter(id => {
+      if (!id || id === 'classic' || id === 'classic_pipe' || id === 'bg_classic') return false;
+      const lbMeta = LEADERBOARD_SKIN_MAP.get(id);
+      if (lbMeta && lbMeta.lbTimeframe === 'all') return true;
+      return !isSkinNaturallyUnlockedForUser(id, u);
+    });
 
-    // Ensure equipped skins are strictly valid for current records or granted/case status
+    // Ensure equipped skins are strictly valid for current records, All-Time placement, or granted/case status
     if (u.selectedSkin && !isSkinUnlockedForUser(u.selectedSkin, u)) {
       u.selectedSkin = 'classic';
+      u.cosmeticsVersion = (Number(u.cosmeticsVersion) || 0) + 1;
     }
     if (u.selectedPipeSkin && !isSkinUnlockedForUser(u.selectedPipeSkin, u)) {
       u.selectedPipeSkin = 'classic_pipe';
@@ -1041,8 +1364,17 @@ function syncAndRebuildOverview(fromExternalFileLoad = false) {
       selectedBackground: u.selectedBackground || 'bg_classic',
       cosmeticsVersion: Number(u.cosmeticsVersion) || 0,
       unlockedBackgrounds: Array.isArray(u.unlockedBackgrounds) ? u.unlockedBackgrounds : [],
+      unlockedLeaderboardSkins: Array.isArray(u.unlockedLeaderboardSkins) ? u.unlockedLeaderboardSkins : [],
+      activeAllTimeLbSkins: getUserActiveAllTimeLbSkins(u),
+      unlockedQuestIds: (u.trollQuests && u.trollQuests.unlockedIds && typeof u.trollQuests.unlockedIds === 'object')
+        ? Object.keys(u.trollQuests.unlockedIds).filter(k => u.trollQuests.unlockedIds[k])
+        : [],
       hasCustomImage: Boolean(u.customBackgroundImage),
       hasCustomVideo: Boolean(u.customBackgroundVideo && Array.isArray(u.customBackgroundVideo.frames) && u.customBackgroundVideo.frames.length > 0),
+      hasCustomDrawing: Boolean(u.customBackgroundDrawing),
+      extremeAccessGranted: Boolean(u.extremeAccessGranted),
+      extremeUnlockedNaturally: hasNaturallyUnlockedExtremeMode(u),
+      extremeUnlocked: hasUnlockedExtremeMode(u),
       grantedSkins: u.grantedSkins || [],
       adminLockedSkins: u.adminLockedSkins || [],
       banned: Boolean(u.banned),
@@ -1207,6 +1539,12 @@ function loadDatabase(fromWatcher = false) {
         banRegistry: (parsed.banRegistry && typeof parsed.banRegistry === 'object' && typeof parsed.banRegistry.groups === 'object')
           ? parsed.banRegistry
           : { groups: {} },
+        leaderboardSkinLedger: (parsed.leaderboardSkinLedger && typeof parsed.leaderboardSkinLedger === 'object')
+          ? parsed.leaderboardSkinLedger
+          : null,
+        globalAnnouncements: Array.isArray(parsed.globalAnnouncements) ? parsed.globalAnnouncements : [],
+        giveaways: Array.isArray(parsed.giveaways) ? parsed.giveaways : [],
+        feedbackSubmissions: Array.isArray(parsed.feedbackSubmissions) ? parsed.feedbackSubmissions : [],
         users: parsed.users || {},
         runs: parsed.runs || { easy: [], medium: [], hard: [], extreme: [] },
         duelMatchHighScores: Array.isArray(parsed.duelMatchHighScores) ? parsed.duelMatchHighScores : [],
@@ -1244,6 +1582,7 @@ function loadDatabase(fromWatcher = false) {
       );
     }
 
+    invalidateLeaderboardCaches();
     syncAndRebuildOverview(fromWatcher);
     enrichOverviewWithClientSignals();
     if (!fromWatcher) {
@@ -1256,26 +1595,36 @@ function loadDatabase(fromWatcher = false) {
 
 let lastBackupTimestamp = 0;
 let pendingSaveTimer = null;
+let diskWriteInFlight = false;
+let diskWritePendingAgain = false;
+
+function buildOrderedDbSnapshotString() {
+  const orderedDb = {
+    databaseStatus: db.databaseStatus,
+    playerRecordsOverview: db.playerRecordsOverview,
+    activityFeed: db.activityFeed,
+    loginHistory: db.loginHistory || [],
+    adminSettings: db.adminSettings || {},
+    banRegistry: db.banRegistry || { groups: {} },
+    leaderboardSkinLedger: db.leaderboardSkinLedger || null,
+    globalAnnouncements: Array.isArray(db.globalAnnouncements) ? db.globalAnnouncements : [],
+    giveaways: Array.isArray(db.giveaways) ? db.giveaways : [],
+    feedbackSubmissions: Array.isArray(db.feedbackSubmissions) ? db.feedbackSubmissions : [],
+    users: db.users,
+    runs: db.runs,
+    duelMatchHighScores: db.duelMatchHighScores || [],
+    duelMatchHistory: db.duelMatchHistory || [],
+    sessions: db.sessions,
+    chatMessages: db.chatMessages || []
+  };
+  return JSON.stringify(orderedDb, null, 2);
+}
 
 function writeOrderedDbToDisk(forceBackup = false) {
   try {
     isInternalWrite = true;
     lastInternalWriteAt = Date.now();
-    const orderedDb = {
-      databaseStatus: db.databaseStatus,
-      playerRecordsOverview: db.playerRecordsOverview,
-      activityFeed: db.activityFeed,
-      loginHistory: db.loginHistory || [],
-      adminSettings: db.adminSettings || {},
-      banRegistry: db.banRegistry || { groups: {} },
-      users: db.users,
-      runs: db.runs,
-      duelMatchHighScores: db.duelMatchHighScores || [],
-      duelMatchHistory: db.duelMatchHistory || [],
-      sessions: db.sessions,
-      chatMessages: db.chatMessages || []
-    };
-    const jsonStr = JSON.stringify(orderedDb, null, 2);
+    const jsonStr = buildOrderedDbSnapshotString();
     const tmpFile = DB_FILE + '.tmp';
     fs.writeFileSync(tmpFile, jsonStr, 'utf8');
     try {
@@ -1303,21 +1652,77 @@ function writeOrderedDbToDisk(forceBackup = false) {
       }
     }
 
-    setTimeout(() => { isInternalWrite = false; }, 1200);
+    const resetTimer = setTimeout(() => { isInternalWrite = false; }, 1200);
+    if (typeof resetTimer.unref === 'function') resetTimer.unref();
   } catch (err) {
     isInternalWrite = false;
     console.error('Error saving database:', err.message);
   }
 }
 
-function saveDatabase(forceBackup = false) {
+async function writeOrderedDbToDiskAsync() {
+  if (diskWriteInFlight) {
+    diskWritePendingAgain = true;
+    return;
+  }
+  diskWriteInFlight = true;
+  try {
+    do {
+      diskWritePendingAgain = false;
+      isInternalWrite = true;
+      lastInternalWriteAt = Date.now();
+      const jsonStr = buildOrderedDbSnapshotString();
+      const tmpFile = DB_FILE + '.tmp';
+      await fs.promises.writeFile(tmpFile, jsonStr, 'utf8');
+      try {
+        await fs.promises.rename(tmpFile, DB_FILE);
+      } catch (_) {
+        await fs.promises.copyFile(tmpFile, DB_FILE);
+        try { await fs.promises.unlink(tmpFile); } catch (_) {}
+      }
+
+      try {
+        const stat = await fs.promises.stat(DB_FILE);
+        lastInternalSavedMtime = stat.mtimeMs;
+      } catch (_) {}
+
+      const now = Date.now();
+      if (now - lastBackupTimestamp > 15 * 60 * 1000) {
+        lastBackupTimestamp = now;
+        try {
+          const stamp = new Date(now).toISOString().replace(/[:.]/g, '-');
+          const backupTarget = path.join(BACKUPS_DIR, `db-backup-${stamp}.json`);
+          await fs.promises.writeFile(backupTarget, jsonStr, 'utf8');
+          pruneBackups(3);
+        } catch (backupErr) {
+          console.error('Backup write error:', backupErr.message);
+        }
+      }
+    } while (diskWritePendingAgain);
+
+    const resetTimer = setTimeout(() => { isInternalWrite = false; }, 1200);
+    if (typeof resetTimer.unref === 'function') resetTimer.unref();
+  } catch (err) {
+    isInternalWrite = false;
+    console.error('Error saving database asynchronously:', err.message);
+  } finally {
+    diskWriteInFlight = false;
+  }
+}
+
+function saveDatabase(forceBackup = false, opts = {}) {
   try {
     lastInternalWriteAt = Date.now();
-    cachedLeaderboards = null;
-    cachedAllLeaderboards = null;
+    if (!opts || !opts.keepLeaderboardCache) {
+      invalidateLeaderboardCaches();
+    }
     cachedAllRunsAdmin = null;
-    syncAndRebuildOverview(false);
-    enrichOverviewWithClientSignals();
+    if (!opts || !opts.skipOverviewSync) {
+      syncAndRebuildOverview(false, (opts && opts.onlyDiff) || null);
+      enrichOverviewWithClientSignals();
+    } else if (!opts || !opts.keepLeaderboardCache) {
+      reconcileUsersLostAllTimeSkins();
+    }
 
     if (forceBackup) {
       if (pendingSaveTimer) {
@@ -1329,8 +1734,8 @@ function saveDatabase(forceBackup = false) {
       if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
       pendingSaveTimer = setTimeout(() => {
         pendingSaveTimer = null;
-        writeOrderedDbToDisk(false);
-      }, 30);
+        writeOrderedDbToDiskAsync();
+      }, 45);
       if (typeof pendingSaveTimer.unref === 'function') {
         pendingSaveTimer.unref();
       }
@@ -1339,6 +1744,32 @@ function saveDatabase(forceBackup = false) {
     console.error('Error scheduling database save:', err.message);
   }
 }
+
+function flushPendingSaveSync() {
+  if (pendingSaveTimer || diskWritePendingAgain) {
+    if (pendingSaveTimer) {
+      clearTimeout(pendingSaveTimer);
+      pendingSaveTimer = null;
+    }
+    diskWritePendingAgain = false;
+    writeOrderedDbToDisk(false);
+  }
+}
+
+try {
+  process.on('exit', () => {
+    flushPendingSaveSync();
+  });
+} catch (_) {}
+
+['SIGINT', 'SIGTERM'].forEach((sig) => {
+  try {
+    process.once(sig, () => {
+      flushPendingSaveSync();
+      process.exit(0);
+    });
+  } catch (_) {}
+});
 
 /**
  * Bulk reset of all records is disabled to protect all-time, weekly, and daily leaderboards.
@@ -1368,41 +1799,61 @@ fs.watchFile(DB_FILE, { interval: 2500, persistent: false }, (curr, prev) => {
  * - weekly: runs achieved since the most recent Monday 07:00:00 Danish Time
  * - daily: runs achieved since the most recent 07:00:00 Danish Time
  */
-function buildLeaderboards(limit = 100, timeframe = 'all', nowMs = Date.now()) {
-  const boundaries = getLeaderboardResetBoundaries(nowMs);
+function buildLeaderboards(limit = 100, timeframe = 'all', nowMs = null) {
+  const effectiveNow = typeof nowMs === 'number' ? nowMs : Date.now();
+  const boundaries = getLeaderboardResetBoundaries(effectiveNow);
+  const dayKey = boundaries.daily.currentResetMs;
+  const weekKey = boundaries.weekly.currentResetMs;
+  const cacheable = typeof nowMs !== 'number';
+  const cacheKey = `${limit || 0}:${timeframe || 'all'}`;
+
+  if (cacheable) {
+    if (cachedLbDayKey !== dayKey || cachedLbWeekKey !== weekKey) {
+      cachedLeaderboards.clear();
+      cachedAllLeaderboards.clear();
+      cachedLbDayKey = dayKey;
+      cachedLbWeekKey = weekKey;
+      settleCompletedLeaderboardPeriods(effectiveNow, { saveOnAward: true });
+    }
+    if (cachedLeaderboards.has(cacheKey)) {
+      return cachedLeaderboards.get(cacheKey);
+    }
+  }
+
   let minCreatedAt = 0;
   if (timeframe === 'daily') {
-    minCreatedAt = boundaries.daily.currentResetMs;
+    minCreatedAt = dayKey;
   } else if (timeframe === 'weekly') {
-    minCreatedAt = boundaries.weekly.currentResetMs;
+    minCreatedAt = weekKey;
   }
 
   const result = { easy: [], medium: [], hard: [], extreme: [] };
 
   ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
     const runsList = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
-    let filtered = runsList
-      .filter(entry => {
-        if (!entry || typeof entry.score !== 'number' || entry.score <= 0 || entry.hidden) return false;
-        const usr = entry.username && db.users && db.users[String(entry.username).toLowerCase()];
-        if (usr && (usr.banned || usr.overAccountLimit)) return false;
-        if (minCreatedAt > 0 && (!entry.createdAt || entry.createdAt < minCreatedAt)) return false;
-        if (entry.adminOverride) return true;
-        if (entry.isWithinDanishWindow !== undefined) return entry.isWithinDanishWindow;
-        entry.isWithinDanishWindow = isWithinDanishWindow(entry.createdAt);
-        return entry.isWithinDanishWindow;
-      })
-      .slice()
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      });
-
-    if (limit && limit > 0) {
-      filtered = filtered.slice(0, limit);
+    const filtered = [];
+    for (let i = 0; i < runsList.length; i++) {
+      const entry = runsList[i];
+      if (!entry || typeof entry.score !== 'number' || entry.score <= 0 || entry.hidden) continue;
+      const usr = entry.username && db.users && db.users[String(entry.username).toLowerCase()];
+      if (usr && (usr.banned || usr.overAccountLimit)) continue;
+      if (minCreatedAt > 0 && (!entry.createdAt || entry.createdAt < minCreatedAt)) continue;
+      if (!entry.adminOverride) {
+        if (entry.isWithinDanishWindow === undefined) {
+          entry.isWithinDanishWindow = isWithinDanishWindow(entry.createdAt);
+        }
+        if (!entry.isWithinDanishWindow) continue;
+      }
+      filtered.push(entry);
     }
 
-    result[diff] = filtered.map((entry, idx) => ({
+    filtered.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+
+    const sliced = (limit && limit > 0) ? filtered.slice(0, limit) : filtered;
+    result[diff] = sliced.map((entry, idx) => ({
       id: entry.id,
       username: entry.username,
       score: entry.score,
@@ -1411,18 +1862,45 @@ function buildLeaderboards(limit = 100, timeframe = 'all', nowMs = Date.now()) {
     }));
   });
 
+  if (cacheable) {
+    cachedLeaderboards.set(cacheKey, result);
+  }
   return result;
 }
 
 /**
  * Builds all 3 timeframes (All Time, Weekly, Daily) simultaneously along with reset boundaries
  */
-function buildAllTimeframeLeaderboards(limit = 100, nowMs = Date.now()) {
-  const boundaries = getLeaderboardResetBoundaries(nowMs);
+function buildAllTimeframeLeaderboards(limit = 100, nowMs = null) {
+  const effectiveNow = typeof nowMs === 'number' ? nowMs : Date.now();
+  const boundaries = getLeaderboardResetBoundaries(effectiveNow);
+  if (typeof nowMs !== 'number') {
+    const dayKey = boundaries.daily.currentResetMs;
+    const weekKey = boundaries.weekly.currentResetMs;
+    if (cachedLbDayKey !== dayKey || cachedLbWeekKey !== weekKey) {
+      cachedLeaderboards.clear();
+      cachedAllLeaderboards.clear();
+      cachedLbDayKey = dayKey;
+      cachedLbWeekKey = weekKey;
+      settleCompletedLeaderboardPeriods(effectiveNow, { saveOnAward: true });
+    }
+    const cKey = String(limit || 0);
+    if (cachedAllLeaderboards.has(cKey)) {
+      const cached = cachedAllLeaderboards.get(cKey);
+      return { ...cached, resetBoundaries: boundaries };
+    }
+    const payload = {
+      all: buildLeaderboards(limit, 'all'),
+      weekly: buildLeaderboards(limit, 'weekly'),
+      daily: buildLeaderboards(limit, 'daily')
+    };
+    cachedAllLeaderboards.set(cKey, payload);
+    return { ...payload, resetBoundaries: boundaries };
+  }
   return {
-    all: buildLeaderboards(limit, 'all', nowMs),
-    weekly: buildLeaderboards(limit, 'weekly', nowMs),
-    daily: buildLeaderboards(limit, 'daily', nowMs),
+    all: buildLeaderboards(limit, 'all', effectiveNow),
+    weekly: buildLeaderboards(limit, 'weekly', effectiveNow),
+    daily: buildLeaderboards(limit, 'daily', effectiveNow),
     resetBoundaries: boundaries
   };
 }
@@ -1486,6 +1964,7 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
   if (withinWindow) {
     if (verifiedScore > previousBest) {
       user.records[diffKey] = verifiedScore;
+      user.recordsVersion = (Number(user.recordsVersion) || 0) + 1;
       user.recordTimestamps[diffKey] = now;
       user.lastNewBestAt = now;
       user.lastNewBestReadable = formatReadableTimestamp(now);
@@ -1556,7 +2035,12 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
     });
   }
 
-  saveDatabase();
+  const skipOverview = verifiedScore <= 0;
+  saveDatabase(false, {
+    skipOverviewSync: skipOverview,
+    onlyDiff: skipOverview ? null : diffKey,
+    keepLeaderboardCache: verifiedScore <= 0 || !withinWindow
+  });
   return { isNewRecord, newRunId, previousBest, autoHidden, withinWindow };
 }
 
@@ -1564,7 +2048,7 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
  * Allows the game owner (MeDonut) to directly update a player's records or skins via the `/database` manager
  * AND immediately syncs `db.runs[diff]` so the leaderboard reflects the new best score (whether raised, lowered, or set to 0)!
  */
-function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPipeSkin, newDuelElo = undefined) {
+function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPipeSkin, newDuelElo = undefined, newDuelCoins = undefined) {
   const cleanName = typeof username === 'string' ? username.trim() : '';
   const uKey = cleanName.toLowerCase();
   const user = db.users[uKey];
@@ -1584,6 +2068,7 @@ function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPi
       user.records[diff] = val;
       if (user._lastSyncedRecords) user._lastSyncedRecords[diff] = val;
       if (val !== oldVal) {
+        user.recordsVersion = (Number(user.recordsVersion) || 0) + 1;
         syncUserRunsToBestScore(user.username, diff, val, now);
         user.recordTimestamps[diff] = now;
         changes.push(`${diff.toUpperCase()}: ${oldVal} -> ${val}`);
@@ -1597,6 +2082,15 @@ function updatePlayerRecordsAdmin(username, newRecords, selectedSkin, selectedPi
     user.duelElo = cleanElo;
     if (cleanElo !== oldElo) {
       changes.push(`DUEL ELO: ${oldElo} -> ${cleanElo}`);
+    }
+  }
+
+  if (newDuelCoins !== undefined && newDuelCoins !== null && newDuelCoins !== '') {
+    const cleanCoins = Math.max(0, Math.floor(Number(newDuelCoins) || 0));
+    const oldCoins = Math.floor(Number(user.duelCoins) || 0);
+    user.duelCoins = cleanCoins;
+    if (cleanCoins !== oldCoins) {
+      changes.push(`COINS: ${oldCoins} -> ${cleanCoins}`);
     }
   }
 
@@ -1858,7 +2352,10 @@ function adminUpdateUserSkins(username, options = {}) {
     selectedPipeSkin,
     selectedBackground,
     clearCustomImage,
-    clearCustomVideo
+    clearCustomVideo,
+    clearCustomDrawing,
+    revokeAllGranted,
+    unlockAllLocked
   } = options;
   let changed = false;
   const actionLog = [];
@@ -1910,17 +2407,50 @@ function adminUpdateUserSkins(username, options = {}) {
     changed = true;
   }
 
+  if (revokeAllGranted) {
+    if (user.grantedSkins.length > 0) {
+      for (const sid of user.grantedSkins) {
+        if (BACKGROUND_SKIN_IDS.has(sid)) {
+          user.unlockedBackgrounds = user.unlockedBackgrounds.filter(id => id !== sid);
+          if (user.selectedBackground === sid) user.selectedBackground = 'bg_classic';
+        }
+        if (user.selectedSkin === sid && !isSkinNaturallyUnlockedForUser(sid, user)) user.selectedSkin = 'classic';
+        if (user.selectedPipeSkin === sid && !isSkinNaturallyUnlockedForUser(sid, user)) user.selectedPipeSkin = 'classic_pipe';
+      }
+      user.grantedSkins = [];
+      actionLog.push('Cleared all admin-granted skins');
+      changed = true;
+    }
+  }
+
+  if (unlockAllLocked) {
+    if (user.adminLockedSkins.length > 0) {
+      user.adminLockedSkins = [];
+      actionLog.push('Removed all admin-locks');
+      changed = true;
+    }
+  }
+
+  const assertOwnedForEquip = (skinId, categoryLabel) => {
+    if (!skinId || skinId === 'classic' || skinId === 'classic_pipe' || skinId === 'bg_classic') return;
+    if (!isSkinUnlockedForUser(skinId, user)) {
+      throw new Error(`Cannot equip "${skinId}" — ${user.username} does not own this ${categoryLabel} skin! Grant it first.`);
+    }
+  };
+
   if (typeof selectedSkin === 'string' && selectedSkin.trim()) {
-    user.selectedSkin = selectedSkin.trim();
-    // Do NOT add equipped skin to grantedSkins!
+    const birdId = selectedSkin.trim();
+    assertOwnedForEquip(birdId, 'bird');
+    user.selectedSkin = birdId;
     user.grantedSkins = user.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && id !== 'bg_classic' && !isSkinNaturallyUnlockedForUser(id, user));
     actionLog.push(`Set bird skin to "${user.selectedSkin}"`);
     changed = true;
   }
 
   if (typeof selectedPipeSkin === 'string' && selectedPipeSkin.trim()) {
-    user.selectedPipeSkin = selectedPipeSkin.trim();
-    // Do NOT add equipped pipe skin to grantedSkins!
+    const pipeId = selectedPipeSkin.trim();
+    assertOwnedForEquip(pipeId, 'pipe');
+    user.selectedPipeSkin = pipeId;
     user.grantedSkins = user.grantedSkins.filter(id => id && id !== 'classic' && id !== 'classic_pipe' && id !== 'bg_classic' && !isSkinNaturallyUnlockedForUser(id, user));
     actionLog.push(`Set pipe skin to "${user.selectedPipeSkin}"`);
     changed = true;
@@ -1929,6 +2459,7 @@ function adminUpdateUserSkins(username, options = {}) {
   if (typeof selectedBackground === 'string' && selectedBackground.trim()) {
     const bgId = selectedBackground.trim();
     if (BACKGROUND_SKIN_IDS.has(bgId) || bgId === 'bg_classic') {
+      assertOwnedForEquip(bgId, 'background');
       user.selectedBackground = bgId;
       actionLog.push(`Set background skin to "${bgId}"`);
       changed = true;
@@ -1948,6 +2479,14 @@ function adminUpdateUserSkins(username, options = {}) {
     user.customBgUpdatedAt = Date.now();
     if (user.selectedBackground === 'bg_custom_video') user.selectedBackground = 'bg_classic';
     actionLog.push('Cleared uploaded custom video');
+    changed = true;
+  }
+
+  if (clearCustomDrawing) {
+    user.customBackgroundDrawing = null;
+    user.customBgUpdatedAt = Date.now();
+    if (user.selectedBackground === 'bg_custom_draw') user.selectedBackground = 'bg_classic';
+    actionLog.push('Cleared custom drawn background');
     changed = true;
   }
 
@@ -1975,6 +2514,7 @@ function adminUpdateUserSkins(username, options = {}) {
     cosmeticsVersion: Number(user.cosmeticsVersion) || 0,
     hasCustomImage: Boolean(user.customBackgroundImage),
     hasCustomVideo: Boolean(user.customBackgroundVideo && Array.isArray(user.customBackgroundVideo.frames) && user.customBackgroundVideo.frames.length > 0),
+    hasCustomDrawing: Boolean(user.customBackgroundDrawing),
     user
   };
 }
@@ -2747,7 +3287,7 @@ function trackUserClientSignals(user, clientInfo = {}, persistIfNew = true) {
   if (dirty) {
     user.lastSignalAt = Date.now();
     if (persistIfNew) {
-      saveDatabase(false);
+      saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
     }
   }
   return dirty;
@@ -3158,7 +3698,14 @@ function openBackgroundCaseForUser(username, caseId) {
     throw new Error(`Not enough Duel Coins! Need ${price} 🪙 (you have ${currentCoins} 🪙). Play Ranked Duels to earn coins!`);
   }
 
-  const allCaseItems = (BACKGROUND_SKINS || []).filter(b => b.caseId === caseId && (Number(b.weight) || 0) > 0);
+  const allCaseItems = (BACKGROUND_SKINS || [])
+    .filter(b => b && (b.caseId === caseId || (Array.isArray(b.caseIds) && b.caseIds.includes(caseId))))
+    .map(b => {
+      const effWeight = (b.caseWeights && typeof b.caseWeights[caseId] === 'number') ? b.caseWeights[caseId] : Number(b.weight) || 0;
+      const effDropPct = (b.caseDropPcts && typeof b.caseDropPcts[caseId] === 'number') ? b.caseDropPcts[caseId] : Number(b.dropPct) || 0;
+      return { ...b, weight: effWeight, dropPct: effDropPct };
+    })
+    .filter(b => b.weight > 0);
   if (allCaseItems.length === 0) throw new Error('No background skins configured in this case.');
 
   const lockedList = Array.isArray(user.adminLockedSkins) ? user.adminLockedSkins : [];
@@ -3246,22 +3793,49 @@ function saveUserCustomBackgroundMedia(username, payload = {}) {
   if (!user) throw new Error('Player account not found.');
   if (user.banned) throw new Error('Banned accounts cannot upload custom backgrounds.');
 
-  const mediaType = payload.mediaType === 'video' ? 'video' : 'image';
+  const mediaType = payload.mediaType === 'video'
+    ? 'video'
+    : (payload.mediaType === 'draw' ? 'draw' : 'image');
   const now = Date.now();
   const validImageUrl = (s) => (
     typeof s === 'string' &&
     s.length >= 32 &&
-    s.length <= 750000 &&
+    s.length <= 4800000 &&
     /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(s)
   );
 
-  if (mediaType === 'image') {
-    if (!isSkinUnlockedForUser('bg_custom_image', user)) {
-      throw new Error('You must unlock "Custom Picture Background" (1% drop in the 1000 🪙 Case) first!');
+  if (mediaType === 'draw') {
+    if (!isSkinUnlockedForUser('bg_custom_draw', user)) {
+      throw new Error('You must unlock "Draw-Your-Own Background" (1.0% in 250 🪙 Case or 2.5% in 500 🪙 Case) first!');
     }
     const img = payload.imageDataUrl;
     if (!validImageUrl(img)) {
-      throw new Error('Invalid or oversized image file (must be compressed PNG/JPG/WebP under 550 KB).');
+      throw new Error('Invalid or oversized drawing image (must be PNG/JPG/WebP under 3.5 MB).');
+    }
+    user.customBackgroundDrawing = img;
+    user.customBgUpdatedAt = now;
+    user.cosmeticsVersion = (Number(user.cosmeticsVersion) || 0) + 1;
+    if (payload.autoEquip !== false) {
+      user.selectedBackground = 'bg_custom_draw';
+    }
+    logDatabaseEvent('CUSTOM_BG_DRAW', user.username, `🎨 ${user.username} painted & saved a HD Custom Drawn Background!`);
+    saveDatabase(false);
+    return {
+      ok: true,
+      mediaType: 'draw',
+      selectedBackground: user.selectedBackground,
+      customBackgroundDrawing: user.customBackgroundDrawing,
+      customBgUpdatedAt: user.customBgUpdatedAt
+    };
+  }
+
+  if (mediaType === 'image') {
+    if (!isSkinUnlockedForUser('bg_custom_image', user)) {
+      throw new Error('You must unlock "Custom Picture Background" (0.4% drop in the 1000 🪙 Case) first!');
+    }
+    const img = payload.imageDataUrl;
+    if (!validImageUrl(img)) {
+      throw new Error('Invalid or oversized image file (must be compressed PNG/JPG/WebP under 1.3 MB).');
     }
     user.customBackgroundImage = img;
     user.customBgUpdatedAt = now;
@@ -3280,26 +3854,26 @@ function saveUserCustomBackgroundMedia(username, payload = {}) {
     };
   }
 
-  // Video -> strictly 1..15 pre-extracted frames so gameplay never lags
+  // Video -> up to 60 smooth 30 FPS frames
   if (!isSkinUnlockedForUser('bg_custom_video', user)) {
-    throw new Error('You must unlock "Custom Video (15-Frame Loop)" (0.1% drop in the 1000 🪙 Case) first!');
+    throw new Error('You must unlock "Custom Video (30 FPS Loop)" (0.1% drop in the 1000 🪙 Case) first!');
   }
   if (!Array.isArray(payload.frames) || payload.frames.length === 0) {
     throw new Error('Video frame extraction produced no frames. Please pick another video file.');
   }
-  const cappedFrames = payload.frames.slice(0, 15).filter(f => validImageUrl(f));
+  const cappedFrames = payload.frames.slice(0, 60).filter(f => validImageUrl(f));
   if (cappedFrames.length === 0) {
     throw new Error('Invalid video frame data received.');
   }
   const totalChars = cappedFrames.reduce((sum, f) => sum + f.length, 0);
-  if (totalChars > 2800000) {
-    throw new Error('Extracted 15-frame video exceeds maximum compressed size. Please try a shorter/smaller clip.');
+  if (totalChars > 6800000) {
+    throw new Error('Extracted 30 FPS video exceeds maximum compressed size. Please try a shorter/smaller clip.');
   }
 
   user.customBackgroundVideo = {
     frames: cappedFrames,
     frameCount: cappedFrames.length,
-    fps: 7.5,
+    fps: 30,
     updatedAt: now
   };
   user.customBgUpdatedAt = now;
@@ -3310,7 +3884,7 @@ function saveUserCustomBackgroundMedia(username, payload = {}) {
   logDatabaseEvent(
     'CUSTOM_BG_UPLOAD',
     user.username,
-    `🎬 ${user.username} uploaded a Custom Video Background (auto-cut to ${cappedFrames.length} lag-free frames)!`
+    `🎬 ${user.username} uploaded a 30 FPS Custom Video Background (${cappedFrames.length} frames)!`
   );
   saveDatabase(false);
   return {
@@ -3925,13 +4499,313 @@ function areUsersAltLinked(uKeyA, uKeyB, clientInfoA = null, clientInfoB = null)
   return { isAlt: false, reason: '' };
 }
 
+// ============================================================================
+// GLOBAL BROADCAST ANNOUNCEMENTS, COIN GIVEAWAYS & PLAYER FEEDBACK
+// ============================================================================
+function createGlobalAnnouncementAdmin(author, rawText, extra = {}) {
+  const cleanText = String(rawText || '').trim().slice(0, 280);
+  if (!cleanText) {
+    throw new Error('Global message cannot be empty.');
+  }
+  const now = Date.now();
+  if (!Array.isArray(db.globalAnnouncements)) db.globalAnnouncements = [];
+  const ann = {
+    id: 'ann_' + now + '_' + crypto.randomBytes(4).toString('hex'),
+    type: extra.type || 'global',
+    title: extra.title || '📢 GLOBAL MESSAGE FROM MEDONUT',
+    text: cleanText,
+    author: author || 'MeDonut',
+    createdAt: now,
+    ...extra
+  };
+  db.globalAnnouncements.push(ann);
+  if (db.globalAnnouncements.length > 40) {
+    db.globalAnnouncements = db.globalAnnouncements.slice(-40);
+  }
+  addChatMessage({
+    type: 'system',
+    subtype: ann.type === 'global' ? 'global_broadcast' : ann.type,
+    tagLabel: ann.type === 'global' ? '📢 GLOBAL ANNOUNCEMENT' : (ann.title || '🎁 GIVEAWAY'),
+    username: ann.author,
+    avatar: ann.type === 'global' ? '📢' : '🎁',
+    text: cleanText
+  });
+  logDatabaseEvent('GLOBAL_ANNOUNCEMENT', ann.author, `${ann.title}: ${cleanText}`, { id: ann.id, type: ann.type });
+  saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
+  return ann;
+}
+
+function getRecentGlobalAnnouncements(sinceMs = 0) {
+  if (!Array.isArray(db.globalAnnouncements)) return [];
+  const cutoff = Math.max(Number(sinceMs) || 0, Date.now() - 24 * 3600 * 1000);
+  return db.globalAnnouncements.filter(a => a && a.id && (Number(a.createdAt) || 0) > cutoff).slice(-15);
+}
+
+function createCoinGiveawayAdmin(host, { totalCoins, winnerCount, durationSec }) {
+  const cleanTotal = Math.max(1, Math.min(100000000, Math.floor(Number(totalCoins) || 0)));
+  const cleanWinners = Math.max(1, Math.min(50, Math.floor(Number(winnerCount) || 1)));
+  // Integer floor split — strictly removes any decimals! (e.g. 10000 / 2 = 5000, 10000 / 3 = 3333)
+  const coinsPerWinner = Math.floor(cleanTotal / cleanWinners);
+  if (coinsPerWinner < 1) {
+    throw new Error('Total coins must be at least equal to the number of winners (minimum 1 coin per winner).');
+  }
+  const cleanDurationSec = Math.max(10, Math.min(86400, Math.floor(Number(durationSec) || 60)));
+  const now = Date.now();
+  const endsAt = now + cleanDurationSec * 1000;
+
+  if (!Array.isArray(db.giveaways)) db.giveaways = [];
+  const giveaway = {
+    id: 'gw_' + now + '_' + crypto.randomBytes(4).toString('hex'),
+    host: host || 'MeDonut',
+    totalCoins: cleanTotal,
+    winnerCount: cleanWinners,
+    coinsPerWinner,
+    durationSec: cleanDurationSec,
+    createdAt: now,
+    endsAt,
+    status: 'active',
+    entrants: [],
+    winners: []
+  };
+  db.giveaways.push(giveaway);
+  if (db.giveaways.length > 50) {
+    db.giveaways = db.giveaways.slice(-50);
+  }
+
+  const durText = cleanDurationSec >= 60
+    ? `${Math.floor(cleanDurationSec / 60)}m${cleanDurationSec % 60 ? ' ' + (cleanDurationSec % 60) + 's' : ''}`
+    : `${cleanDurationSec}s`;
+  const annText = `${giveaway.host} is giving away ${cleanTotal.toLocaleString('en-US')} 🪙 Coins! ${cleanWinners} winner${cleanWinners === 1 ? '' : 's'} will each receive ${coinsPerWinner.toLocaleString('en-US')} 🪙 (${durText})!`;
+
+  const announcement = createGlobalAnnouncementAdmin(giveaway.host, annText, {
+    type: 'giveaway_start',
+    title: '🎁 LIVE COIN GIVEAWAY!',
+    giveawayId: giveaway.id,
+    totalCoins: cleanTotal,
+    winnerCount: cleanWinners,
+    coinsPerWinner,
+    durationSec: cleanDurationSec,
+    endsAt
+  });
+  return { giveaway, announcement };
+}
+
+function enterCoinGiveaway(giveawayId, user) {
+  if (!user || !user.username) {
+    throw new Error('You must be logged in to enter giveaways.');
+  }
+  if (user.banned) {
+    throw new Error('Banned accounts cannot enter giveaways.');
+  }
+  settleExpiredGiveaways(Date.now());
+  if (!Array.isArray(db.giveaways)) db.giveaways = [];
+  const gw = db.giveaways.find(g => g && g.id === giveawayId);
+  if (!gw) {
+    throw new Error('Giveaway not found.');
+  }
+  if (gw.status !== 'active' || Date.now() >= gw.endsAt) {
+    throw new Error('This giveaway has already ended!');
+  }
+  if (!Array.isArray(gw.entrants)) gw.entrants = [];
+  const uLower = user.username.toLowerCase();
+  const alreadyIn = gw.entrants.some(name => String(name || '').toLowerCase() === uLower);
+  if (!alreadyIn) {
+    gw.entrants.push(user.username);
+    saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
+  }
+  return {
+    id: gw.id,
+    alreadyEntered: alreadyIn,
+    entrantsCount: gw.entrants.length,
+    endsAt: gw.endsAt,
+    coinsPerWinner: gw.coinsPerWinner,
+    totalCoins: gw.totalCoins,
+    winnerCount: gw.winnerCount
+  };
+}
+
+function settleExpiredGiveaways(nowMs = Date.now(), opts = {}) {
+  if (!db || !Array.isArray(db.giveaways) || db.giveaways.length === 0) return 0;
+  let settledCount = 0;
+
+  for (const gw of db.giveaways) {
+    if (!gw || gw.status !== 'active') continue;
+    if (nowMs < (Number(gw.endsAt) || 0)) continue;
+
+    gw.status = 'ended';
+    gw.endedAt = nowMs;
+    settledCount += 1;
+
+    // Filter unique valid non-banned accounts
+    const seen = new Set();
+    const eligible = [];
+    for (const rawName of (Array.isArray(gw.entrants) ? gw.entrants : [])) {
+      const k = String(rawName || '').toLowerCase();
+      if (!k || seen.has(k)) continue;
+      const u = db.users && db.users[k];
+      if (!u || u.banned) continue;
+      seen.add(k);
+      eligible.push(u);
+    }
+
+    // Cryptographic Fisher-Yates shuffle
+    for (let i = eligible.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(i + 1);
+      const tmp = eligible[i];
+      eligible[i] = eligible[j];
+      eligible[j] = tmp;
+    }
+
+    const pickCount = Math.min(Math.max(1, Math.floor(Number(gw.winnerCount) || 1)), eligible.length);
+    const payout = Math.max(0, Math.floor(Number(gw.coinsPerWinner) || 0));
+    const winners = [];
+
+    for (let i = 0; i < pickCount; i++) {
+      const winUser = eligible[i];
+      winUser.duelCoins = Math.max(0, Math.floor(Number(winUser.duelCoins) || 0)) + payout;
+      winners.push(winUser.username);
+    }
+    gw.winners = winners;
+
+    const endText = winners.length > 0
+      ? `🎉 Giveaway Ended! Winner${winners.length === 1 ? '' : 's'}: ${winners.join(', ')} — each won ${payout.toLocaleString('en-US')} 🪙 Coins!`
+      : `🎁 Giveaway (${Number(gw.totalCoins || 0).toLocaleString('en-US')} 🪙) ended with 0 entrants.`;
+
+    // Announce giveaway winners in Live Chat ONLY (no top-of-screen popup)
+    addChatMessage({
+      type: 'system',
+      subtype: 'giveaway_end',
+      tagLabel: '🎉 GIVEAWAY WINNERS',
+      username: gw.host || 'MeDonut',
+      avatar: '🎉',
+      text: endText
+    });
+
+    logDatabaseEvent('GIVEAWAY_ENDED', gw.host || 'MeDonut', endText, {
+      giveawayId: gw.id,
+      winners,
+      coinsPerWinner: payout,
+      entrantsCount: eligible.length
+    });
+  }
+
+  if (settledCount > 0 && opts.save !== false) {
+    saveDatabase(false, { skipOverviewSync: false, keepLeaderboardCache: true });
+  }
+  return settledCount;
+}
+
+function getActiveGiveawaysForClient(usernameKey = '') {
+  settleExpiredGiveaways(Date.now());
+  if (!Array.isArray(db.giveaways)) return [];
+  const uLower = String(usernameKey || '').toLowerCase();
+  const now = Date.now();
+  return db.giveaways
+    .filter(g => g && g.status === 'active' && (Number(g.endsAt) || 0) > now)
+    .map(g => ({
+      id: g.id,
+      host: g.host || 'MeDonut',
+      totalCoins: Math.floor(Number(g.totalCoins) || 0),
+      winnerCount: Math.floor(Number(g.winnerCount) || 1),
+      coinsPerWinner: Math.floor(Number(g.coinsPerWinner) || 0),
+      endsAt: g.endsAt,
+      remainingMs: Math.max(0, g.endsAt - now),
+      entrantsCount: Array.isArray(g.entrants) ? g.entrants.length : 0,
+      hasEntered: Boolean(uLower && Array.isArray(g.entrants) && g.entrants.some(n => String(n || '').toLowerCase() === uLower))
+    }));
+}
+
+function addFeedbackSubmission({ username, category, message }) {
+  const cleanMsg = String(message || '').trim().slice(0, 600);
+  if (!cleanMsg || cleanMsg.length < 3) {
+    throw new Error('Please write at least 3 characters of feedback or an update suggestion.');
+  }
+  const allowedCats = ['suggestion', 'bug', 'feedback'];
+  const cleanCat = allowedCats.includes(String(category || '').toLowerCase())
+    ? String(category).toLowerCase()
+    : 'suggestion';
+  const cleanUser = String(username || 'Guest').trim().slice(0, 32) || 'Guest';
+  const now = Date.now();
+  if (!Array.isArray(db.feedbackSubmissions)) db.feedbackSubmissions = [];
+  const item = {
+    id: 'fb_' + now + '_' + crypto.randomBytes(4).toString('hex'),
+    username: cleanUser,
+    category: cleanCat,
+    message: cleanMsg,
+    createdAt: now,
+    readableTime: formatReadableTimestamp(now)
+  };
+  db.feedbackSubmissions.unshift(item);
+  if (db.feedbackSubmissions.length > 300) {
+    db.feedbackSubmissions = db.feedbackSubmissions.slice(0, 300);
+  }
+  logDatabaseEvent('FEEDBACK_SUBMITTED', cleanUser, `💡 New ${cleanCat} from ${cleanUser}: "${cleanMsg.slice(0, 90)}"`, { id: item.id, category: cleanCat });
+  saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
+  return item;
+}
+
+function getFeedbackSubmissions() {
+  return Array.isArray(db.feedbackSubmissions) ? db.feedbackSubmissions.slice(0, 300) : [];
+}
+
+function deleteFeedbackSubmissionAdmin(id) {
+  if (!id || !Array.isArray(db.feedbackSubmissions)) {
+    return { deleted: false };
+  }
+  const idx = db.feedbackSubmissions.findIndex(f => f && f.id === id);
+  if (idx === -1) {
+    return { deleted: false };
+  }
+  const [removed] = db.feedbackSubmissions.splice(idx, 1);
+  logDatabaseEvent('FEEDBACK_DELETED', 'MeDonut', `🗑️ Deleted feedback from ${removed.username}: "${String(removed.message || '').slice(0, 70)}"`, { id });
+  saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
+  return { deleted: true, removed };
+}
+
+function adminSetExtremeAccess(username, granted) {
+  const cleanName = typeof username === 'string' ? username.trim() : '';
+  const uKey = cleanName.toLowerCase();
+  const user = db.users && db.users[uKey];
+  if (!user) throw new Error(`Player "${username}" not found.`);
+  user.extremeAccessGranted = Boolean(granted);
+  logDatabaseEvent(
+    user.extremeAccessGranted ? 'EXTREME_ACCESS_GRANTED' : 'EXTREME_ACCESS_REVOKED',
+    user.username,
+    user.extremeAccessGranted
+      ? `⚡ Admin MeDonut granted Extreme Mode access to ${user.username}!`
+      : `🔒 Admin MeDonut revoked granted Extreme Mode access for ${user.username}.`,
+    { extremeAccessGranted: user.extremeAccessGranted }
+  );
+  saveDatabase(false);
+  return db.playerRecordsOverview[user.username];
+}
+
 loadDatabase(false);
+
+const giveawayCheckTimer = setInterval(() => {
+  try {
+    settleExpiredGiveaways(Date.now());
+  } catch (_) {}
+}, 2000);
+if (typeof giveawayCheckTimer.unref === 'function') {
+  giveawayCheckTimer.unref();
+}
+
+const lbPeriodCheckTimer = setInterval(() => {
+  try {
+    settleCompletedLeaderboardPeriods(Date.now(), { saveOnAward: true });
+  } catch (_) {}
+}, 60 * 1000);
+if (typeof lbPeriodCheckTimer.unref === 'function') {
+  lbPeriodCheckTimer.unref();
+}
 
 module.exports = {
   getDb: () => db,
   DB_FILE,
   loadDatabase,
   saveDatabase,
+  flushPendingSaveSync,
   hashPassword,
   buildLeaderboards,
   buildAllTimeframeLeaderboards,
@@ -3957,6 +4831,10 @@ module.exports = {
   pruneBackups,
   isSkinUnlockedForUser,
   isSkinNaturallyUnlockedForUser,
+  settleCompletedLeaderboardPeriods,
+  getUserActiveAllTimeLbSkins,
+  getUserAllTimePlacements,
+  reconcileUsersLostAllTimeSkins,
   mergeUserProgressionData,
   openBackgroundCaseForUser,
   saveUserCustomBackgroundMedia,
@@ -3965,6 +4843,15 @@ module.exports = {
   unbanPlayerAdmin,
   getChatMessages,
   addChatMessage,
+  createGlobalAnnouncementAdmin,
+  getRecentGlobalAnnouncements,
+  createCoinGiveawayAdmin,
+  enterCoinGiveaway,
+  settleExpiredGiveaways,
+  getActiveGiveawaysForClient,
+  addFeedbackSubmission,
+  getFeedbackSubmissions,
+  deleteFeedbackSubmissionAdmin,
   calculateDuelEloUpdate,
   recordDuelMatchResult,
   getPlayerRankedDuelHistory,
@@ -3980,5 +4867,7 @@ module.exports = {
   areUsersAltLinked,
   ALL_MODES,
   EXTREME_UNLOCK_REQS,
-  hasUnlockedExtremeMode
+  hasNaturallyUnlockedExtremeMode,
+  hasUnlockedExtremeMode,
+  adminSetExtremeAccess
 };

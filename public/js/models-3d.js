@@ -36,7 +36,11 @@ class FlappyBird3DModels {
           this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
           this.renderer.shadowMap.enabled = true;
           this.renderer.shadowMap.type = THREE.PCFShadowMap;
-          this.renderer.outputEncoding = THREE.sRGBEncoding;
+          if (THREE.SRGBColorSpace) {
+            this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+          } else if (THREE.sRGBEncoding) {
+            this.renderer.outputEncoding = THREE.sRGBEncoding;
+          }
 
           this.container.appendChild(this.renderer.domElement);
 
@@ -1057,6 +1061,8 @@ class FlappyBird3DModels {
                 baseScale = 0.78;
                 basePos = { x: -0.08, y: -0.10, z: 0 };
               }
+            } else if (key.startsWith('lb_')) {
+              baseScale = key.endsWith('_1') ? 0.88 : (key.endsWith('_2') ? 0.92 : 0.95);
             } else if (
               key === 'bonsai_island' ||
               key === 'troll_traffic' ||
@@ -4046,6 +4052,259 @@ class FlappyBird3DModels {
 
           addPreset('poke_rayquaza', rayquazaGroup);
 
+          // ------------------------------------------------------------------
+          // 26. 36 HIGH-CRAFT LEADERBOARD CHAMPION MODELS (Easy/Med/Hard/Ext × Daily/Weekly/All × 1st/2nd/3rd)
+          // ------------------------------------------------------------------
+          this.animatedSkinParts.lbAnim = {};
+          const lbSkinsList = (typeof BIRD_SKINS !== 'undefined' && Array.isArray(BIRD_SKINS))
+            ? BIRD_SKINS.filter(s => s && s.reqMode === 'leaderboard')
+            : [];
+          if (lbSkinsList.length > 0) {
+            const lbMatCache = {};
+            const getTrimMat = (hex, rank) => {
+              const k = `t_${hex}_${rank}`;
+              if (!lbMatCache[k]) {
+                lbMatCache[k] = new THREE.MeshStandardMaterial({
+                  color: hex,
+                  emissive: hex,
+                  emissiveIntensity: rank === 1 ? 0.34 : (rank === 2 ? 0.22 : 0.14),
+                  metalness: rank === 1 ? 0.96 : (rank === 2 ? 0.92 : 0.84),
+                  roughness: rank === 1 ? 0.06 : (rank === 2 ? 0.10 : 0.16)
+                });
+              }
+              return lbMatCache[k];
+            };
+            const getGemMat = (hex, intense = false) => {
+              const k = `g_${hex}_${intense ? 1 : 0}`;
+              if (!lbMatCache[k]) {
+                lbMatCache[k] = new THREE.MeshStandardMaterial({
+                  color: hex,
+                  emissive: hex,
+                  emissiveIntensity: intense ? 0.85 : 0.62,
+                  metalness: 0.45,
+                  roughness: 0.08
+                });
+              }
+              return lbMatCache[k];
+            };
+
+            const lbGeo = {
+              crownBand: new THREE.CylinderGeometry(0.36, 0.30, 0.18, 18),
+              spireTall: new THREE.ConeGeometry(0.068, 0.44, 6),
+              spireMid: new THREE.ConeGeometry(0.056, 0.30, 6),
+              hornGreat: new THREE.ConeGeometry(0.115, 0.78, 8),
+              hornInner: new THREE.ConeGeometry(0.078, 0.50, 6),
+              wingFinPlate: new THREE.BoxGeometry(0.36, 0.14, 0.055),
+              chestOcta: new THREE.OctahedronGeometry(0.155, 0),
+              chestRing: new THREE.TorusGeometry(0.20, 0.028, 8, 20),
+              haloOuter: new THREE.TorusGeometry(0.96, 0.036, 10, 32),
+              haloInner: new THREE.TorusGeometry(0.68, 0.028, 8, 28),
+              crownHalo: new THREE.TorusGeometry(0.46, 0.034, 8, 24),
+              relicBlade: new THREE.ConeGeometry(0.062, 0.48, 4),
+              relicPrism: new THREE.OctahedronGeometry(0.115, 0),
+              pauldron: new THREE.ConeGeometry(0.16, 0.36, 6),
+              tailPlumeMain: new THREE.ConeGeometry(0.135, 1.56, 8),
+              tailPlumeSide: new THREE.ConeGeometry(0.095, 1.18, 6),
+              monolith: new THREE.OctahedronGeometry(0.12, 0)
+            };
+
+            lbSkinsList.forEach((skin) => {
+              const rank = Number(skin.lbRank) || 3;
+              const mode = skin.lbMode || 'medium';
+              const tf = skin.lbTimeframe || 'all';
+              const trimMat = getTrimMat(skin.lbTrimHex || 0xfbbf24, rank);
+              const gemMat = getGemMat(skin.lbGemHex || skin.iris || 0x38bdf8, rank === 1);
+              const accentMat = getGemMat(skin.wing || 0x38bdf8, false);
+
+              const grp = new THREE.Group();
+
+              // 1. Sculpted Headpiece / Crown Assembly per Mode & Placement
+              const crownGroup = new THREE.Group();
+              crownGroup.position.set(0.04, 0.78, 0);
+
+              if (mode === 'easy') {
+                const band = new THREE.Mesh(lbGeo.crownBand, trimMat);
+                crownGroup.add(band);
+                const spireCount = rank === 1 ? 7 : (rank === 2 ? 5 : 3);
+                for (let i = 0; i < spireCount; i++) {
+                  const a = (i / spireCount) * Math.PI * 2;
+                  const spire = new THREE.Mesh(i % 2 === 0 ? lbGeo.spireTall : lbGeo.spireMid, i % 2 === 0 ? trimMat : gemMat);
+                  spire.position.set(Math.cos(a) * 0.30, 0.22, Math.sin(a) * 0.30);
+                  crownGroup.add(spire);
+                }
+                const centerGem = new THREE.Mesh(lbGeo.chestOcta, gemMat);
+                centerGem.scale.setScalar(0.85);
+                centerGem.position.set(0, 0.36, 0);
+                crownGroup.add(centerGem);
+              } else if (mode === 'medium') {
+                const band = new THREE.Mesh(lbGeo.crownBand, trimMat);
+                crownGroup.add(band);
+                [-1, 1].forEach((side) => {
+                  const helmWing = new THREE.Mesh(lbGeo.wingFinPlate, trimMat);
+                  helmWing.position.set(-0.08, 0.16, side * 0.38);
+                  helmWing.rotation.y = side * -0.45;
+                  helmWing.rotation.z = 0.42;
+                  const upperWing = new THREE.Mesh(lbGeo.wingFinPlate, gemMat);
+                  upperWing.scale.set(0.8, 0.75, 0.9);
+                  upperWing.position.set(-0.18, 0.30, side * 0.42);
+                  upperWing.rotation.y = side * -0.52;
+                  upperWing.rotation.z = 0.58;
+                  crownGroup.add(helmWing, upperWing);
+                });
+                const sunSpire = new THREE.Mesh(lbGeo.spireTall, gemMat);
+                sunSpire.position.set(0.18, 0.26, 0);
+                sunSpire.rotation.z = -0.25;
+                crownGroup.add(sunSpire);
+                if (rank <= 2) {
+                  for (let i = 0; i < (rank === 1 ? 5 : 3); i++) {
+                    const a = (i / (rank === 1 ? 5 : 3)) * Math.PI * 2;
+                    const p = new THREE.Mesh(lbGeo.spireMid, trimMat);
+                    p.position.set(Math.cos(a) * 0.28, 0.20, Math.sin(a) * 0.28);
+                    crownGroup.add(p);
+                  }
+                }
+              } else if (mode === 'hard') {
+                const band = new THREE.Mesh(lbGeo.crownBand, trimMat);
+                crownGroup.add(band);
+                [-1, 1].forEach((side) => {
+                  const horn = new THREE.Mesh(lbGeo.hornGreat, rank === 1 ? trimMat : gemMat);
+                  horn.position.set(-0.04, 0.24, side * 0.30);
+                  horn.rotation.z = 0.45;
+                  horn.rotation.x = side * -0.36;
+                  crownGroup.add(horn);
+                  if (rank <= 2) {
+                    const innerHorn = new THREE.Mesh(lbGeo.hornInner, trimMat);
+                    innerHorn.position.set(0.14, 0.20, side * 0.18);
+                    innerHorn.rotation.z = 0.18;
+                    innerHorn.rotation.x = side * -0.22;
+                    crownGroup.add(innerHorn);
+                  }
+                  const pauldron = new THREE.Mesh(lbGeo.pauldron, trimMat);
+                  pauldron.position.set(-0.02, -0.58, side * 0.58);
+                  pauldron.rotation.x = side * 1.15;
+                  pauldron.rotation.z = 0.35;
+                  grp.add(pauldron);
+                });
+                const crestGem = new THREE.Mesh(lbGeo.chestOcta, gemMat);
+                crestGem.position.set(0.28, 0.14, 0);
+                crownGroup.add(crestGem);
+              } else {
+                // Extreme: Floating Anti-Gravity Crystal Crown & Singularity Prism
+                const crystalRing = new THREE.Mesh(lbGeo.crownHalo, trimMat);
+                crystalRing.rotation.x = Math.PI / 2;
+                crystalRing.position.set(0, 0.12, 0);
+                crownGroup.add(crystalRing);
+                const count = rank === 1 ? 7 : (rank === 2 ? 5 : 3);
+                for (let i = 0; i < count; i++) {
+                  const a = (i / count) * Math.PI * 2;
+                  const mono = new THREE.Mesh(lbGeo.monolith, i % 2 === 0 ? gemMat : trimMat);
+                  mono.scale.set(0.85, 2.2, 0.85);
+                  mono.position.set(Math.cos(a) * 0.42, 0.24 + (i % 2) * 0.08, Math.sin(a) * 0.42);
+                  crownGroup.add(mono);
+                }
+              }
+
+              // Timeframe Distinction Crest (Daily / Weekly / All-Time)
+              if (tf === 'daily') {
+                const dawnGem = new THREE.Mesh(lbGeo.relicPrism, gemMat);
+                dawnGem.position.set(0.32, 0.08, 0);
+                dawnGem.scale.setScalar(0.85);
+                crownGroup.add(dawnGem);
+              } else if (tf === 'weekly') {
+                [-1, 1].forEach((side) => {
+                  const shieldFin = new THREE.Mesh(lbGeo.relicBlade, accentMat);
+                  shieldFin.scale.set(0.9, 0.72, 0.9);
+                  shieldFin.position.set(-0.24, 0.24, side * 0.26);
+                  shieldFin.rotation.z = 0.55;
+                  crownGroup.add(shieldFin);
+                });
+              } else {
+                const backMandorla = new THREE.Mesh(lbGeo.haloInner, trimMat);
+                backMandorla.position.set(-0.18, 0.26, 0);
+                backMandorla.rotation.y = Math.PI / 2;
+                grp.add(backMandorla);
+              }
+
+              grp.add(crownGroup);
+
+              // 2. Sculpted Glowing Chest Medallion Core
+              const chestCoreGroup = new THREE.Group();
+              chestCoreGroup.position.set(0.68, -0.14, 0);
+              const coreDiamond = new THREE.Mesh(lbGeo.chestOcta, gemMat);
+              const coreRing = new THREE.Mesh(lbGeo.chestRing, trimMat);
+              coreRing.rotation.y = Math.PI / 2;
+              chestCoreGroup.add(coreDiamond, coreRing);
+              grp.add(chestCoreGroup);
+
+              // 3. Orbital Halos (Double Gyroscope for #1, Single Halo for #2, Crest Halo for #3)
+              let halo1 = null;
+              let halo2 = null;
+              if (rank === 1) {
+                halo1 = new THREE.Mesh(lbGeo.haloOuter, trimMat);
+                halo1.position.set(-0.02, 0.16, 0);
+                halo1.rotation.x = Math.PI / 2 - 0.28;
+                halo2 = new THREE.Mesh(lbGeo.haloInner, gemMat);
+                halo2.position.set(-0.02, 0.16, 0);
+                halo2.rotation.x = Math.PI / 2 + 0.34;
+                grp.add(halo1, halo2);
+              } else if (rank === 2) {
+                halo1 = new THREE.Mesh(lbGeo.haloInner, trimMat);
+                halo1.position.set(-0.02, 0.18, 0);
+                halo1.rotation.x = Math.PI / 2 - 0.25;
+                grp.add(halo1);
+              } else {
+                halo1 = new THREE.Mesh(lbGeo.crownHalo, trimMat);
+                halo1.position.set(-0.02, 1.04, 0);
+                halo1.rotation.x = Math.PI / 2 - 0.15;
+                grp.add(halo1);
+              }
+
+              // 4. Orbiting Floating Relics (#1: 4/6 Relics, #2: 2 Relics, #3: 1 Halo Orbiter)
+              const orbitGroup = new THREE.Group();
+              const orbitCount = rank === 1 ? (mode === 'extreme' || mode === 'hard' ? 6 : 4) : (rank === 2 ? 2 : 1);
+              const orbitRadius = rank === 1 ? 1.18 : (rank === 2 ? 1.02 : 0.86);
+              for (let r = 0; r < orbitCount; r++) {
+                const a = (r / orbitCount) * Math.PI * 2;
+                const useBlade = (mode === 'hard' || mode === 'medium') && rank <= 2;
+                const relic = new THREE.Mesh(
+                  useBlade ? lbGeo.relicBlade : lbGeo.relicPrism,
+                  r % 2 === 0 ? gemMat : trimMat
+                );
+                relic.position.set(Math.cos(a) * orbitRadius, 0.08, Math.sin(a) * orbitRadius);
+                if (useBlade) relic.rotation.z = -Math.PI / 5;
+                orbitGroup.add(relic);
+              }
+              grp.add(orbitGroup);
+
+              // 5. Multi-Plume Royal / Sovereign Tail Assembly
+              const tailGroup = new THREE.Group();
+              tailGroup.position.set(-0.62, 0.02, 0);
+              const plumeSpan = rank === 1 ? 2 : 1;
+              for (let tp = -plumeSpan; tp <= plumeSpan; tp++) {
+                const isCenter = tp === 0;
+                const plume = new THREE.Mesh(
+                  isCenter ? lbGeo.tailPlumeMain : lbGeo.tailPlumeSide,
+                  isCenter ? gemMat : (Math.abs(tp) === 1 ? trimMat : accentMat)
+                );
+                plume.rotation.z = Math.PI / 2 + tp * 0.12;
+                plume.position.set(-0.78 - (isCenter ? 0.12 : 0), tp * 0.06, tp * 0.15);
+                tailGroup.add(plume);
+              }
+              grp.add(tailGroup);
+
+              addPreset(skin.id, grp);
+              this.animatedSkinParts.lbAnim[skin.id] = {
+                crownGroup,
+                halo1,
+                halo2,
+                orbitGroup,
+                chestCoreGroup,
+                tailGroup,
+                rank
+              };
+            });
+          }
+
           // Pre-compile all 3D bird & Pokémon meshes on the GPU once at startup so switching skins mid-game has 0ms lag!
           try {
             if (this.renderer && typeof this.renderer.compile === 'function' && this.scene && this.camera) {
@@ -4085,7 +4344,28 @@ class FlappyBird3DModels {
           }
         }
 
+        getParticleMultiplier() {
+          const lvl = (this.settings && this.settings.particleLevel)
+            ? String(this.settings.particleLevel).toLowerCase()
+            : ((this.settings && this.settings.particles === false) ? 'off' : 'high');
+          if (lvl === 'off' || lvl === 'none' || lvl === '0') return 0;
+          if (lvl === 'low' || lvl === '1') return 0.30;
+          if (lvl === 'medium' || lvl === '2') return 0.65;
+          return 1.0;
+        }
+
         spawnBurstFromPool(x, y, count, palette, isAura = false) {
+          const partMult = this.getParticleMultiplier();
+          if (partMult <= 0) return;
+          count = isAura
+            ? (Math.random() > partMult ? 0 : Math.max(1, Math.round(count * partMult)))
+            : Math.max(1, Math.round(count * partMult));
+          if (count <= 0) return;
+          if (isAura && (this._autoPerfTier || 0) >= 1) {
+            // Cut passive aura particles under adaptive low-FPS protection
+            count = Math.max(1, Math.floor(count * 0.5));
+            if (Math.random() < 0.5) return;
+          }
           let spawned = 0;
           for (let i = 0; i < this.particlePool.length && spawned < count; i++) {
             const p = this.particlePool[i];
@@ -4146,17 +4426,36 @@ class FlappyBird3DModels {
           return this.selectedDifficulty || 'medium';
         }
 
+        getActiveStartSpeedMult(diffKey = null) {
+          // Duels always run at fair standard 1.0x starting speed floor for both players
+          if (this.activeDuelLobbyId && (this.duelRoundPlaying || (this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting'))) {
+            return 1.0;
+          }
+          if (this.state === GAME_STATE.PLAYING || this.state === GAME_STATE.CRASHING) {
+            if (typeof this.activeRunStartSpeedMult === 'number' && Number.isFinite(this.activeRunStartSpeedMult)) {
+              return this.activeRunStartSpeedMult;
+            }
+          }
+          const mode = diffKey || this.getActiveDifficulty();
+          const raw = this.settings && this.settings.startSpeeds && this.settings.startSpeeds[mode];
+          return (typeof window.normalizeStartSpeedMult === 'function')
+            ? window.normalizeStartSpeedMult(raw)
+            : Math.max(1.0, Math.min(2.0, Math.round((Number(raw) || 1.0) * 10) / 10));
+        }
+
         getDifficultyParams() {
           const activeDiff = this.getActiveDifficulty();
+          const startMult = this.getActiveStartSpeedMult(activeDiff);
           if (typeof window.getDifficultyParamsFor === 'function') {
-            return window.getDifficultyParamsFor(this.score, activeDiff, CONFIG);
+            return window.getDifficultyParamsFor(this.score, activeDiff, CONFIG, startMult);
           }
           const diff = CONFIG.difficulties[activeDiff] || CONFIG.difficulties.medium;
+          const floorSpeed = CONFIG.baseSpeed * startMult;
           if (activeDiff === 'extreme' || (typeof diff.gravity === 'number' && typeof diff.flapImpulse === 'number')) {
             const speedProgress = Math.min(Math.max(0, Number(this.score) || 0) / (diff.speedRampScore || 45), 1.0);
             const minSpd = diff.baseSpeed || CONFIG.baseSpeed;
             const maxSpd = Math.min(diff.maxSpeed || CONFIG.maxSpeed, CONFIG.baseSpeed * 2.0);
-            const speed = Math.min(maxSpd, minSpd + speedProgress * (maxSpd - minSpd));
+            const speed = Math.min(maxSpd, Math.max(minSpd + speedProgress * (maxSpd - minSpd), floorSpeed));
             const speedRatio = Math.min(2.0, speed / CONFIG.baseSpeed);
             const refRatio = speed / (diff.refSpeed || 12.0);
             return {
@@ -4177,7 +4476,7 @@ class FlappyBird3DModels {
 
           const speed = Math.min(
             CONFIG.baseSpeed * 2.0,
-            CONFIG.baseSpeed + speedProgress * (targetMaxSpeed - CONFIG.baseSpeed)
+            Math.max(CONFIG.baseSpeed + speedProgress * (targetMaxSpeed - CONFIG.baseSpeed), floorSpeed)
           );
           const pipeGap = diff.baseGap - gapProgress * (diff.baseGap - diff.minGap);
 
@@ -4231,11 +4530,14 @@ class FlappyBird3DModels {
             const solved = this.extremeSolver.nextPipe();
             pipeGap = solved.gapSize;
             gapCenterY = solved.gapCenterY;
+          } else if (typeof window.computePipeGapCenterY === 'function') {
+            gapCenterY = window.computePipeGapCenterY(this.prng, pipeGap, activeDiff, this.lastSpawnedGapCenterY, CONFIG);
           } else {
             const minCenterY = 2.9 + pipeGap * 0.5;
             const maxCenterY = CONFIG.ceilingY - 2.6 - pipeGap * 0.5;
             gapCenterY = minCenterY + this.prng() * (maxCenterY - minCenterY);
           }
+          this.lastSpawnedGapCenterY = gapCenterY;
 
           const bottomTopY = gapCenterY - pipeGap * 0.5;
           const topBottomY = gapCenterY + pipeGap * 0.5;
@@ -4756,6 +5058,39 @@ class FlappyBird3DModels {
           if (parts.trollTrafficTower && this.skinModelGroups.troll_traffic && this.skinModelGroups.troll_traffic.visible) {
             parts.trollTrafficTower.rotation.y = Math.sin(t * 3.5) * 0.35;
           }
+
+          if (parts.lbAnim && activePreset.startsWith('lb_') && parts.lbAnim[activePreset]) {
+            const lbA = parts.lbAnim[activePreset];
+            if (lbA.crownGroup) {
+              lbA.crownGroup.position.y = 0.78 + Math.sin(t * 4.2) * 0.035;
+              if (activePreset.startsWith('lb_extreme_')) {
+                lbA.crownGroup.rotation.y += frameDt * 1.4;
+              }
+            }
+            if (lbA.halo1) {
+              lbA.halo1.rotation.z += frameDt * (lbA.rank === 1 ? 2.4 : 1.7);
+              lbA.halo1.rotation.y = Math.sin(t * 2.2) * 0.28;
+            }
+            if (lbA.halo2) {
+              lbA.halo2.rotation.z -= frameDt * 3.1;
+              lbA.halo2.rotation.x = Math.PI / 2 + Math.cos(t * 2.8) * 0.35;
+            }
+            if (lbA.orbitGroup) {
+              lbA.orbitGroup.rotation.y += frameDt * (lbA.rank === 1 ? 3.8 : 2.6);
+              lbA.orbitGroup.children.forEach((relic, rIdx) => {
+                relic.position.y = 0.08 + Math.sin(t * 5.2 + rIdx * 1.35) * 0.14;
+                relic.rotation.y += frameDt * 3.5;
+              });
+            }
+            if (lbA.chestCoreGroup) {
+              const pulse = 1 + Math.sin(t * 6.5) * 0.12 + (this.wingFlapBoost || 0) * 0.14;
+              lbA.chestCoreGroup.scale.setScalar(pulse);
+              lbA.chestCoreGroup.rotation.x += frameDt * 1.6;
+            }
+            if (lbA.tailGroup) {
+              lbA.tailGroup.rotation.z = Math.sin(t * 8.5) * 0.12 + (this.wingFlapBoost || 0) * 0.16;
+            }
+          }
         } else {
           // Dynamic Animations for True Pokémon Characters (Strictly locked to calibrated 0.60m hitbox center!)
           if (this.currentSkin && (this.currentSkin.category === 'pokemon' || (this.currentSkin.modelPreset && this.currentSkin.modelPreset.startsWith('poke_')))) {
@@ -4908,8 +5243,9 @@ class FlappyBird3DModels {
           }
 
           // Continuous passive flight trail particles for EPIC / MYTHIC / GODLIKE skins
-          if (this.currentSkin && this.currentSkin.auraRate > 0 && (this.state === GAME_STATE.PLAYING || this.state === GAME_STATE.START)) {
-            this.auraSpawnAccum += frameDt * this.currentSkin.auraRate * 18;
+          const auraPartMult = this.getParticleMultiplier();
+          if (auraPartMult > 0 && this.currentSkin && this.currentSkin.auraRate > 0 && (this.state === GAME_STATE.PLAYING || this.state === GAME_STATE.START)) {
+            this.auraSpawnAccum += frameDt * this.currentSkin.auraRate * 18 * auraPartMult;
             if (this.auraSpawnAccum >= 1) {
               const count = Math.min(2, Math.floor(this.auraSpawnAccum));
               this.auraSpawnAccum -= count;
@@ -5039,6 +5375,23 @@ class FlappyBird3DModels {
           }
         }
 
+        configureCrispBgTexture(tex) {
+          if (!tex) return;
+          if (THREE.SRGBColorSpace) {
+            tex.colorSpace = THREE.SRGBColorSpace;
+          } else if (THREE.sRGBEncoding) {
+            tex.encoding = THREE.sRGBEncoding;
+          }
+          tex.generateMipmaps = false;
+          tex.minFilter = THREE.LinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          tex.wrapS = THREE.ClampToEdgeWrapping;
+          tex.wrapT = THREE.ClampToEdgeWrapping;
+          tex.anisotropy = 1;
+          tex.needsUpdate = true;
+          this.applyCoverAspectToBgTexture(tex);
+        }
+
         applyBackgroundVisualsOnly(bgItem) {
           this.currentBackgroundSkin = bgItem || null;
           if (!this.scene || !this.renderer) return;
@@ -5079,6 +5432,23 @@ class FlappyBird3DModels {
             return;
           }
 
+          if (bgItem.id === 'bg_custom_draw') {
+            this._activeBgCanvas = null;
+            this._bgVideoTextures = null;
+            const drawData = (this.currentUser && this.currentUser.customBackgroundDrawing) || this._localCustomDrawingDataUrl;
+            if (drawData && typeof Image === 'function') {
+              const img = new Image();
+              img.onload = () => {
+                if (!this.currentBackgroundSkin || this.currentBackgroundSkin.id !== 'bg_custom_draw') return;
+                const tex = new THREE.Texture(img);
+                this.configureCrispBgTexture(tex);
+                this.scene.background = tex;
+              };
+              img.src = drawData;
+              return;
+            }
+          }
+
           if (bgItem.id === 'bg_custom_image') {
             this._activeBgCanvas = null;
             this._bgVideoTextures = null;
@@ -5088,9 +5458,7 @@ class FlappyBird3DModels {
               img.onload = () => {
                 if (!this.currentBackgroundSkin || this.currentBackgroundSkin.id !== 'bg_custom_image') return;
                 const tex = new THREE.Texture(img);
-                if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-                tex.needsUpdate = true;
-                this.applyCoverAspectToBgTexture(tex);
+                this.configureCrispBgTexture(tex);
                 this.scene.background = tex;
               };
               img.src = imgData;
@@ -5101,10 +5469,11 @@ class FlappyBird3DModels {
           if (bgItem.id === 'bg_custom_video') {
             this._activeBgCanvas = null;
             const vidObj = (this.currentUser && this.currentUser.customBackgroundVideo) || this._localCustomVideoObj;
-            const frames = (vidObj && Array.isArray(vidObj.frames)) ? vidObj.frames.slice(0, 15) : [];
+            const frames = (vidObj && Array.isArray(vidObj.frames)) ? vidObj.frames.slice(0, 60) : [];
             if (frames.length > 0 && typeof Image === 'function') {
               const texList = new Array(frames.length).fill(null);
               this._bgVideoTextures = texList;
+              this._bgVideoFps = Math.max(7.5, Math.min(30, Number(vidObj.fps) || 30));
               this._bgVideoFrameIdx = 0;
               this._bgVideoLastStepAt = 0;
               frames.forEach((srcUrl, idx) => {
@@ -5112,9 +5481,7 @@ class FlappyBird3DModels {
                 img.onload = () => {
                   if (!this.currentBackgroundSkin || this.currentBackgroundSkin.id !== 'bg_custom_video') return;
                   const tex = new THREE.Texture(img);
-                  if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-                  tex.needsUpdate = true;
-                  this.applyCoverAspectToBgTexture(tex);
+                  this.configureCrispBgTexture(tex);
                   texList[idx] = tex;
                   if (idx === 0) {
                     this.scene.background = tex;
@@ -5130,15 +5497,26 @@ class FlappyBird3DModels {
           // Case 2 static patterns & Case 3 animated procedural patterns
           this._bgVideoTextures = null;
           if (typeof createBackgroundTexture === 'function') {
-            if (!this._reusableBgCanvas) {
-              this._reusableBgCanvas = document.createElement('canvas');
-              this._reusableBgCanvas.width = 512;
-              this._reusableBgCanvas.height = 512;
+            if (bgItem.animated) {
+              if (!this._reusableAnimBgCanvas) {
+                this._reusableAnimBgCanvas = document.createElement('canvas');
+                this._reusableAnimBgCanvas.width = 320;
+                this._reusableAnimBgCanvas.height = 320;
+              }
+              this._activeBgCanvas = this._reusableAnimBgCanvas;
+            } else {
+              if (!this._reusableBgCanvas) {
+                this._reusableBgCanvas = document.createElement('canvas');
+                this._reusableBgCanvas.width = 512;
+                this._reusableBgCanvas.height = 512;
+              }
+              this._activeBgCanvas = this._reusableBgCanvas;
             }
-            this._activeBgCanvas = this._reusableBgCanvas;
             this._lastBgAnimRedrawAt = 0;
             const tex = createBackgroundTexture(bgItem, this._activeBgCanvas, this.elapsedTime || 0);
-            this.scene.background = tex;
+            if (this.scene.background !== tex) {
+              this.scene.background = tex;
+            }
           }
         }
 
@@ -5148,8 +5526,10 @@ class FlappyBird3DModels {
           const nowMs = Date.now();
 
           if (bg.id === 'bg_custom_video' && Array.isArray(this._bgVideoTextures) && this._bgVideoTextures.length > 1) {
+            const targetFps = Math.max(7.5, Math.min(30, Number(this._bgVideoFps) || 30));
+            const frameStepMs = 1000 / targetFps;
             if (!this._bgVideoLastStepAt) this._bgVideoLastStepAt = nowMs;
-            if (nowMs - this._bgVideoLastStepAt >= 133) {
+            if (nowMs - this._bgVideoLastStepAt >= frameStepMs) {
               this._bgVideoLastStepAt = nowMs;
               this._bgVideoFrameIdx = ((this._bgVideoFrameIdx || 0) + 1) % this._bgVideoTextures.length;
               const nextTex = this._bgVideoTextures[this._bgVideoFrameIdx];
@@ -5162,10 +5542,13 @@ class FlappyBird3DModels {
           }
 
           if (bg.animated && this._activeBgCanvas && typeof createBackgroundTexture === 'function') {
-            if (!this._lastBgAnimRedrawAt || (nowMs - this._lastBgAnimRedrawAt >= 75)) {
+            const redrawInterval = (this._autoPerfTier || 0) >= 2 ? 220 : ((this.state === GAME_STATE.PLAYING) ? 115 : 85);
+            if (!this._lastBgAnimRedrawAt || (nowMs - this._lastBgAnimRedrawAt >= redrawInterval)) {
               this._lastBgAnimRedrawAt = nowMs;
               const tex = createBackgroundTexture(bg, this._activeBgCanvas, this.elapsedTime || 0);
-              this.scene.background = tex;
+              if (this.scene.background !== tex) {
+                this.scene.background = tex;
+              }
             }
           }
         }

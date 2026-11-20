@@ -897,7 +897,158 @@
           emissive: 0x064e3b, metalness: 0.65, roughness: 0.12, bumpType: 'scales',
           modelPreset: 'poke_rayquaza', wingStyle: 'dragon_wyvern', fierceBrow: true, hideDefaultTail: true, auraRate: 1.95,
           trail: [0x10b981, 0xfacc15, 0xef4444]
-        }
+        },
+        ...(() => {
+          const modes = [
+            {
+              key: 'easy', label: 'Easy',
+              wings: ['sylvan_leaf', 'golden', 'feathered'],
+              allWing1: 'celestial',
+              tfs: {
+                daily: [
+                  { name: 'Dawn Emerald Sovereign', emoji: '👑', body: 0x10b981, belly: 0xd1fae5, wing: 0x34d399, beak: 0xfde047, iris: 0x6ee7b7, emissive: 0x064e3b, trimHex: 0xfbbf24, gemHex: 0x6ee7b7 },
+                  { name: 'Dawn Jade Chevalier', emoji: '🥈', body: 0x059669, belly: 0xa7f3d0, wing: 0x10b981, beak: 0xe2e8f0, iris: 0x34d399, emissive: 0x065f46, trimHex: 0xe2e8f0, gemHex: 0x34d399 },
+                  { name: 'Dawn Mint Warden', emoji: '🥉', body: 0x047857, belly: 0xecfdf5, wing: 0x6ee7b7, beak: 0xf59e0b, iris: 0xa7f3d0, emissive: 0x022c22, trimHex: 0xf59e0b, gemHex: 0xa7f3d0 }
+                ],
+                weekly: [
+                  { name: 'Solstice Boreal Monarch', emoji: '🏆', body: 0x06b6d4, belly: 0xecfeff, wing: 0x10b981, beak: 0xfacc15, iris: 0x22d3ee, emissive: 0x164e63, trimHex: 0xfacc15, gemHex: 0x22d3ee },
+                  { name: 'Solstice Aqua Guardian', emoji: '💎', body: 0x0891b2, belly: 0xcffafe, wing: 0x34d399, beak: 0xf1f5f9, iris: 0x67e8f9, emissive: 0x155e75, trimHex: 0xf1f5f9, gemHex: 0x67e8f9 },
+                  { name: 'Solstice Seafoam Lancer', emoji: '🛡️', body: 0x0e7490, belly: 0xa5f3fc, wing: 0x2dd4bf, beak: 0xfb923c, iris: 0x5eead4, emissive: 0x083344, trimHex: 0xfb923c, gemHex: 0x5eead4 }
+                ],
+                all: [
+                  { name: 'Eternal Gaia Supreme', emoji: '🌿', body: 0x22c55e, belly: 0xfef9c3, wing: 0xfacc15, beak: 0xfef08a, iris: 0x4ade80, emissive: 0x14532d, trimHex: 0xfef08a, gemHex: 0x4ade80 },
+                  { name: 'Eternal Celadon Archon', emoji: '✨', body: 0x16a34a, belly: 0xf8fafc, wing: 0x4ade80, beak: 0xffffff, iris: 0xa3e635, emissive: 0x166534, trimHex: 0xffffff, gemHex: 0xa3e635 },
+                  { name: 'Eternal Sylvan Herald', emoji: '🍀', body: 0x15803d, belly: 0xdcfce7, wing: 0x86efac, beak: 0xfbbf24, iris: 0x22c55e, emissive: 0x052e16, trimHex: 0xfbbf24, gemHex: 0x22c55e }
+                ]
+              }
+            },
+            {
+              key: 'medium', label: 'Medium',
+              wings: ['solar_god', 'valkyrie_storm', 'golden'],
+              allWing1: 'solar_god',
+              tfs: {
+                daily: [
+                  { name: 'Sunforge Gold Emperor', emoji: '👑', body: 0xf59e0b, belly: 0xfffbeb, wing: 0xfde047, beak: 0xfef08a, iris: 0xfff7ed, emissive: 0x78350f, trimHex: 0xfef08a, gemHex: 0xfde047 },
+                  { name: 'Sunforge Amber Paladin', emoji: '🥈', body: 0xd97706, belly: 0xfef3c7, wing: 0xfbbf24, beak: 0xf8fafc, iris: 0xfde68a, emissive: 0x92400e, trimHex: 0xf8fafc, gemHex: 0xfde68a },
+                  { name: 'Sunforge Horizon Falcon', emoji: '🥉', body: 0xb45309, belly: 0xfde68a, wing: 0xf59e0b, beak: 0xfb923c, iris: 0xfbbf24, emissive: 0x451a03, trimHex: 0xfb923c, gemHex: 0xfbbf24 }
+                ],
+                weekly: [
+                  { name: 'Imperial Solaris Rex', emoji: '🏆', body: 0xeab308, belly: 0xffffff, wing: 0xf97316, beak: 0xfde047, iris: 0x38bdf8, emissive: 0x713f12, trimHex: 0xfde047, gemHex: 0x38bdf8 },
+                  { name: 'Imperial Aureate Duelist', emoji: '⚔️', body: 0xca8a04, belly: 0xfef9c3, wing: 0xfacc15, beak: 0xe2e8f0, iris: 0x60a5fa, emissive: 0x854d0e, trimHex: 0xe2e8f0, gemHex: 0x60a5fa },
+                  { name: 'Imperial Citrine Wing', emoji: '🛡️', body: 0xa16207, belly: 0xfef08a, wing: 0xfbbf24, beak: 0xeab308, iris: 0xfed7aa, emissive: 0x422006, trimHex: 0xeab308, gemHex: 0xfed7aa }
+                ],
+                all: [
+                  { name: 'Supernova Prime Apex', emoji: '☀️', body: 0xffb703, belly: 0xffffff, wing: 0xff5400, beak: 0xfff04d, iris: 0xff006e, emissive: 0x9a3412, trimHex: 0xfff04d, gemHex: 0xff006e },
+                  { name: 'Supernova Silver Valkyr', emoji: '🌟', body: 0xfbbf24, belly: 0xf1f5f9, wing: 0xf59e0b, beak: 0xffffff, iris: 0x38bdf8, emissive: 0x78350f, trimHex: 0xffffff, gemHex: 0x38bdf8 },
+                  { name: 'Supernova Brass Paragon', emoji: '🔆', body: 0xd97706, belly: 0xffedd5, wing: 0xfb923c, beak: 0xf59e0b, iris: 0xfde047, emissive: 0x7c2d12, trimHex: 0xf59e0b, gemHex: 0xfde047 }
+                ]
+              }
+            },
+            {
+              key: 'hard', label: 'Hard',
+              wings: ['dragon', 'reaper_scythe', 'phoenix'],
+              allWing1: 'dragon',
+              tfs: {
+                daily: [
+                  { name: 'Bloodfire Crimson King', emoji: '👑', body: 0xef4444, belly: 0xfef2f2, wing: 0xfbbf24, beak: 0xfde047, iris: 0xff0033, emissive: 0x7f1d1d, trimHex: 0xfde047, gemHex: 0xff0033 },
+                  { name: 'Bloodfire Scarlet Blade', emoji: '🥈', body: 0xdc2626, belly: 0xfee2e2, wing: 0xf87171, beak: 0xf8fafc, iris: 0xef4444, emissive: 0x991b1b, trimHex: 0xf8fafc, gemHex: 0xef4444 },
+                  { name: 'Bloodfire Ember Hunter', emoji: '🥉', body: 0x991b1b, belly: 0xfecaca, wing: 0xf97316, beak: 0xf59e0b, iris: 0xfb7185, emissive: 0x450a0a, trimHex: 0xf59e0b, gemHex: 0xfb7185 }
+                ],
+                weekly: [
+                  { name: 'Obsidian Inferno Lord', emoji: '🔥', body: 0x1e293b, belly: 0xff4500, wing: 0xdc2626, beak: 0xfbbf24, iris: 0xff2a00, emissive: 0x7f1d1d, trimHex: 0xfbbf24, gemHex: 0xff2a00 },
+                  { name: 'Obsidian Magma Reaver', emoji: '🗡️', body: 0x334155, belly: 0xfca5a5, wing: 0xef4444, beak: 0xe2e8f0, iris: 0xf97316, emissive: 0x991b1b, trimHex: 0xe2e8f0, gemHex: 0xf97316 },
+                  { name: 'Obsidian Cinder Knight', emoji: '🛡️', body: 0x450a0a, belly: 0xfecdd3, wing: 0xb91c1c, beak: 0xd97706, iris: 0xef4444, emissive: 0x270505, trimHex: 0xd97706, gemHex: 0xef4444 }
+                ],
+                all: [
+                  { name: 'Apocalypse Ruby Deity', emoji: '👹', body: 0x7f1d1d, belly: 0xfef08a, wing: 0xff0033, beak: 0xffd700, iris: 0xff0055, emissive: 0x9f1239, trimHex: 0xffd700, gemHex: 0xff0055 },
+                  { name: 'Apocalypse Silver Reaper', emoji: '💀', body: 0x4c0519, belly: 0xf8fafc, wing: 0xf43f5e, beak: 0xffffff, iris: 0xe11d48, emissive: 0x881337, trimHex: 0xffffff, gemHex: 0xe11d48 },
+                  { name: 'Apocalypse Forge Titan', emoji: '🌋', body: 0x881337, belly: 0xffedd5, wing: 0xe11d48, beak: 0xf97316, iris: 0xf43f5e, emissive: 0x4c0519, trimHex: 0xf97316, gemHex: 0xf43f5e }
+                ]
+              }
+            },
+            {
+              key: 'extreme', label: 'Extreme',
+              wings: ['ragnarok_wings', 'void_fin', 'cyber'],
+              allWing1: 'chaos_seraph',
+              tfs: {
+                daily: [
+                  { name: 'Astral Plasma Sovereign', emoji: '👑', body: 0xa855f7, belly: 0xfaf5ff, wing: 0x22d3ee, beak: 0xfde047, iris: 0xe879f9, emissive: 0x581c87, trimHex: 0xfde047, gemHex: 0xe879f9 },
+                  { name: 'Astral Warp Chevalier', emoji: '🥈', body: 0x9333ea, belly: 0xf3e8ff, wing: 0x38bdf8, beak: 0xf8fafc, iris: 0xc084fc, emissive: 0x4c1d95, trimHex: 0xf8fafc, gemHex: 0xc084fc },
+                  { name: 'Astral Ion Phantom', emoji: '🥉', body: 0x6b21a8, belly: 0xe9d5ff, wing: 0x818cf8, beak: 0xfbbf24, iris: 0xa855f7, emissive: 0x3b0764, trimHex: 0xfbbf24, gemHex: 0xa855f7 }
+                ],
+                weekly: [
+                  { name: 'Hypernova Chrono Ruler', emoji: '⚡', body: 0xd946ef, belly: 0xffffff, wing: 0x38bdf8, beak: 0xfef08a, iris: 0x22d3ee, emissive: 0x701a75, trimHex: 0xfef08a, gemHex: 0x22d3ee },
+                  { name: 'Hypernova Quantum Knight', emoji: '💎', body: 0xa21caf, belly: 0xfdf4ff, wing: 0xe879f9, beak: 0xffffff, iris: 0x38bdf8, emissive: 0x4a044e, trimHex: 0xffffff, gemHex: 0x38bdf8 },
+                  { name: 'Hypernova Prism Weaver', emoji: '🌀', body: 0x701a75, belly: 0xf5d0fe, wing: 0xc084fc, beak: 0xf59e0b, iris: 0xe879f9, emissive: 0x3b0764, trimHex: 0xf59e0b, gemHex: 0xe879f9 }
+                ],
+                all: [
+                  { name: 'Eternity Void Omnigod', emoji: '🌌', body: 0x090d16, belly: 0xf0abfc, wing: 0xc084fc, beak: 0xfff04d, iris: 0xd946ef, emissive: 0x6d28d9, trimHex: 0xfff04d, gemHex: 0xd946ef },
+                  { name: 'Eternity Astral Seraph', emoji: '🌠', body: 0x312e81, belly: 0xf8fafc, wing: 0x38bdf8, beak: 0xffffff, iris: 0x818cf8, emissive: 0x4338ca, trimHex: 0xffffff, gemHex: 0x818cf8 },
+                  { name: 'Eternity Cosmic Sentinel', emoji: '🔮', body: 0x4c1d95, belly: 0xe0e7ff, wing: 0xa855f7, beak: 0xfbbf24, iris: 0x38bdf8, emissive: 0x2e1065, trimHex: 0xfbbf24, gemHex: 0x38bdf8 }
+                ]
+              }
+            }
+          ];
+          const tfMeta = [
+            { key: 'daily', label: 'Daily', periodWord: 'Day' },
+            { key: 'weekly', label: 'Weekly', periodWord: 'Week' },
+            { key: 'all', label: 'All-Time', periodWord: null }
+          ];
+          const rankLabels = [
+            { rank: 1, rarity: 'GODLIKE', placeWord: '1st Place', crownLabel: '7-Spire Crown • Dual Spinning Halos • 4 Orbiting Relics • Sovereign Tail' },
+            { rank: 2, rarity: 'MYTHIC', placeWord: '2nd Place', crownLabel: '5-Spire Platinum Tiara • Tilted Halo Ring • Twin Relics • Tri-Blade Tail' },
+            { rank: 3, rarity: 'LEGENDARY', placeWord: '3rd Place', crownLabel: 'Bronze Champion Crest • Luminous Ring Core • Dual Ribbon Tail' }
+          ];
+          const list = [];
+          for (const m of modes) {
+            for (const tf of tfMeta) {
+              const specs = m.tfs[tf.key];
+              for (let rIdx = 0; rIdx < 3; rIdx++) {
+                const rank = rIdx + 1;
+                const sp = specs[rIdx];
+                const rl = rankLabels[rIdx];
+                const id = `lb_${m.key}_${tf.key}_${rank}`;
+                const wingStyle = (tf.key === 'all' && rank === 1) ? m.allWing1 : m.wings[rIdx];
+                const reqText = tf.key === 'all'
+                  ? `Hold #${rank} on All-Time ${m.label}${rank === 1 ? ' (Unlocks all 3 All-Time ' + m.label + ' skins while #1; lost if overtaken)' : ' (Lost if you lose placement)'}`
+                  : `Finish a ${tf.periodWord} #${rank} on ${tf.label} ${m.label}${rank === 1 ? ' (Unlocks all 3 ' + tf.label + ' ' + m.label + ' skins!)' : ' (Or finish #1)'}`;
+                const tfDesc = tf.key === 'all' ? 'Live All-Time Sovereign' : `${tf.label} Champion Edition`;
+                list.push({
+                  id,
+                  category: 'leaderboard',
+                  name: sp.name,
+                  emoji: sp.emoji,
+                  rarity: rl.rarity,
+                  desc: `${tfDesc} (${m.label} ${rl.placeWord}) • ${rl.crownLabel}`,
+                  reqScore: 1,
+                  reqMode: 'leaderboard',
+                  lbMode: m.key,
+                  lbTimeframe: tf.key,
+                  lbRank: rank,
+                  reqText,
+                  body: sp.body,
+                  belly: sp.belly,
+                  wing: sp.wing,
+                  beak: sp.beak,
+                  iris: sp.iris,
+                  emissive: sp.emissive,
+                  metalness: rank === 1 ? 0.88 : (rank === 2 ? 0.72 : 0.56),
+                  roughness: rank === 1 ? 0.08 : (rank === 2 ? 0.14 : 0.20),
+                  bumpType: m.key === 'hard' ? 'scales' : (m.key === 'extreme' ? 'carbon' : 'filigree'),
+                  modelPreset: id,
+                  wingStyle,
+                  fierceBrow: rank <= 2 || m.key === 'hard' || m.key === 'extreme',
+                  hideDefaultTail: true,
+                  auraRate: rank === 1 ? 2.15 : (rank === 2 ? 1.65 : 1.25),
+                  lbTrimHex: sp.trimHex,
+                  lbGemHex: sp.gemHex,
+                  trail: [sp.trimHex, sp.gemHex, sp.wing]
+                });
+              }
+            }
+          }
+          return list;
+        })()
       ]);
 
       // --------------------------------------------------------------------------
@@ -1667,32 +1818,32 @@
         {
           id: 'case_basic',
           name: 'Basic Colors Case',
-          subtitle: 'Clean solid backdrop colors to customize your skybox',
+          subtitle: 'Clean solid backdrop colors + 1.0% Draw-Your-Own Background!',
           price: 250,
           emoji: '🎨',
           accent: '#38bdf8',
           badge: 'STARTER CRATE • 250 🪙',
-          oddsSummary: '100% Solid Classic Colors (Blue, Green, Red, Black, White & more)'
+          oddsSummary: '99.0% Solid Classic Colors • 1.0% Draw-Your-Own Studio Background'
         },
         {
           id: 'case_pattern',
           name: 'Pattern Sky Case',
-          subtitle: 'Stylish clean textures & scenic backdrop patterns',
+          subtitle: 'Stylish clean textures + 2.5% Draw-Your-Own Background!',
           price: 500,
           emoji: '🧩',
           accent: '#a855f7',
           badge: 'PATTERN CRATE • 500 🪙',
-          oddsSummary: 'Stripes, Polka Dots, Checkerboard, Sunset, Grid, Stars & Camo'
+          oddsSummary: '97.5% Scenic Patterns • 2.5% Draw-Your-Own Studio Background'
         },
         {
           id: 'case_ultimate',
           name: 'Ultimate Custom Case',
-          subtitle: 'Animated pro patterns + 1% Picture Upload & 0.1% 15-Frame Video!',
+          subtitle: 'Animated pro patterns + 0.4% Picture Upload & 0.1% 30-FPS Video!',
           price: 1000,
           emoji: '🌌',
           accent: '#f59e0b',
           badge: 'ULTIMATE CRATE • 1000 🪙',
-          oddsSummary: '98.9% Animated Patterns • 1.0% Picture Upload • 0.1% Video Upload (15 Frames)'
+          oddsSummary: '99.5% Animated Patterns • 0.4% Picture Upload • 0.1% 30-FPS Video Upload'
         }
       ]);
 
@@ -1717,7 +1868,7 @@
           fogDensity: 0.014,
           animated: false
         },
-        // ---- CASE 1 (250 Coins): Basic Solid Colors (10 items x 100 = 1000 weight) ----
+        // ---- CASE 1 (250 Coins): Basic Solid Colors (10 items x 99 = 990) + 1.0% Draw-Your-Own (10) = 1000 ----
         {
           id: 'bg_solid_blue',
           name: 'Cobalt Blue',
@@ -1725,12 +1876,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Pure bold cobalt blue backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#2563eb', '#1d4ed8', '#60a5fa'],
           pattern: 'solid',
           bgHex: 0x2563eb,
@@ -1745,12 +1896,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Fresh vivid green arena backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#16a34a', '#15803d', '#4ade80'],
           pattern: 'solid',
           bgHex: 0x16a34a,
@@ -1765,12 +1916,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Striking ruby red studio backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#dc2626', '#991b1b', '#f87171'],
           pattern: 'solid',
           bgHex: 0xdc2626,
@@ -1785,12 +1936,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Deep pitch-black high-contrast backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#09090b', '#18181b', '#27272a'],
           pattern: 'solid',
           bgHex: 0x09090b,
@@ -1805,12 +1956,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Crisp minimalist snow-white studio backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#f8fafc', '#e2e8f0', '#cbd5e1'],
           pattern: 'solid',
           bgHex: 0xf8fafc,
@@ -1825,12 +1976,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Warm golden yellow backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#eab308', '#ca8a04', '#fde047'],
           pattern: 'solid',
           bgHex: 0xeab308,
@@ -1845,12 +1996,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Rich amethyst purple backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#7e22ce', '#581c87', '#a855f7'],
           pattern: 'solid',
           bgHex: 0x7e22ce,
@@ -1865,12 +2016,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Bright sunset orange solid backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#ea580c', '#c2410c', '#fb923c'],
           pattern: 'solid',
           bgHex: 0xea580c,
@@ -1885,12 +2036,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Vibrant candy-pink studio backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#ec4899', '#be185d', '#f9a8d4'],
           pattern: 'solid',
           bgHex: 0xdb2777,
@@ -1905,12 +2056,12 @@
           kind: 'bg',
           rarity: 'COMMON',
           caseId: 'case_basic',
-          weight: 100,
-          dropPct: 10,
+          weight: 99,
+          dropPct: 9.9,
           desc: 'Bright tropical turquoise-cyan backdrop.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '250 🪙 Basic Colors Case (10.0%)',
+          reqText: '250 🪙 Basic Colors Case (9.9%)',
           colors: ['#0891b2', '#0e7490', '#22d3ee'],
           pattern: 'solid',
           bgHex: 0x0891b2,
@@ -1918,7 +2069,32 @@
           fogDensity: 0.005,
           animated: false
         },
-        // ---- CASE 2 (500 Coins): Clean Basic Patterns (Total weight = 1000) ----
+        // ---- SHARED RARE DROP IN BOTH 250 CRATE (1.0%) & 500 CRATE (2.5%): DRAW YOUR OWN BACKGROUND ----
+        {
+          id: 'bg_custom_draw',
+          name: 'Draw-Your-Own Background',
+          emoji: '🎨',
+          kind: 'bg',
+          rarity: 'MYTHIC',
+          caseId: 'case_basic',
+          caseIds: ['case_basic', 'case_pattern'],
+          caseWeights: { case_basic: 10, case_pattern: 25 },
+          caseDropPcts: { case_basic: 1.0, case_pattern: 2.5 },
+          weight: 10,
+          dropPct: 1.0,
+          specialType: 'custom_draw',
+          desc: 'Paint your own 3D background with pro brushes, neon glow, spray, shapes, symmetry & fill tools!',
+          reqScore: 1,
+          reqMode: 'case',
+          reqText: '250 🪙 Case (1.0%) or 500 🪙 Case (2.5%)',
+          colors: ['#f43f5e', '#f59e0b', '#38bdf8'],
+          pattern: 'custom_draw',
+          bgHex: 0x0f172a,
+          fogHex: 0x1e293b,
+          fogDensity: 0.0025,
+          animated: false
+        },
+        // ---- CASE 2 (500 Coins): Clean Basic Patterns (975 weight) + 2.5% Draw-Your-Own (25) = 1000 ----
         {
           id: 'bg_pat_stripes',
           name: 'Candy Stripes',
@@ -1926,12 +2102,12 @@
           kind: 'bg',
           rarity: 'RARE',
           caseId: 'case_pattern',
-          weight: 150,
-          dropPct: 15,
+          weight: 145,
+          dropPct: 14.5,
           desc: 'Clean diagonal pastel-sky candy stripes pattern.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '500 🪙 Pattern Sky Case (15.0%)',
+          reqText: '500 🪙 Pattern Sky Case (14.5%)',
           colors: ['#38bdf8', '#e0f2fe', '#0284c7'],
           pattern: 'stripes',
           bgHex: 0x38bdf8,
@@ -1946,12 +2122,12 @@
           kind: 'bg',
           rarity: 'RARE',
           caseId: 'case_pattern',
-          weight: 150,
-          dropPct: 15,
+          weight: 145,
+          dropPct: 14.5,
           desc: 'Playful crisp polka-dot pattern over soft sky indigo.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '500 🪙 Pattern Sky Case (15.0%)',
+          reqText: '500 🪙 Pattern Sky Case (14.5%)',
           colors: ['#4f46e5', '#a5b4fc', '#f8fafc'],
           pattern: 'polka',
           bgHex: 0x4f46e5,
@@ -1966,12 +2142,12 @@
           kind: 'bg',
           rarity: 'RARE',
           caseId: 'case_pattern',
-          weight: 150,
-          dropPct: 15,
+          weight: 145,
+          dropPct: 14.5,
           desc: 'Clean two-tone geometric checkerboard background.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '500 🪙 Pattern Sky Case (15.0%)',
+          reqText: '500 🪙 Pattern Sky Case (14.5%)',
           colors: ['#1e293b', '#334155', '#475569'],
           pattern: 'checker',
           bgHex: 0x1e293b,
@@ -1986,12 +2162,12 @@
           kind: 'bg',
           rarity: 'RARE',
           caseId: 'case_pattern',
-          weight: 150,
-          dropPct: 15,
+          weight: 145,
+          dropPct: 14.5,
           desc: 'Warm peach, rose, and twilight lavender sky gradient.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '500 🪙 Pattern Sky Case (15.0%)',
+          reqText: '500 🪙 Pattern Sky Case (14.5%)',
           colors: ['#7c3aed', '#f43f5e', '#fbbf24'],
           pattern: 'sunset',
           bgHex: 0xf43f5e,
@@ -2046,12 +2222,12 @@
           kind: 'bg',
           rarity: 'EPIC',
           caseId: 'case_pattern',
-          weight: 100,
-          dropPct: 10,
+          weight: 95,
+          dropPct: 9.5,
           desc: 'Deep night indigo scattered with crisp celestial stars.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '500 🪙 Pattern Sky Case (10.0%)',
+          reqText: '500 🪙 Pattern Sky Case (9.5%)',
           colors: ['#090d24', '#312e81', '#fde68a'],
           pattern: 'stars',
           bgHex: 0x090d24,
@@ -2187,12 +2363,12 @@
           kind: 'bg',
           rarity: 'LEGENDARY',
           caseId: 'case_ultimate',
-          weight: 149,
-          dropPct: 14.9,
+          weight: 155,
+          dropPct: 15.5,
           desc: 'Shifting iridescent crystal facets with rainbow prism reflections.',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '1000 🪙 Ultimate Case (14.9%)',
+          reqText: '1000 🪙 Ultimate Case (15.5%)',
           colors: ['#1e1b4b', '#ec4899', '#38bdf8'],
           pattern: 'prism',
           bgHex: 0x1e1b4b,
@@ -2207,13 +2383,13 @@
           kind: 'bg',
           rarity: 'MYTHIC',
           caseId: 'case_ultimate',
-          weight: 10,
-          dropPct: 1.0,
+          weight: 4,
+          dropPct: 0.4,
           specialType: 'custom_image',
-          desc: '1% Rare Unlock! Upload any picture from your device to use as your 3D background!',
+          desc: '0.4% Ultra-Rare Unlock! Upload any picture from your device to use as your 3D background!',
           reqScore: 1,
           reqMode: 'case',
-          reqText: '1000 🪙 Ultimate Case (1.0% Drop)',
+          reqText: '1000 🪙 Ultimate Case (0.4% Ultra-Rare)',
           colors: ['#f59e0b', '#ec4899', '#38bdf8'],
           pattern: 'custom_image',
           bgHex: 0x0f172a,
@@ -2223,7 +2399,7 @@
         },
         {
           id: 'bg_custom_video',
-          name: 'Custom Video (15-Frame Loop)',
+          name: 'Custom Video (30 FPS Loop)',
           emoji: '🎬',
           kind: 'bg',
           rarity: 'MYTHIC',
@@ -2231,7 +2407,7 @@
           weight: 1,
           dropPct: 0.1,
           specialType: 'custom_video',
-          desc: '0.1% ULTRA JACKPOT! Upload any video — automatically sliced into 15 lag-free frames!',
+          desc: '0.1% ULTRA JACKPOT! Upload any video — smooth 30 FPS animated skybox loop!',
           reqScore: 1,
           reqMode: 'case',
           reqText: '1000 🪙 Ultimate Case (0.1% JACKPOT)',
@@ -2243,6 +2419,8 @@
           animated: true
         }
       ]);
+
+      const LEADERBOARD_SKINS = Object.freeze(BIRD_SKINS.filter(s => s && s.reqMode === 'leaderboard'));
 
       const GAME_STATE = Object.freeze({
         START: 'START',
@@ -2256,8 +2434,9 @@ if (typeof window !== 'undefined') {
   window.PIPE_SKINS = PIPE_SKINS;
   window.BACKGROUND_SKINS = BACKGROUND_SKINS;
   window.BACKGROUND_CASES = BACKGROUND_CASES;
+  window.LEADERBOARD_SKINS = LEADERBOARD_SKINS;
   window.GAME_STATE = GAME_STATE;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { BIRD_SKINS, PIPE_SKINS, BACKGROUND_SKINS, BACKGROUND_CASES, GAME_STATE };
+  module.exports = { BIRD_SKINS, PIPE_SKINS, BACKGROUND_SKINS, BACKGROUND_CASES, LEADERBOARD_SKINS, GAME_STATE };
 }
