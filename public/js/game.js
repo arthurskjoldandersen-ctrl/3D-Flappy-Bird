@@ -1714,7 +1714,9 @@
             document.activeElement.blur();
           }
           this.physicsAccumulator = 0;
-          this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          const runNow = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          this.lastFrameTime = runNow;
+          this.runStartWallMs = runNow;
           this.sound.playFlap();
         }
 
@@ -1879,7 +1881,9 @@
                   runId: item.runId,
                   flapTicks: Array.isArray(item.flapTicks) ? item.flapTicks : [],
                   totalTicks: Number(item.totalTicks) || 0,
-                  claimedScore: Number(item.claimedScore) || 0
+                  claimedScore: Number(item.claimedScore) || 0,
+                  startSpeedMult: typeof item.startSpeedMult === 'number' ? item.startSpeedMult : 1.0,
+                  clientWallDurationMs: typeof item.clientWallDurationMs === 'number' ? item.clientWallDurationMs : undefined
                 }, 2);
                 this.applyVerifiedRunResult(verifyRes, item.difficulty, expectedUserKey, false);
                 flushedCount += 1;
@@ -1962,6 +1966,9 @@
           const recordedFlaps = this.flapTicks.slice();
           const achievedScore = this.score;
           const runFlaps = recordedFlaps.length + 1;
+          const crashNowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          const runWallDurationMs = this.runStartWallMs ? Math.max(0, Math.round(crashNowMs - this.runStartWallMs)) : 0;
+          const runStartSpeedMultSnapshot = typeof this.activeRunStartSpeedMult === 'number' ? this.activeRunStartSpeedMult : 1.0;
           const expectedUserKey = (this.currentUser && this.currentUser.username)
             ? this.currentUser.username.toLowerCase()
             : '';
@@ -2081,7 +2088,8 @@
                   flapTicks: recordedFlaps,
                   totalTicks: finalTicks,
                   claimedScore: achievedScore,
-                  startSpeedMult: typeof this.activeRunStartSpeedMult === 'number' ? this.activeRunStartSpeedMult : 1.0
+                  startSpeedMult: runStartSpeedMultSnapshot,
+                  clientWallDurationMs: runWallDurationMs
                 }, 4);
 
                 this.applyVerifiedRunResult(verifyRes, diffKey, expectedUserKey, true);
@@ -2141,6 +2149,8 @@
                     flapTicks: recordedFlaps,
                     totalTicks: finalTicks,
                     claimedScore: achievedScore,
+                    startSpeedMult: runStartSpeedMultSnapshot,
+                    clientWallDurationMs: runWallDurationMs,
                     queuedAt: Date.now()
                   });
                 }
@@ -2363,7 +2373,7 @@
         // ------------------------------------------------------------------------
         // INTERPOLATED VISUAL FRAME UPDATE (60FPS / 120FPS / 144FPS / 240FPS)
         // ------------------------------------------------------------------------
-        update(frameDt) {
+        update(frameDt, physicsDt = frameDt, frameNowMs = 0) {
           this.elapsedTime += frameDt;
           const activeSpecLobby = (this.duelSpectatingLobbyId && this.duelSpectatingLobby)
             ? this.duelSpectatingLobby
@@ -2418,46 +2428,46 @@
             this.rightWingPivot.rotation.x = -flapAngle;
           } else if (this.state === GAME_STATE.PLAYING) {
             this.birdMeshGroup.rotation.y = 0;
-            const activeDiffUpdate = (typeof this.getActiveDifficulty === 'function')
-              ? this.getActiveDifficulty()
-              : (this.selectedDifficulty || 'medium');
-            if (activeDiffUpdate === 'extreme') {
-              this.physicsAccumulator = 0;
-              this.stepPlayingPhysics();
-              if (this.state === GAME_STATE.PLAYING) {
-                this.birdGroup.position.y = this.simBirdY;
-                for (let i = 0; i < this.pipes.length; i++) {
-                  const p = this.pipes[i];
-                  p.group.position.x = p.x;
-                }
-              }
-            } else {
-              // Soft 60Hz VSync phase smoothing eliminates micro-stutter on standard 60Hz monitors
-              // while keeping 120Hz/144Hz/240Hz displays smoothly fixed at 60Hz physics ticks.
-              const stepDt = (Math.abs(frameDt - CONFIG.dt) < 0.0025) ? CONFIG.dt : frameDt;
-              this.physicsAccumulator = Math.min(CONFIG.dt * 4, this.physicsAccumulator + stepDt);
-              const maxSteps = 4;
-              let steps = 0;
-              while (this.physicsAccumulator >= CONFIG.dt && steps < maxSteps && this.state === GAME_STATE.PLAYING) {
-                this.physicsAccumulator -= CONFIG.dt;
-                this.stepPlayingPhysics();
-                steps++;
-              }
+            // Unified wall-clock-locked 60Hz fixed-timestep engine across ALL 4 modes (Easy, Medium, Hard & Extreme):
+            // - Preserves silky VSync phase smoothing on 60Hz/120Hz/144Hz/240Hz displays.
+            // - Never slows down into slow-motion on low-battery / battery-saver laptops (catches up to 30 ticks/frame,
+            //   down to 2 FPS, and anchors against real wall-clock elapsed time so speed stays strictly 1.00x!).
+            const rawStepDt = Number.isFinite(physicsDt) ? Math.max(0.0001, Math.min(physicsDt, 0.5)) : frameDt;
+            const stepDt = (rawStepDt <= 0.025 && Math.abs(rawStepDt - CONFIG.dt) < 0.0025) ? CONFIG.dt : rawStepDt;
+            this.physicsAccumulator += stepDt;
 
-              // Forward sub-tick visual prediction eliminates 16.7ms interpolation lag and eliminates
-              // backward pose snaps across 60Hz/120Hz/144Hz/240Hz without altering authoritative 60Hz physics!
-              if (this.state === GAME_STATE.PLAYING) {
-                const subDt = Math.max(0, Math.min(CONFIG.dt, this.physicsAccumulator));
-                const activeStepDiff = this.getDifficultyParams();
-                const predictedY = this.simBirdY + this.birdVelocityY * subDt + 0.5 * activeStepDiff.gravity * subDt * subDt;
-                this.birdGroup.position.y = Math.max(
-                  CONFIG.groundY + CONFIG.birdRadius,
-                  Math.min(CONFIG.ceilingY, predictedY)
-                );
-                for (let i = 0; i < this.pipes.length; i++) {
-                  const p = this.pipes[i];
-                  p.group.position.x = p.x - activeStepDiff.speed * subDt;
-                }
+            // Anchor to real wall-clock elapsed time so throttled rAF / battery-saver can NEVER dilate game speed
+            if (this.runStartWallMs && frameNowMs > this.runStartWallMs) {
+              const expectedWallSec = (frameNowMs - this.runStartWallMs) * 0.001;
+              const simTotalSec = (this.currentTick * CONFIG.dt) + this.physicsAccumulator;
+              const behindSec = expectedWallSec - simTotalSec;
+              if (behindSec > 0.035) {
+                this.physicsAccumulator += Math.min(behindSec, 0.5);
+              }
+            }
+
+            const maxSteps = 30;
+            this.physicsAccumulator = Math.min(CONFIG.dt * maxSteps, this.physicsAccumulator);
+            let steps = 0;
+            while (this.physicsAccumulator >= CONFIG.dt && steps < maxSteps && this.state === GAME_STATE.PLAYING) {
+              this.physicsAccumulator -= CONFIG.dt;
+              this.stepPlayingPhysics();
+              steps++;
+            }
+
+            // Forward sub-tick visual prediction eliminates 16.7ms interpolation lag and backward pose snaps
+            // across 60Hz/120Hz/144Hz/240Hz without altering authoritative 60Hz physics!
+            if (this.state === GAME_STATE.PLAYING) {
+              const subDt = Math.max(0, Math.min(CONFIG.dt, this.physicsAccumulator));
+              const activeStepDiff = this.getDifficultyParams();
+              const predictedY = this.simBirdY + this.birdVelocityY * subDt + 0.5 * activeStepDiff.gravity * subDt * subDt;
+              this.birdGroup.position.y = Math.max(
+                CONFIG.groundY + CONFIG.birdRadius,
+                Math.min(CONFIG.ceilingY, predictedY)
+              );
+              for (let i = 0; i < this.pipes.length; i++) {
+                const p = this.pipes[i];
+                p.group.position.x = p.x - activeStepDiff.speed * subDt;
               }
             }
 
@@ -2618,20 +2628,20 @@
         }
 
         updateAutoPerformanceTier(rawDt) {
-          if ((typeof document !== 'undefined' && document.hidden) || !Number.isFinite(rawDt) || rawDt <= 0.002 || rawDt >= 0.25) {
+          if ((typeof document !== 'undefined' && document.hidden) || !Number.isFinite(rawDt) || rawDt <= 0.002 || rawDt >= 0.5) {
             return;
           }
           if ((this._autoPerfTier || 0) >= 2) return;
           this._fpsAccumMs = (this._fpsAccumMs || 0) + (rawDt * 1000);
           this._fpsSampleCount = (this._fpsSampleCount || 0) + 1;
-          if (this._fpsSampleCount < 45) return;
+          if (this._fpsSampleCount < 30) return;
 
           const avgFps = (this._fpsSampleCount * 1000) / Math.max(1, this._fpsAccumMs);
           this._fpsAccumMs = 0;
           this._fpsSampleCount = 0;
-          if (avgFps < 40) {
+          if (avgFps < 45) {
             this._lowFpsStreak = (this._lowFpsStreak || 0) + 1;
-            if (this._lowFpsStreak >= 2) {
+            if (this._lowFpsStreak >= 2 || avgFps < 28) {
               this._lowFpsStreak = 0;
               this.stepDownAutoPerformanceTier();
             }
@@ -2642,35 +2652,15 @@
 
         animate(now) {
           requestAnimationFrame(this.animate);
-          const activeDiffAnim = (typeof this.getActiveDifficulty === 'function')
-            ? this.getActiveDifficulty()
-            : (this.selectedDifficulty || 'medium');
-          const isExtremeLocked = (this.state === GAME_STATE.PLAYING || this.state === GAME_STATE.CRASHING)
-            && activeDiffAnim === 'extreme';
-          if (isExtremeLocked) {
-            const EXTREME_FRAME_MS = 1000 / 60;
-            if (!this.lastExtremeFrameTime) {
-              this.lastExtremeFrameTime = now - EXTREME_FRAME_MS;
-            }
-            const elapsedExt = now - this.lastExtremeFrameTime;
-            if (elapsedExt < (EXTREME_FRAME_MS - 0.6)) {
-              return;
-            }
-            this.lastExtremeFrameTime = (elapsedExt > 120)
-              ? now
-              : (this.lastExtremeFrameTime + EXTREME_FRAME_MS);
-          } else {
-            this.lastExtremeFrameTime = 0;
-          }
-
           const rawDt = (now - (this.lastFrameTime || now)) * 0.001;
           this.lastFrameTime = now;
           this.updateAutoPerformanceTier(rawDt);
-          const dt = isExtremeLocked
-            ? CONFIG.dt
-            : (Number.isFinite(rawDt) ? Math.max(0.0001, Math.min(rawDt, 0.05)) : 0.016);
+          // Visual animations clamp at 50ms to stay smooth, while physics uses real wall-clock rawDt up to 0.5s
+          // so low-battery / battery-saver FPS drops NEVER create slow-motion!
+          const dt = Number.isFinite(rawDt) ? Math.max(0.0001, Math.min(rawDt, 0.05)) : 0.016;
+          const physicsDt = Number.isFinite(rawDt) ? Math.max(0.0001, Math.min(rawDt, 0.5)) : 0.016;
           try {
-            this.update(dt);
+            this.update(dt, physicsDt, now);
           } catch (err) {
             console.warn('Recoverable frame update error:', err);
           }
@@ -2725,6 +2715,9 @@
           this.myDuelStats = { duelElo: 1000, duelWins: 0, duelLosses: 0, duelMatches: 0, duelCoins: 0, duelBestMatchPoints: 0, rank: null, highScoreRank: null };
           this.activeDuelLobby = null;
           this.activeDuelLobbyId = null;
+          this._duelStateEpoch = 0;
+          this._dismissedDuelLobbyIds = new Set();
+          this._duelActionInFlight = false;
           this.duelSpectatingLobby = null;
           this.duelSpectatingLobbyId = null;
           this.duelRoundPlaying = null;
@@ -2826,9 +2819,15 @@
               this.activeDuelLobby.status === 'countdown' &&
               (this.duelCountdownTargetMs - now < 500)
             );
-            const isFastPoll = Boolean(this.activeDuelLobbyId || this.duelSpectatingLobbyId);
+            const isFinishedView = Boolean(this.activeDuelLobby && this.activeDuelLobby.status === 'finished');
+            const isFastPoll = Boolean((this.activeDuelLobbyId && !isFinishedView) || this.duelSpectatingLobbyId);
             const intervalMs = (isLiveSpectating || isNearCountdownEnd) ? 75 : (isFastPoll ? 200 : 1200);
             if (!isFastPoll && this.currentAppView !== 'duels') {
+              scheduleDuelPoll(1200);
+              return;
+            }
+            // Do not keep polling an already-finished duel lobby while player reads the Final Results screen
+            if (isFinishedView) {
               scheduleDuelPoll(1200);
               return;
             }
@@ -2893,9 +2892,7 @@
             if (res) {
               if (Array.isArray(res.lobbies)) this.duelLobbies = res.lobbies;
               if (res.lobby && (res.action === 'bot_duel_started' || (res.action === 'bot_joined_lobby' && (!lobbyId || lobbyId === this.activeDuelLobbyId)))) {
-                this.activeDuelLobby = res.lobby;
-                this.activeDuelLobbyId = res.lobby.id;
-                this.syncDuelMatchState(res.lobby);
+                this.adoptNewActiveDuelLobby(res.lobby);
               }
               this.renderDuelLobbiesList();
             }
@@ -2963,9 +2960,42 @@
           }
         }
 
+        resetLocalDuelMatchState() {
+          this.duelRoundPlaying = null;
+          this.duelRoundFinishedLocal = false;
+          this.pendingDuelRoundFinish = null;
+          this._submittingDuelRoundFinish = false;
+          this.duelCountdownTargetMs = 0;
+          this.duelSoloSpectateDelayUntil = 0;
+          if (typeof this.exitSoloOpponentSpectate === 'function') {
+            this.exitSoloOpponentSpectate();
+          }
+          if (this.duelSpecSim && typeof this.createEmptySpecSim === 'function') {
+            this.duelSpecSim.p1 = this.createEmptySpecSim();
+            this.duelSpecSim.p2 = this.createEmptySpecSim();
+            this.duelSpecSim.opp = this.createEmptySpecSim();
+          }
+        }
+
+        adoptNewActiveDuelLobby(lobby) {
+          if (!lobby || !lobby.id) return;
+          this._duelStateEpoch = (this._duelStateEpoch || 0) + 1;
+          if (this._dismissedDuelLobbyIds) {
+            this._dismissedDuelLobbyIds.delete(lobby.id);
+          }
+          const isSwitchingLobby = this.activeDuelLobbyId !== lobby.id;
+          if (isSwitchingLobby) {
+            this.resetLocalDuelMatchState();
+          }
+          this.activeDuelLobby = lobby;
+          this.activeDuelLobbyId = lobby.id;
+          this.syncDuelMatchState(lobby);
+        }
+
         async fetchDuelsState() {
           if (this._fetchingDuelState) return;
           this._fetchingDuelState = true;
+          const reqEpoch = this._duelStateEpoch || 0;
           try {
             const payload = {
               clientId: this.duelClientId,
@@ -3017,22 +3047,36 @@
               this.updateDuelShopCoinsUI();
             }
 
-            if (this.duelSpectatingLobbyId) {
-              if (data.spectatingLobby) {
-                this.duelSpectatingLobby = data.spectatingLobby;
-                this.syncSpectatorLobbyState(data.spectatingLobby);
-              } else {
-                this.stopSpectatingDuel();
+            // If user clicked Back to Duels, left, created, or joined another duel while this poll was in-flight,
+            // NEVER let this stale poll hijack activeDuelLobby or re-open an old finished duel screen!
+            const stateChangedWhileInFlight = reqEpoch !== (this._duelStateEpoch || 0);
+            const dismissedActive = Boolean(
+              data.activeLobby &&
+              this._dismissedDuelLobbyIds &&
+              this._dismissedDuelLobbyIds.has(data.activeLobby.id)
+            );
+
+            if (!stateChangedWhileInFlight) {
+              if (this.duelSpectatingLobbyId) {
+                if (data.spectatingLobby) {
+                  this.duelSpectatingLobby = data.spectatingLobby;
+                  this.syncSpectatorLobbyState(data.spectatingLobby);
+                } else {
+                  this.stopSpectatingDuel();
+                }
+              } else if (data.activeLobby && !dismissedActive) {
+                if (this.activeDuelLobbyId !== data.activeLobby.id) {
+                  this.resetLocalDuelMatchState();
+                }
+                this.activeDuelLobby = data.activeLobby;
+                this.activeDuelLobbyId = data.activeLobby.id;
+                this.syncDuelMatchState(data.activeLobby);
+              } else if (this.activeDuelLobbyId && (!this.activeDuelLobby || this.activeDuelLobby.status !== 'finished')) {
+                const wasInMatchView = Boolean(
+                  this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting'
+                ) || document.body.classList.contains('in-game');
+                this.releaseStuckDuelState(wasInMatchView);
               }
-            } else if (data.activeLobby) {
-              this.activeDuelLobby = data.activeLobby;
-              this.activeDuelLobbyId = data.activeLobby.id;
-              this.syncDuelMatchState(data.activeLobby);
-            } else if (this.activeDuelLobbyId && (!this.activeDuelLobby || this.activeDuelLobby.status !== 'finished')) {
-              const wasInMatchView = Boolean(
-                this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting'
-              ) || document.body.classList.contains('in-game');
-              this.releaseStuckDuelState(wasInMatchView);
             }
 
             this.renderDuelLobbiesList();
@@ -3044,6 +3088,8 @@
         }
 
         async handleDuelQuickMatch() {
+          if (this._duelActionInFlight) return;
+          this._duelActionInFlight = true;
           try {
             const res = await this.apiRequest('/api/duels/quick-match', 'POST', {
               clientId: this.duelClientId,
@@ -3052,18 +3098,20 @@
               selectedPipeSkin: this.selectedPipeSkinId || 'classic_pipe'
             });
             if (res && res.lobby) {
-              this.activeDuelLobby = res.lobby;
-              this.activeDuelLobbyId = res.lobby.id;
               if (Array.isArray(res.lobbies)) this.duelLobbies = res.lobbies;
+              this.adoptNewActiveDuelLobby(res.lobby);
               this.renderDuelLobbiesList();
-              this.syncDuelMatchState(res.lobby);
             }
           } catch (err) {
             console.warn('Quick Match error:', err);
+          } finally {
+            this._duelActionInFlight = false;
           }
         }
 
         async handleDuelCreateLobby() {
+          if (this._duelActionInFlight) return;
+          this._duelActionInFlight = true;
           const nameInput = document.getElementById('duel-create-name-input');
           const pwInput = document.getElementById('duel-create-password-input');
           const msgEl = document.getElementById('duel-create-msg');
@@ -3085,18 +3133,18 @@
             if (pwInput) pwInput.value = '';
             if (msgEl) msgEl.textContent = '';
             if (res && res.lobby) {
-              this.activeDuelLobby = res.lobby;
-              this.activeDuelLobbyId = res.lobby.id;
               if (Array.isArray(res.lobbies)) this.duelLobbies = res.lobbies;
               if (Array.isArray(res.rankedLeaderboard)) this.duelRankedLeaderboard = res.rankedLeaderboard;
               if (typeof this.activateDuelTab === 'function') {
                 this.activateDuelTab('join', false);
               }
+              this.adoptNewActiveDuelLobby(res.lobby);
               this.renderDuelLobbiesList();
-              this.syncDuelMatchState(res.lobby);
             }
           } catch (err) {
             if (msgEl) msgEl.textContent = err.message || 'Could not create lobby.';
+          } finally {
+            this._duelActionInFlight = false;
           }
         }
 
@@ -3149,12 +3197,13 @@
         }
 
         async handleDuelJoinLobby(lobbyId, password = null) {
-          if (!lobbyId) return;
+          if (!lobbyId || this._duelActionInFlight) return;
           const targetLobby = (this.duelLobbies || []).find(l => l && l.id === lobbyId);
           if (targetLobby && targetLobby.hasPassword && password === null) {
             this.openDuelPasswordModal(lobbyId, targetLobby.name || 'Friendly Duel');
             return;
           }
+          this._duelActionInFlight = true;
           try {
             const payload = {
               lobbyId,
@@ -3169,11 +3218,9 @@
             const res = await this.apiRequest('/api/duels/join', 'POST', payload);
             this.closeDuelPasswordModal();
             if (res && res.lobby) {
-              this.activeDuelLobby = res.lobby;
-              this.activeDuelLobbyId = res.lobby.id;
               if (Array.isArray(res.lobbies)) this.duelLobbies = res.lobbies;
+              this.adoptNewActiveDuelLobby(res.lobby);
               this.renderDuelLobbiesList();
-              this.syncDuelMatchState(res.lobby);
             }
           } catch (err) {
             const msg = (err && err.message) ? err.message : '';
@@ -3193,20 +3240,19 @@
               }
             }
             this.fetchDuelsState();
+          } finally {
+            this._duelActionInFlight = false;
           }
         }
 
         releaseStuckDuelState(returnToHub = true) {
+          this._duelStateEpoch = (this._duelStateEpoch || 0) + 1;
           this.activeDuelLobby = null;
           this.activeDuelLobbyId = null;
-          this.duelRoundPlaying = null;
-          this.duelRoundFinishedLocal = false;
-          this.pendingDuelRoundFinish = null;
-          this._submittingDuelRoundFinish = false;
+          this.resetLocalDuelMatchState();
           if (this.state === GAME_STATE.PLAYING) {
             this.state = GAME_STATE.START;
           }
-          this.exitSoloOpponentSpectate();
           this.hideAllDuelOverlays();
           if (typeof this.updateProfileRecordPills === 'function') {
             this.updateProfileRecordPills();
@@ -3226,6 +3272,9 @@
           if (this.activeDuelLobby && this.activeDuelLobby.status !== 'waiting') {
             return;
           }
+          if (this._dismissedDuelLobbyIds) {
+            this._dismissedDuelLobbyIds.add(targetId);
+          }
           this.releaseStuckDuelState(false);
           try {
             const res = await this.apiRequest('/api/duels/leave', 'POST', {
@@ -3241,10 +3290,22 @@
         }
 
         handleDuelFinishBackToHub() {
+          const finishedLobbyId = this.activeDuelLobbyId;
+          if (finishedLobbyId && this._dismissedDuelLobbyIds) {
+            this._dismissedDuelLobbyIds.add(finishedLobbyId);
+            if (this._dismissedDuelLobbyIds.size > 30) {
+              const first = this._dismissedDuelLobbyIds.values().next().value;
+              this._dismissedDuelLobbyIds.delete(first);
+            }
+          }
+          // Bump epoch IMMEDIATELY so any in-flight /api/duels/state poll from the finished match is discarded
+          this._duelStateEpoch = (this._duelStateEpoch || 0) + 1;
           this.activeDuelLobby = null;
           this.activeDuelLobbyId = null;
-          this.duelRoundPlaying = null;
-          this.duelRoundFinishedLocal = false;
+          this.resetLocalDuelMatchState();
+          if (this.state === GAME_STATE.PLAYING || this.state === GAME_STATE.CRASHING) {
+            this.state = GAME_STATE.START;
+          }
           if (this.duelSpectatingLobbyId) {
             this.stopSpectatingDuel();
             return;
@@ -3258,7 +3319,25 @@
           if (typeof this.activateDuelTab === 'function') {
             this.activateDuelTab('join', false);
           }
-          this.fetchDuelsState();
+
+          // Inform server we dismissed the finished lobby BEFORE polling again so server never re-sends it!
+          if (finishedLobbyId) {
+            this.apiRequest('/api/duels/leave', 'POST', {
+              lobbyId: finishedLobbyId,
+              clientId: this.duelClientId,
+              guestUsername: this.getDuelDisplayUsername(),
+              reason: 'dismissed_finished'
+            }).then((res) => {
+              if (res && Array.isArray(res.lobbies)) {
+                this.duelLobbies = res.lobbies;
+                this.renderDuelLobbiesList();
+              }
+            }).catch(() => {}).finally(() => {
+              this.fetchDuelsState();
+            });
+          } else {
+            this.fetchDuelsState();
+          }
         }
 
         hideAllDuelOverlays() {
@@ -3728,7 +3807,9 @@
           this.birdVelocityY = this.getDifficultyParams().flapImpulse;
           this.wingFlapBoost = 1.0;
           this.physicsAccumulator = 0;
-          this.lastFrameTime = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          const runNow = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+          this.lastFrameTime = runNow;
+          this.runStartWallMs = runNow;
           this.sound.playFlap();
         }
 
@@ -3780,6 +3861,7 @@
             return;
           }
           this._submittingDuelRoundFinish = true;
+          const submitEpoch = this._duelStateEpoch || 0;
           payload.lastAttemptAt = Date.now();
           try {
             const res = await this.apiRequest('/api/duels/round-finish', 'POST', {
@@ -3813,12 +3895,20 @@
                 this.updateProfileRecordPills();
               }
             }
-            if (res && res.lobby) {
+            if (
+              res &&
+              res.lobby &&
+              submitEpoch === (this._duelStateEpoch || 0) &&
+              this.activeDuelLobbyId === res.lobby.id &&
+              (!this._dismissedDuelLobbyIds || !this._dismissedDuelLobbyIds.has(res.lobby.id))
+            ) {
               this.activeDuelLobby = res.lobby;
               this.syncDuelMatchState(res.lobby);
             }
           } catch (_) {
-            this.fetchDuelsState();
+            if (submitEpoch === (this._duelStateEpoch || 0)) {
+              this.fetchDuelsState();
+            }
           } finally {
             this._submittingDuelRoundFinish = false;
           }
@@ -3829,6 +3919,8 @@
           if (now - this.lastDuelTelemetrySentAt < 45) return;
           this.lastDuelTelemetrySentAt = now;
 
+          const sentLobbyId = this.activeDuelLobbyId;
+          const sentEpoch = this._duelStateEpoch || 0;
           const sentRound = this.duelRoundPlaying;
           const diff = this.getDifficultyParams();
           const pipeData = this.pipes.slice(0, 5).map(p => ({
@@ -3840,7 +3932,7 @@
           }));
 
           this.apiRequest('/api/duels/live-update', 'POST', {
-            lobbyId: this.activeDuelLobbyId,
+            lobbyId: sentLobbyId,
             clientId: this.duelClientId,
             guestUsername: this.getDuelDisplayUsername(),
             round: sentRound,
@@ -3852,16 +3944,24 @@
             speed: Number((diff.speed || CONFIG.baseSpeed).toFixed(4)),
             pipes: pipeData
           }).then(res => {
-            if (res && res.lobby) {
-              if (this.duelRoundFinishedLocal && res.lobby.status === 'playing' && res.lobby.currentRound === sentRound) {
-                return;
-              }
-              this.activeDuelLobby = res.lobby;
-              if (res.lobby.status !== 'playing') {
-                this.syncDuelMatchState(res.lobby);
-              } else {
-                this.updateDuelLiveHUD();
-              }
+            if (
+              !res ||
+              !res.lobby ||
+              sentEpoch !== (this._duelStateEpoch || 0) ||
+              this.activeDuelLobbyId !== sentLobbyId ||
+              res.lobby.id !== sentLobbyId ||
+              (this._dismissedDuelLobbyIds && this._dismissedDuelLobbyIds.has(res.lobby.id))
+            ) {
+              return;
+            }
+            if (this.duelRoundFinishedLocal && res.lobby.status === 'playing' && res.lobby.currentRound === sentRound) {
+              return;
+            }
+            this.activeDuelLobby = res.lobby;
+            if (res.lobby.status !== 'playing') {
+              this.syncDuelMatchState(res.lobby);
+            } else {
+              this.updateDuelLiveHUD();
             }
           }).catch(() => {});
         }

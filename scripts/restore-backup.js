@@ -49,6 +49,10 @@ try {
   const easyCount = parsed.runs?.easy?.length || 0;
   const medCount = parsed.runs?.medium?.length || 0;
   const hardCount = parsed.runs?.hard?.length || 0;
+  const extremeCount = parsed.runs?.extreme?.length || 0;
+  const giveawaysList = Array.isArray(parsed.giveaways) ? parsed.giveaways : [];
+  const activeGiveaways = giveawaysList.filter(g => g && g.status === 'active').length;
+  const feedbackCount = Array.isArray(parsed.feedbackSubmissions) ? parsed.feedbackSubmissions.length : 0;
 
   fs.writeFileSync(DB_FILE, content, 'utf8');
   console.log(`💾 Restored: data/db.json`);
@@ -64,7 +68,8 @@ try {
   console.log('\n============================================================');
   console.log(`🎉 RESTORE SUCCESSFUL!`);
   console.log(`   👥 Total Registered Players: ${userCount}`);
-  console.log(`   🏃 Total Verified Runs: ${easyCount + medCount + hardCount} (Easy: ${easyCount}, Med: ${medCount}, Hard: ${hardCount})`);
+  console.log(`   🏃 Total Verified Runs: ${easyCount + medCount + hardCount + extremeCount} (Easy: ${easyCount}, Med: ${medCount}, Hard: ${hardCount}, Extreme: ${extremeCount})`);
+  console.log(`   🎁 Giveaways: ${activeGiveaways} active / ${giveawaysList.length} total | 💡 Feedback: ${feedbackCount}`);
   console.log(`All local records have been reverted to: ${latest.file}`);
   console.log('============================================================\n');
 } catch (err) {

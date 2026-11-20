@@ -23,11 +23,22 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const { handleApiRequest, getLocalAddresses } = require('./src/routes/apiRoutes');
+const { flushPendingSaveSync, restoreFromCloudBackupIfNewer, flushCloudBackupSyncOrNow } = require('./src/services/database');
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const STATIC_CACHE = new Map();
 const COMPRESSIBLE_EXTS = new Set(['.html', '.css', '.js', '.json', '.svg']);
+
+// Crash-proof process guards so transient socket/async errors NEVER kill the server & wipe ephemeral Render data
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ Uncaught exception (server stayed alive):', err && err.stack ? err.stack : err);
+  try { flushPendingSaveSync(); } catch (_) {}
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ Unhandled promise rejection (server stayed alive):', reason && reason.stack ? reason.stack : reason);
+  try { flushPendingSaveSync(); } catch (_) {}
+});
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -42,7 +53,19 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer(async (req, res) => {
-  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  req.on('error', () => {});
+  res.on('error', () => {});
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  } catch (_) {
+    if (!res.headersSent && !res.writableEnded && !res.destroyed) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Malformed request URL' }));
+    }
+    return;
+  }
   const pathname = parsedUrl.pathname;
 
   try {
@@ -117,9 +140,35 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ error: 'Not found: ' + pathname }));
   } catch (err) {
     console.error('Server error:', err);
-    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+    if (!res.headersSent && !res.writableEnded && !res.destroyed) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: err.message || 'Internal server error' }));
+      } catch (_) {}
+    }
   }
+});
+
+// Render & reverse-proxy production keep-alive timeouts (prevents Go proxy "read: connection reset by peer" on /api/server-info)
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+server.requestTimeout = 30000;
+
+server.on('clientError', (err, socket) => {
+  if (err && err.code === 'ECONNRESET') return;
+  if (socket && socket.writable && !socket.destroyed) {
+    try { socket.end('HTTP/1.1 400 Bad Request\r\n\r\n'); } catch (_) {}
+  }
+});
+
+['SIGINT', 'SIGTERM'].forEach((sig) => {
+  process.once(sig, async () => {
+    console.log(`\n🛑 Received ${sig} — flushing database safely before shutdown...`);
+    try { flushPendingSaveSync(); } catch (_) {}
+    try { await flushCloudBackupSyncOrNow(); } catch (_) {}
+    try { server.close(); } catch (_) {}
+    process.exit(0);
+  });
 });
 
 server.on('error', (err) => {
@@ -133,6 +182,11 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
+  if (typeof restoreFromCloudBackupIfNewer === 'function') {
+    restoreFromCloudBackupIfNewer().catch((err) => {
+      console.warn('Cloud backup startup check skipped:', err && err.message ? err.message : err);
+    });
+  }
   const currentPort = server.address()?.port || PORT;
   const isSimulation = Boolean(process.env.SIMULATION_MODE === '1' || process.env.LOCAL_TEST === '1');
   const lanIPs = getLocalAddresses();

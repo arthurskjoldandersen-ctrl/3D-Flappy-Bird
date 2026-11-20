@@ -17,6 +17,7 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const RENDER_URL = process.env.RENDER_URL || 'https://threed-flappy-bird.onrender.com';
 const ADMIN_USER = process.env.ADMIN_USER || 'MeDonut';
@@ -30,13 +31,26 @@ const BACKUPS_DIR = path.join(ROOT_DIR, 'data', 'backups');
 
 function httpRequest(url, options = {}) {
   return new Promise((resolve, reject) => {
-    const req = https.request(url, options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    const reqHeaders = {
+      'Accept-Encoding': 'gzip',
+      ...(options.headers || {})
+    };
+    const req = https.request(url, { ...options, headers: reqHeaders }, (res) => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+      res.on('end', () => {
+        try {
+          const rawBuf = Buffer.concat(chunks);
+          const enc = String(res.headers['content-encoding'] || '').toLowerCase();
+          const finalBuf = enc.includes('gzip') ? zlib.gunzipSync(rawBuf) : rawBuf;
+          resolve({ status: res.statusCode, headers: res.headers, body: finalBuf.toString('utf8') });
+        } catch (decErr) {
+          reject(decErr);
+        }
+      });
     });
     req.on('error', reject);
-    req.setTimeout(20000, () => {
+    req.setTimeout(60000, () => {
       req.destroy();
       reject(new Error('Connection timed out while reaching Render server (' + url + ')'));
     });
@@ -109,8 +123,24 @@ async function syncLiveDatabase() {
 
     const liveDb = JSON.parse(exportRes.body);
 
-    // Enforce top 100 highest runs per difficulty from EACH PLAYER
-    ['easy', 'medium', 'hard'].forEach(diff => {
+    // Guarantee all core collections exist while preserving EVERY field exported by the live server
+    // (including active & past giveaways, globalAnnouncements, feedbackSubmissions, banRegistry,
+    // leaderboardSkinLedger, chatMessages, sessions, adminSettings, custom drawings/media, etc.)
+    if (!liveDb.runs || typeof liveDb.runs !== 'object') {
+      liveDb.runs = { easy: [], medium: [], hard: [], extreme: [] };
+    }
+    if (!Array.isArray(liveDb.giveaways)) liveDb.giveaways = [];
+    if (!Array.isArray(liveDb.globalAnnouncements)) liveDb.globalAnnouncements = [];
+    if (!Array.isArray(liveDb.feedbackSubmissions)) liveDb.feedbackSubmissions = [];
+    if (!Array.isArray(liveDb.chatMessages)) liveDb.chatMessages = [];
+    if (!liveDb.banRegistry || typeof liveDb.banRegistry !== 'object') liveDb.banRegistry = { groups: {} };
+    if (!liveDb.adminSettings || typeof liveDb.adminSettings !== 'object') liveDb.adminSettings = {};
+    if (!liveDb.sessions || typeof liveDb.sessions !== 'object') liveDb.sessions = {};
+    if (!liveDb.users || typeof liveDb.users !== 'object') liveDb.users = {};
+
+    // Preserve ALL runs from the last 14 days (active Daily + Weekly windows!) + up to Top 100 all-time runs per player per mode
+    const recentPreserveCutoffMs = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    ['easy', 'medium', 'hard', 'extreme'].forEach(diff => {
       const list = Array.isArray(liveDb.runs?.[diff]) ? liveDb.runs[diff] : [];
       const runsByPlayer = new Map();
       for (const r of list) {
@@ -123,9 +153,14 @@ async function syncLiveDatabase() {
       for (const pRuns of runsByPlayer.values()) {
         pRuns.sort((a, b) => {
           if (b.score !== a.score) return b.score - a.score;
-          return (a.createdAt || 0) - (b.createdAt || 0);
+          return (b.createdAt || 0) - (a.createdAt || 0);
         });
-        prunedRuns.push(...pRuns.slice(0, 100));
+        for (let i = 0; i < pRuns.length; i++) {
+          const item = pRuns[i];
+          if (i < 100 || (Number(item.createdAt) || 0) >= recentPreserveCutoffMs) {
+            prunedRuns.push(item);
+          }
+        }
       }
       prunedRuns.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -147,13 +182,23 @@ async function syncLiveDatabase() {
     const easyCount = liveDb.runs?.easy?.length || 0;
     const medCount = liveDb.runs?.medium?.length || 0;
     const hardCount = liveDb.runs?.hard?.length || 0;
+    const extremeCount = liveDb.runs?.extreme?.length || 0;
     const rankedMatchCount = liveDb.duelMatchHighScores.length;
-    const totalRuns = easyCount + medCount + hardCount;
+    const totalRuns = easyCount + medCount + hardCount + extremeCount;
+    const activeGiveawaysCount = liveDb.giveaways.filter(g => g && g.status === 'active').length;
+    const totalGiveawaysCount = liveDb.giveaways.length;
+    const feedbackCount = liveDb.feedbackSubmissions.length;
+    const announcementsCount = liveDb.globalAnnouncements.length;
+    const banGroupsCount = Object.keys((liveDb.banRegistry && liveDb.banRegistry.groups) || {}).length;
+    const chatCount = liveDb.chatMessages.length;
+    const sessionCount = Object.keys(liveDb.sessions || {}).length;
 
-    console.log(`✅ Live Database Retrieved!`);
-    console.log(`   👥 Total Registered Players: ${userCount}`);
-    console.log(`   🏃 Total Verified Runs: ${totalRuns} (Easy: ${easyCount}, Med: ${medCount}, Hard: ${hardCount} — capped at Top 100 runs per player per mode)`);
-    console.log(`   ⚔️ Ranked Match High Scores: ${rankedMatchCount} saved`);
+    console.log(`✅ Complete Live Database Retrieved!`);
+    console.log(`   👥 Total Registered Players: ${userCount} (Sessions: ${sessionCount})`);
+    console.log(`   🏃 Total Verified Runs: ${totalRuns} (Easy: ${easyCount}, Med: ${medCount}, Hard: ${hardCount}, Extreme: ${extremeCount})`);
+    console.log(`   ⚔️ Ranked Match High Scores: ${rankedMatchCount} | Match History: ${liveDb.duelMatchHistory.length}`);
+    console.log(`   🎁 Giveaways: ${activeGiveawaysCount} active / ${totalGiveawaysCount} total`);
+    console.log(`   📣 Global Announcements: ${announcementsCount} | 💡 Feedback: ${feedbackCount} | 💬 Chat: ${chatCount} | 🔨 Ban Groups: ${banGroupsCount}`);
 
     // 3. Create a safety backup of local db.json if it exists
     if (!fs.existsSync(BACKUPS_DIR)) {

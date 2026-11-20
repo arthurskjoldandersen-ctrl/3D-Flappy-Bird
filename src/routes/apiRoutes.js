@@ -13,6 +13,7 @@ const { verifyGameReplay } = require('../services/antiCheat');
 const { checkProhibitedLanguage } = require('../services/antiSlur');
 const {
   getDb,
+  getFullDatabaseSnapshot,
   DB_FILE,
   saveDatabase,
   hashPassword,
@@ -947,23 +948,50 @@ function getPublicDuelLobbiesList() {
   return list;
 }
 
-// Periodic background clock advancement & cleanup
+// Periodic background clock advancement & cleanup (wrapped in try/catch so a single duel edge case NEVER crashes the server)
 setInterval(() => {
-  const now = Date.now();
-  for (const [runId, run] of activeRuns.entries()) {
-    if (now - run.startedAt > 45 * 60 * 1000) {
-      activeRuns.delete(runId);
+  try {
+    const now = Date.now();
+    for (const [runId, run] of activeRuns.entries()) {
+      if (now - run.startedAt > 45 * 60 * 1000) {
+        activeRuns.delete(runId);
+      }
     }
-  }
-  for (const [lobbyId, lobby] of duelLobbies.entries()) {
-    advanceDuelLobbyClock(lobby);
-    if (shouldPruneDuelLobby(lobby, now)) {
-      duelLobbies.delete(lobbyId);
+    for (const [lobbyId, lobby] of duelLobbies.entries()) {
+      try {
+        advanceDuelLobbyClock(lobby);
+        if (shouldPruneDuelLobby(lobby, now)) {
+          duelLobbies.delete(lobbyId);
+        }
+      } catch (lobbyErr) {
+        console.error('Duel lobby tick error (isolated):', lobbyErr && lobbyErr.message ? lobbyErr.message : lobbyErr);
+      }
     }
+  } catch (err) {
+    console.error('Background cleanup tick error:', err && err.message ? err.message : err);
   }
 }, 250).unref();
 
+function detachPlayerFromFinishedLobbies(caller) {
+  if (!caller) return;
+  const now = Date.now();
+  for (const [lid, lobby] of duelLobbies.entries()) {
+    if (!lobby || lobby.status !== 'finished') continue;
+    let touched = false;
+    for (const p of (lobby.players || [])) {
+      if (p && (p.slotId === caller.clientId || (caller.usernameKey && p.usernameKey === caller.usernameKey))) {
+        p.leftMatch = true;
+        touched = true;
+      }
+    }
+    if (touched && shouldPruneDuelLobby(lobby, now)) {
+      duelLobbies.delete(lid);
+    }
+  }
+}
+
 function sendJSON(res, statusCode, payload, setCookies = null) {
+  if (!res || res.headersSent || res.writableEnded || res.destroyed) return;
   const body = JSON.stringify(payload);
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
@@ -974,20 +1002,25 @@ function sendJSON(res, statusCode, payload, setCookies = null) {
   }
   if (res._acceptGzip && body.length > 1536) {
     zlib.gzip(body, { level: 5 }, (gzErr, gzBuf) => {
-      if (!gzErr && gzBuf) {
-        headers['Content-Encoding'] = 'gzip';
-        headers['Vary'] = 'Accept-Encoding';
+      if (!res || res.headersSent || res.writableEnded || res.destroyed) return;
+      try {
+        if (!gzErr && gzBuf) {
+          headers['Content-Encoding'] = 'gzip';
+          headers['Vary'] = 'Accept-Encoding';
+          res.writeHead(statusCode, headers);
+          res.end(gzBuf);
+          return;
+        }
         res.writeHead(statusCode, headers);
-        res.end(gzBuf);
-        return;
-      }
-      res.writeHead(statusCode, headers);
-      res.end(body);
+        res.end(body);
+      } catch (_) {}
     });
     return;
   }
-  res.writeHead(statusCode, headers);
-  res.end(body);
+  try {
+    res.writeHead(statusCode, headers);
+    res.end(body);
+  } catch (_) {}
 }
 
 function readJsonBody(req, maxBytes = 512 * 1024) {
@@ -2071,7 +2104,7 @@ async function handleApiRequest(req, res, pathname, port) {
       return sendJSON(res, 401, { error: 'Authentication required to submit scores.' });
     }
 
-    const { runId, flapTicks, totalTicks, claimedScore, startSpeedMult } = await readJsonBody(req);
+    const { runId, flapTicks, totalTicks, claimedScore, startSpeedMult, clientWallDurationMs } = await readJsonBody(req);
     const cleanStartSpeedMult = (typeof startSpeedMult === 'number' && Number.isFinite(startSpeedMult))
       ? Math.max(1.0, Math.min(2.0, Math.round(startSpeedMult * 10) / 10))
       : 1.0;
@@ -2109,6 +2142,19 @@ async function handleApiRequest(req, res, pathname, port) {
       markRunTokenUsed(rid, auth.usernameKey, '', null);
       return sendJSON(res, 400, {
         error: 'Anti-Cheat Rejection: Speedhack / fast-forward time manipulation detected.'
+      });
+    }
+    // Anti-Slow-Motion check (prevents low-battery / throttled-FPS slow-mo exploits)
+    if (
+      typeof clientWallDurationMs === 'number' &&
+      Number.isFinite(clientWallDurationMs) &&
+      clientWallDurationMs > 0 &&
+      simulatedDurationMs >= 4000 &&
+      clientWallDurationMs > (simulatedDurationMs * 1.45 + 3500)
+    ) {
+      markRunTokenUsed(rid, auth.usernameKey, '', null);
+      return sendJSON(res, 400, {
+        error: 'Anti-Cheat Rejection: Slow-motion / low-FPS time dilation detected. Please plug in your charger or disable Battery Saver.'
       });
     }
 
@@ -2520,9 +2566,10 @@ async function handleApiRequest(req, res, pathname, port) {
 
     // POST /api/duels/create
     if (req.method === 'POST' && pathname === '/api/duels/create') {
+      detachPlayerFromFinishedLobbies(caller);
       // Remove caller from any old waiting lobby they hosted
       for (const [oldId, oldLobby] of duelLobbies.entries()) {
-        if (oldLobby.status === 'waiting' && oldLobby.players.some(p => p.slotId === caller.clientId)) {
+        if (oldLobby.status === 'waiting' && oldLobby.players.some(p => p.slotId === caller.clientId || (caller.usernameKey && p.usernameKey === caller.usernameKey))) {
           duelLobbies.delete(oldId);
         }
       }
@@ -2638,9 +2685,10 @@ async function handleApiRequest(req, res, pathname, port) {
         }
       }
 
-      // Clean up any other waiting lobby hosted by this caller
+      // Clean up any finished or other waiting lobby hosted by this caller
+      detachPlayerFromFinishedLobbies(caller);
       for (const [oldId, oldLobby] of duelLobbies.entries()) {
-        if (oldId !== targetId && oldLobby.status === 'waiting' && oldLobby.players.some(p => p.slotId === caller.clientId)) {
+        if (oldId !== targetId && oldLobby.status === 'waiting' && oldLobby.players.some(p => p.slotId === caller.clientId || (caller.usernameKey && p.usernameKey === caller.usernameKey))) {
           duelLobbies.delete(oldId);
         }
       }
@@ -2661,6 +2709,7 @@ async function handleApiRequest(req, res, pathname, port) {
 
     // POST /api/duels/quick-match (Ranked open duels ONLY, prioritizing closest ELO opponents)
     if (req.method === 'POST' && pathname === '/api/duels/quick-match') {
+      detachPlayerFromFinishedLobbies(caller);
       const callerElo = typeof caller.duelElo === 'number' ? caller.duelElo : 1000;
       const blockOver150 = Boolean(db.adminSettings && db.adminSettings.blockDuelEloGapOver150);
       const qmSignals = extractClientInfo(req);
@@ -2781,7 +2830,12 @@ async function handleApiRequest(req, res, pathname, port) {
 
         if (lobby.status === 'waiting') {
           duelLobbies.delete(lid);
-        } else if (lobby.status !== 'finished') {
+        } else if (lobby.status === 'finished') {
+          leaver.leftMatch = true;
+          if (shouldPruneDuelLobby(lobby, Date.now())) {
+            duelLobbies.delete(lid);
+          }
+        } else {
           forfeitDuelPlayer(lobby, leaver, leaveReason);
         }
       }
@@ -2880,12 +2934,13 @@ async function handleApiRequest(req, res, pathname, port) {
         player.lastHeartbeat = Date.now();
         recomputeDuelPlayerPoints(player);
 
-        // Also submit to the normal leaderboard if authenticated, score > 0, and replay passes anti-cheat!
+        // Also submit to the normal leaderboard if authenticated, score > 0, and replay passes anti-cheat (speedhack + slow-mo)!
         const auth = getAuthenticatedUser(req);
         if (auth && cleanScore > 0 && Array.isArray(body.flapTicks) && typeof body.totalTicks === 'number') {
           const elapsedWallMs = Date.now() - (lobby.roundStartedAt || Date.now());
           const simulatedDurationMs = (body.totalTicks / SIM_CONFIG.tickRate) * 1000;
-          if (simulatedDurationMs <= elapsedWallMs + 3500) {
+          const isSlowMo = simulatedDurationMs >= 4000 && elapsedWallMs > (simulatedDurationMs * 1.50 + 6000);
+          if (simulatedDurationMs <= elapsedWallMs + 3500 && !isSlowMo) {
             const verification = verifyGameReplay({
               seed: lobby.roundSeed,
               difficulty: rKey,
@@ -3123,23 +3178,35 @@ async function handleApiRequest(req, res, pathname, port) {
   }
 
   if (req.method === 'GET' && pathname === '/api/database/export') {
-    const safeExport = {
-      databaseStatus: db.databaseStatus,
-      playerRecordsOverview: db.playerRecordsOverview,
-      activityFeed: db.activityFeed,
-      loginHistory: db.loginHistory || [],
-      adminSettings: db.adminSettings || {},
-      users: db.users,
-      runs: db.runs,
-      duelMatchHighScores: db.duelMatchHighScores || [],
-      duelMatchHistory: db.duelMatchHistory || []
-    };
-    res.writeHead(200, {
+    const fullExport = getFullDatabaseSnapshot();
+    const jsonBody = JSON.stringify(fullExport, null, 2);
+    const outHeaders = {
       'Content-Type': 'application/json; charset=utf-8',
       'Content-Disposition': 'attachment; filename="db.json"',
       'Cache-Control': 'no-store'
-    });
-    return res.end(JSON.stringify(safeExport, null, 2));
+    };
+    if (res._acceptGzip && jsonBody.length > 1536) {
+      zlib.gzip(jsonBody, { level: 5 }, (gzErr, gzBuf) => {
+        if (!res || res.headersSent || res.writableEnded || res.destroyed) return;
+        try {
+          if (!gzErr && gzBuf) {
+            outHeaders['Content-Encoding'] = 'gzip';
+            outHeaders['Vary'] = 'Accept-Encoding';
+            res.writeHead(200, outHeaders);
+            res.end(gzBuf);
+            return;
+          }
+          res.writeHead(200, outHeaders);
+          res.end(jsonBody);
+        } catch (_) {}
+      });
+      return;
+    }
+    if (!res.headersSent && !res.writableEnded && !res.destroyed) {
+      res.writeHead(200, outHeaders);
+      res.end(jsonBody);
+    }
+    return;
   }
 
   if (req.method === 'POST' && pathname === '/api/database/update-record') {

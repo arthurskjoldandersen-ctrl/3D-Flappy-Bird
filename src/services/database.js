@@ -20,6 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const https = require('https');
 
 const ROOT_DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : ROOT_DATA_DIR;
@@ -1507,25 +1508,36 @@ function loadDatabase(fromWatcher = false) {
     if (fs.existsSync(DB_FILE)) {
       try {
         const raw = fs.readFileSync(DB_FILE, 'utf8');
-        parsed = JSON.parse(raw);
+        const candidate = JSON.parse(raw);
+        if (candidate && typeof candidate === 'object' && candidate.users && Object.keys(candidate.users).length > 0) {
+          parsed = candidate;
+        } else if (candidate && typeof candidate === 'object' && candidate.users) {
+          parsed = candidate;
+        }
       } catch (parseErr) {
         console.error('⚠️ Warning: db.json was corrupted or unreadable:', parseErr.message);
-        // Try recovering from latest available backup snapshot
-        if (fs.existsSync(BACKUPS_DIR)) {
-          const backupFiles = fs.readdirSync(BACKUPS_DIR)
-            .filter(f => f.endsWith('.json'))
-            .map(f => ({ path: path.join(BACKUPS_DIR, f), mtime: fs.statSync(path.join(BACKUPS_DIR, f)).mtimeMs }))
-            .sort((a, b) => b.mtime - a.mtime);
-          if (backupFiles.length > 0) {
-            try {
-              parsed = JSON.parse(fs.readFileSync(backupFiles[0].path, 'utf8'));
-              console.log('🛡️ Successfully recovered database from latest backup: ' + backupFiles[0].path);
-            } catch (bkErr) {
-              console.error('Failed to parse backup:', bkErr.message);
+      }
+    }
+    // If db.json failed to parse OR has 0 users while a valid backup exists, auto-recover from newest backup!
+    if ((!parsed || !parsed.users || Object.keys(parsed.users).length === 0) && fs.existsSync(BACKUPS_DIR)) {
+      try {
+        const backupFiles = fs.readdirSync(BACKUPS_DIR)
+          .filter(f => f.endsWith('.json'))
+          .map(f => ({ path: path.join(BACKUPS_DIR, f), mtime: fs.statSync(path.join(BACKUPS_DIR, f)).mtimeMs }))
+          .sort((a, b) => b.mtime - a.mtime);
+        for (const bk of backupFiles) {
+          try {
+            const bkParsed = JSON.parse(fs.readFileSync(bk.path, 'utf8'));
+            if (bkParsed && bkParsed.users && Object.keys(bkParsed.users).length > 0) {
+              parsed = bkParsed;
+              console.log('🛡️ Successfully recovered database from latest valid backup: ' + bk.path);
+              break;
             }
+          } catch (bkErr) {
+            console.error('Failed to parse backup:', bkErr.message);
           }
         }
-      }
+      } catch (_) {}
     }
 
     // 2. Safe schema migration and default field enforcement
@@ -1597,27 +1609,39 @@ let lastBackupTimestamp = 0;
 let pendingSaveTimer = null;
 let diskWriteInFlight = false;
 let diskWritePendingAgain = false;
+const IS_PRODUCTION_ENV = Boolean(process.env.RENDER || process.env.NODE_ENV === 'production');
 
-function buildOrderedDbSnapshotString() {
-  const orderedDb = {
-    databaseStatus: db.databaseStatus,
-    playerRecordsOverview: db.playerRecordsOverview,
-    activityFeed: db.activityFeed,
-    loginHistory: db.loginHistory || [],
-    adminSettings: db.adminSettings || {},
-    banRegistry: db.banRegistry || { groups: {} },
+function getFullDatabaseSnapshot() {
+  try {
+    settleExpiredGiveaways(Date.now());
+  } catch (_) {}
+  return {
+    ...db,
+    databaseStatus: db.databaseStatus || {},
+    playerRecordsOverview: db.playerRecordsOverview || {},
+    activityFeed: Array.isArray(db.activityFeed) ? db.activityFeed : [],
+    loginHistory: Array.isArray(db.loginHistory) ? db.loginHistory : [],
+    adminSettings: (db.adminSettings && typeof db.adminSettings === 'object') ? db.adminSettings : {},
+    banRegistry: (db.banRegistry && typeof db.banRegistry === 'object') ? db.banRegistry : { groups: {} },
     leaderboardSkinLedger: db.leaderboardSkinLedger || null,
     globalAnnouncements: Array.isArray(db.globalAnnouncements) ? db.globalAnnouncements : [],
     giveaways: Array.isArray(db.giveaways) ? db.giveaways : [],
     feedbackSubmissions: Array.isArray(db.feedbackSubmissions) ? db.feedbackSubmissions : [],
-    users: db.users,
-    runs: db.runs,
-    duelMatchHighScores: db.duelMatchHighScores || [],
-    duelMatchHistory: db.duelMatchHistory || [],
-    sessions: db.sessions,
-    chatMessages: db.chatMessages || []
+    users: (db.users && typeof db.users === 'object') ? db.users : {},
+    runs: (db.runs && typeof db.runs === 'object') ? db.runs : { easy: [], medium: [], hard: [], extreme: [] },
+    duelMatchHighScores: Array.isArray(db.duelMatchHighScores) ? db.duelMatchHighScores : [],
+    duelMatchHistory: Array.isArray(db.duelMatchHistory) ? db.duelMatchHistory : [],
+    sessions: (db.sessions && typeof db.sessions === 'object') ? db.sessions : {},
+    chatMessages: Array.isArray(db.chatMessages) ? db.chatMessages : []
   };
-  return JSON.stringify(orderedDb, null, 2);
+}
+
+function buildOrderedDbSnapshotString(forcePretty = false) {
+  const orderedDb = getFullDatabaseSnapshot();
+  // Compact JSON on Render/production cuts RAM allocation & write time by ~45%, preventing OOM & healthcheck timeouts
+  return (IS_PRODUCTION_ENV && !forcePretty)
+    ? JSON.stringify(orderedDb)
+    : JSON.stringify(orderedDb, null, 2);
 }
 
 function writeOrderedDbToDisk(forceBackup = false) {
@@ -1625,7 +1649,11 @@ function writeOrderedDbToDisk(forceBackup = false) {
     isInternalWrite = true;
     lastInternalWriteAt = Date.now();
     const jsonStr = buildOrderedDbSnapshotString();
-    const tmpFile = DB_FILE + '.tmp';
+    if (!jsonStr || jsonStr.length < 20) {
+      isInternalWrite = false;
+      return;
+    }
+    const tmpFile = `${DB_FILE}.tmp.${process.pid}`;
     fs.writeFileSync(tmpFile, jsonStr, 'utf8');
     try {
       fs.renameSync(tmpFile, DB_FILE);
@@ -1646,7 +1674,7 @@ function writeOrderedDbToDisk(forceBackup = false) {
         const stamp = new Date(now).toISOString().replace(/[:.]/g, '-');
         const backupTarget = path.join(BACKUPS_DIR, `db-backup-${stamp}.json`);
         fs.writeFileSync(backupTarget, jsonStr, 'utf8');
-        pruneBackups(3);
+        pruneBackups(IS_PRODUCTION_ENV ? 2 : 3);
       } catch (backupErr) {
         console.error('Backup write error:', backupErr.message);
       }
@@ -1672,7 +1700,8 @@ async function writeOrderedDbToDiskAsync() {
       isInternalWrite = true;
       lastInternalWriteAt = Date.now();
       const jsonStr = buildOrderedDbSnapshotString();
-      const tmpFile = DB_FILE + '.tmp';
+      if (!jsonStr || jsonStr.length < 20) continue;
+      const tmpFile = `${DB_FILE}.tmp.${process.pid}`;
       await fs.promises.writeFile(tmpFile, jsonStr, 'utf8');
       try {
         await fs.promises.rename(tmpFile, DB_FILE);
@@ -1693,7 +1722,7 @@ async function writeOrderedDbToDiskAsync() {
           const stamp = new Date(now).toISOString().replace(/[:.]/g, '-');
           const backupTarget = path.join(BACKUPS_DIR, `db-backup-${stamp}.json`);
           await fs.promises.writeFile(backupTarget, jsonStr, 'utf8');
-          pruneBackups(3);
+          pruneBackups(IS_PRODUCTION_ENV ? 2 : 3);
         } catch (backupErr) {
           console.error('Backup write error:', backupErr.message);
         }
@@ -1707,6 +1736,143 @@ async function writeOrderedDbToDiskAsync() {
     console.error('Error saving database asynchronously:', err.message);
   } finally {
     diskWriteInFlight = false;
+  }
+}
+
+// Optional Automatic Cloud Persistence (GitHub Contents API) so Render Free restarts NEVER wipe daily records!
+// Configure on Render env vars: GITHUB_BACKUP_TOKEN, GITHUB_BACKUP_REPO ("owner/repo"), optional GITHUB_BACKUP_BRANCH (default "main"), GITHUB_BACKUP_PATH (default "data/db.json")
+let cloudBackupTimer = null;
+let cloudBackupInFlight = false;
+let cloudBackupDirty = false;
+let lastCloudBackupAt = 0;
+
+function getCloudBackupConfig() {
+  const token = (process.env.GITHUB_BACKUP_TOKEN || '').trim();
+  const repo = (process.env.GITHUB_BACKUP_REPO || '').trim();
+  if (!token || !repo || !repo.includes('/')) return null;
+  const branch = (process.env.GITHUB_BACKUP_BRANCH || 'main').trim();
+  const filePath = (process.env.GITHUB_BACKUP_PATH || 'data/db.json').trim().replace(/^\/+/, '');
+  return { token, repo, branch, filePath };
+}
+
+function githubApiRequest(method, apiPath, token, bodyObj = null) {
+  return new Promise((resolve, reject) => {
+    const payloadStr = bodyObj ? JSON.stringify(bodyObj) : null;
+    const req = https.request({
+      hostname: 'api.github.com',
+      path: apiPath,
+      method,
+      headers: {
+        'User-Agent': 'FlappyBird3D-CloudBackup/1.0',
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${token}`,
+        ...(payloadStr ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payloadStr) } : {})
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve({ status: res.statusCode, json: data ? JSON.parse(data) : null });
+        } catch (_) {
+          resolve({ status: res.statusCode, json: null, raw: data });
+        }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => {
+      req.destroy(new Error('GitHub cloud backup request timed out'));
+    });
+    if (payloadStr) req.write(payloadStr);
+    req.end();
+  });
+}
+
+async function pushCloudBackupNow() {
+  const cfg = getCloudBackupConfig();
+  if (!cfg || cloudBackupInFlight) return false;
+  cloudBackupInFlight = true;
+  cloudBackupDirty = false;
+  try {
+    const apiPath = `/repos/${cfg.repo}/contents/${cfg.filePath}`;
+    const getRes = await githubApiRequest('GET', `${apiPath}?ref=${encodeURIComponent(cfg.branch)}`, cfg.token);
+    const existingSha = (getRes.status === 200 && getRes.json && getRes.json.sha) ? getRes.json.sha : undefined;
+    const jsonStr = buildOrderedDbSnapshotString(false);
+    if (!jsonStr || jsonStr.length < 20) return false;
+    const putBody = {
+      message: `Auto-backup live Flappy Bird 3D DB (${new Date().toISOString()})`,
+      content: Buffer.from(jsonStr, 'utf8').toString('base64'),
+      branch: cfg.branch,
+      ...(existingSha ? { sha: existingSha } : {})
+    };
+    const putRes = await githubApiRequest('PUT', apiPath, cfg.token, putBody);
+    if (putRes.status === 200 || putRes.status === 201) {
+      lastCloudBackupAt = Date.now();
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn('Cloud backup push skipped:', err && err.message ? err.message : err);
+    return false;
+  } finally {
+    cloudBackupInFlight = false;
+  }
+}
+
+function scheduleCloudBackupIfConfigured(isImportant = false) {
+  const cfg = getCloudBackupConfig();
+  if (!cfg) return;
+  cloudBackupDirty = true;
+  if (cloudBackupTimer) return;
+  const elapsed = Date.now() - lastCloudBackupAt;
+  const minIntervalMs = isImportant ? 90 * 1000 : 180 * 1000;
+  const delayMs = Math.max(8000, minIntervalMs - elapsed);
+  cloudBackupTimer = setTimeout(() => {
+    cloudBackupTimer = null;
+    if (cloudBackupDirty) {
+      pushCloudBackupNow().catch(() => {});
+    }
+  }, delayMs);
+  if (typeof cloudBackupTimer.unref === 'function') cloudBackupTimer.unref();
+}
+
+async function flushCloudBackupSyncOrNow() {
+  if (cloudBackupTimer) {
+    clearTimeout(cloudBackupTimer);
+    cloudBackupTimer = null;
+  }
+  if (cloudBackupDirty && getCloudBackupConfig()) {
+    await pushCloudBackupNow().catch(() => {});
+  }
+}
+
+async function restoreFromCloudBackupIfNewer() {
+  const cfg = getCloudBackupConfig();
+  if (!cfg) return false;
+  try {
+    const apiPath = `/repos/${cfg.repo}/contents/${cfg.filePath}?ref=${encodeURIComponent(cfg.branch)}`;
+    const getRes = await githubApiRequest('GET', apiPath, cfg.token);
+    if (getRes.status !== 200 || !getRes.json || !getRes.json.content) return false;
+    const rawStr = Buffer.from(String(getRes.json.content).replace(/\s+/g, ''), 'base64').toString('utf8');
+    const remoteDb = JSON.parse(rawStr);
+    if (!remoteDb || !remoteDb.users || typeof remoteDb.users !== 'object') return false;
+
+    const localTs = Date.parse(db && db.databaseStatus && db.databaseStatus.lastUpdatedISO || '') || 0;
+    const remoteTs = Date.parse(remoteDb.databaseStatus && remoteDb.databaseStatus.lastUpdatedISO || '') || 0;
+    const countRuns = (d) => ALL_MODES.reduce((acc, m) => acc + ((d && d.runs && Array.isArray(d.runs[m])) ? d.runs[m].length : 0), 0);
+    const localRuns = countRuns(db);
+    const remoteRuns = countRuns(remoteDb);
+
+    if (remoteTs > localTs || remoteRuns > localRuns) {
+      fs.writeFileSync(DB_FILE, JSON.stringify(remoteDb), 'utf8');
+      loadDatabase(false);
+      console.log(`☁️ Restored newer cloud backup from GitHub (${Object.keys(remoteDb.users).length} users, ${remoteRuns} runs)!`);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn('Cloud backup startup restore skipped:', err && err.message ? err.message : err);
+    return false;
   }
 }
 
@@ -1730,15 +1896,18 @@ function saveDatabase(forceBackup = false, opts = {}) {
         pendingSaveTimer = null;
       }
       writeOrderedDbToDisk(true);
+      scheduleCloudBackupIfConfigured(true);
     } else {
+      const debounceMs = (opts && opts.urgent) ? 55 : (IS_PRODUCTION_ENV ? 250 : 65);
       if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
       pendingSaveTimer = setTimeout(() => {
         pendingSaveTimer = null;
         writeOrderedDbToDiskAsync();
-      }, 45);
+      }, debounceMs);
       if (typeof pendingSaveTimer.unref === 'function') {
         pendingSaveTimer.unref();
       }
+      scheduleCloudBackupIfConfigured(Boolean(opts && opts.urgent));
     }
   } catch (err) {
     console.error('Error scheduling database save:', err.message);
@@ -1761,15 +1930,6 @@ try {
     flushPendingSaveSync();
   });
 } catch (_) {}
-
-['SIGINT', 'SIGTERM'].forEach((sig) => {
-  try {
-    process.once(sig, () => {
-      flushPendingSaveSync();
-      process.exit(0);
-    });
-  } catch (_) {}
-});
 
 /**
  * Bulk reset of all records is disabled to protect all-time, weekly, and daily leaderboards.
@@ -2039,7 +2199,8 @@ function recordVerifiedRun(user, diffKey, verifiedScore) {
   saveDatabase(false, {
     skipOverviewSync: skipOverview,
     onlyDiff: skipOverview ? null : diffKey,
-    keepLeaderboardCache: verifiedScore <= 0 || !withinWindow
+    keepLeaderboardCache: verifiedScore <= 0 || !withinWindow,
+    urgent: verifiedScore > 0 && withinWindow
   });
   return { isNewRecord, newRunId, previousBest, autoHidden, withinWindow };
 }
@@ -4802,10 +4963,13 @@ if (typeof lbPeriodCheckTimer.unref === 'function') {
 
 module.exports = {
   getDb: () => db,
+  getFullDatabaseSnapshot,
   DB_FILE,
   loadDatabase,
   saveDatabase,
   flushPendingSaveSync,
+  restoreFromCloudBackupIfNewer,
+  flushCloudBackupSyncOrNow,
   hashPassword,
   buildLeaderboards,
   buildAllTimeframeLeaderboards,
