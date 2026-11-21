@@ -1,25 +1,32 @@
 /**
  * ============================================================================
- * ONE-CLICK LIVE DATABASE SYNC TOOL FOR RENDER & GITHUB
+ * ONE-CLICK LIVE DATABASE SYNC TOOL FOR CLOUDFLARE WORKERS & GITHUB
  * ============================================================================
- * Downloads the live production database directly from your Render server
+ * Downloads the live production database directly from your Cloudflare server
  * and updates local `data/db.json`, `data/seed-db.json`, and `src/config/default-db-template.json`.
  *
  * Enforces:
  *   - Max 3 backups in data/backups/ (retains only the 3 latest snapshots)
- *   - Max 100 highest runs saved per gamemode (max 300 total across all modes)
+ *   - Preserves all runs from the last 14 days + Top 100 all-time runs per player/mode
  *
  * Usage:
  *   npm run sync-db
  *   or double-click sync-live-data.bat
  */
 
+const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const RENDER_URL = process.env.RENDER_URL || 'https://threed-flappy-bird.onrender.com';
+const DEFAULT_LIVE_URL = 'https://3d-flappy-bird.arthurskjold.workers.dev';
+const LIVE_SERVER_URL = String(
+  process.env.LIVE_SERVER_URL ||
+  process.env.CLOUDFLARE_URL ||
+  process.env.RENDER_URL ||
+  DEFAULT_LIVE_URL
+).trim().replace(/\/+$/, '');
 const ADMIN_USER = process.env.ADMIN_USER || 'MeDonut';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'JohnPork';
 
@@ -29,20 +36,36 @@ const SEED_FILE = path.join(ROOT_DIR, 'data', 'seed-db.json');
 const TEMPLATE_FILE = path.join(ROOT_DIR, 'src', 'config', 'default-db-template.json');
 const BACKUPS_DIR = path.join(ROOT_DIR, 'data', 'backups');
 
-function httpRequest(url, options = {}) {
+function httpRequest(url, options = {}, redirectCount = 0) {
   return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const transport = parsed.protocol === 'http:' ? http : https;
     const reqHeaders = {
-      'Accept-Encoding': 'gzip',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Accept': 'application/json',
+      'User-Agent': 'FlappyBird3D-Sync/2.5',
       ...(options.headers || {})
     };
-    const req = https.request(url, { ...options, headers: reqHeaders }, (res) => {
+    const req = transport.request(parsed, { ...options, headers: reqHeaders }, (res) => {
+      if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location && redirectCount < 3) {
+        const nextUrl = new URL(res.headers.location, parsed).toString();
+        res.resume();
+        return httpRequest(nextUrl, options, redirectCount + 1).then(resolve, reject);
+      }
       const chunks = [];
       res.on('data', chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
       res.on('end', () => {
         try {
           const rawBuf = Buffer.concat(chunks);
           const enc = String(res.headers['content-encoding'] || '').toLowerCase();
-          const finalBuf = enc.includes('gzip') ? zlib.gunzipSync(rawBuf) : rawBuf;
+          let finalBuf = rawBuf;
+          if (enc.includes('br') && typeof zlib.brotliDecompressSync === 'function') {
+            finalBuf = zlib.brotliDecompressSync(rawBuf);
+          } else if (enc.includes('gzip')) {
+            finalBuf = zlib.gunzipSync(rawBuf);
+          } else if (enc.includes('deflate')) {
+            finalBuf = zlib.inflateSync(rawBuf);
+          }
           resolve({ status: res.statusCode, headers: res.headers, body: finalBuf.toString('utf8') });
         } catch (decErr) {
           reject(decErr);
@@ -52,7 +75,7 @@ function httpRequest(url, options = {}) {
     req.on('error', reject);
     req.setTimeout(60000, () => {
       req.destroy();
-      reject(new Error('Connection timed out while reaching Render server (' + url + ')'));
+      reject(new Error('Connection timed out while reaching Cloudflare server (' + url + ')'));
     });
     if (options.body) req.write(options.body);
     req.end();
@@ -86,14 +109,14 @@ function pruneBackups(maxBackups = 3) {
 
 async function syncLiveDatabase() {
   console.log('============================================================');
-  console.log('🔄 SYNCING LIVE DATABASE FROM RENDER...');
-  console.log('🌐 Target URL: ' + RENDER_URL);
+  console.log('🔄 SYNCING LIVE DATABASE FROM CLOUDFLARE SERVER...');
+  console.log('🌐 Target URL: ' + LIVE_SERVER_URL);
   console.log('============================================================\n');
 
   try {
     // 1. Authenticate as MeDonut on live server
     console.log('🔑 Logging in as ' + ADMIN_USER + '...');
-    const loginRes = await httpRequest(`${RENDER_URL}/api/login`, {
+    const loginRes = await httpRequest(`${LIVE_SERVER_URL}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: ADMIN_USER, password: ADMIN_PASS })
@@ -112,7 +135,7 @@ async function syncLiveDatabase() {
 
     // 2. Fetch entire database export
     console.log('📥 Exporting live production database...');
-    const exportRes = await httpRequest(`${RENDER_URL}/api/database/export`, {
+    const exportRes = await httpRequest(`${LIVE_SERVER_URL}/api/database/export`, {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -236,7 +259,7 @@ async function syncLiveDatabase() {
 
   } catch (err) {
     console.error('\n❌ SYNC FAILED:', err.message);
-    console.error('\nMake sure your Render server is awake and online.');
+    console.error('\nMake sure your Cloudflare server (' + LIVE_SERVER_URL + ') is online and reachable.');
     process.exit(1);
   }
 }

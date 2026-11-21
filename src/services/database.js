@@ -5163,6 +5163,390 @@ function adminSetExtremeAccess(username, granted) {
   return db.playerRecordsOverview[user.username];
 }
 
+/**
+ * Safely merges (default) or replaces database state from an exported `db.json` snapshot.
+ * Designed for zero-data-loss recovery & migration from Render or local backups into Cloudflare SQLite.
+ * In 'merge' mode:
+ *  - Union of all users, runs, duel high scores/history, chat, giveaways, feedback, sessions, and skins
+ *  - Monotonic MAX for records (easy/medium/hard/extreme), duelCoins, careerStats, and quest progress
+ *  - Union of unlockedBackgrounds, grantedSkins, unlockedLeaderboardSkins, and leaderboardSkinLedger
+ *  - Keeps newest non-null custom background media
+ */
+function mergeDatabaseSnapshotAdmin(incomingRaw, opts = {}) {
+  const mode = (opts && opts.mode === 'replace') ? 'replace' : 'merge';
+  const incoming = (incomingRaw && incomingRaw.snapshot && typeof incomingRaw.snapshot === 'object')
+    ? incomingRaw.snapshot
+    : incomingRaw;
+
+  if (!incoming || typeof incoming !== 'object' || !incoming.users || typeof incoming.users !== 'object') {
+    throw new Error('Invalid database snapshot: missing "users" object.');
+  }
+
+  const usersBefore = Object.keys(db.users || {}).length;
+  const countAllRuns = () => ALL_MODES.reduce((sum, m) => sum + ((db.runs && Array.isArray(db.runs[m])) ? db.runs[m].length : 0), 0);
+  const runsBefore = countAllRuns();
+
+  if (mode === 'replace') {
+    const cloned = JSON.parse(JSON.stringify(incoming));
+    if (!cloned.runs || typeof cloned.runs !== 'object') cloned.runs = { easy: [], medium: [], hard: [], extreme: [] };
+    ALL_MODES.forEach(m => { if (!Array.isArray(cloned.runs[m])) cloned.runs[m] = []; });
+    db = {
+      databaseStatus: cloned.databaseStatus || {},
+      playerRecordsOverview: cloned.playerRecordsOverview || {},
+      activityFeed: Array.isArray(cloned.activityFeed) ? cloned.activityFeed : [],
+      loginHistory: Array.isArray(cloned.loginHistory) ? cloned.loginHistory : [],
+      adminSettings: (cloned.adminSettings && typeof cloned.adminSettings === 'object') ? cloned.adminSettings : (db.adminSettings || {}),
+      banRegistry: (cloned.banRegistry && typeof cloned.banRegistry === 'object' && typeof cloned.banRegistry.groups === 'object')
+        ? cloned.banRegistry : { groups: {} },
+      leaderboardSkinLedger: (cloned.leaderboardSkinLedger && typeof cloned.leaderboardSkinLedger === 'object')
+        ? cloned.leaderboardSkinLedger : null,
+      globalAnnouncements: Array.isArray(cloned.globalAnnouncements) ? cloned.globalAnnouncements : [],
+      giveaways: Array.isArray(cloned.giveaways) ? cloned.giveaways : [],
+      feedbackSubmissions: Array.isArray(cloned.feedbackSubmissions) ? cloned.feedbackSubmissions : [],
+      users: cloned.users || {},
+      runs: cloned.runs,
+      duelMatchHighScores: Array.isArray(cloned.duelMatchHighScores) ? cloned.duelMatchHighScores : [],
+      duelMatchHistory: Array.isArray(cloned.duelMatchHistory) ? cloned.duelMatchHistory : [],
+      sessions: (cloned.sessions && typeof cloned.sessions === 'object') ? cloned.sessions : {},
+      chatMessages: Array.isArray(cloned.chatMessages) ? cloned.chatMessages : []
+    };
+    invalidateLeaderboardCaches();
+    syncAndRebuildOverview(false);
+    enrichOverviewWithClientSignals();
+    logDatabaseEvent('DATABASE_RECOVERY', 'MeDonut', `♻️ Admin restored full database snapshot (${Object.keys(db.users).length} players, ${countAllRuns()} runs).`);
+    saveDatabase(true);
+    return {
+      ok: true,
+      mode: 'replace',
+      usersBefore,
+      usersAfter: Object.keys(db.users).length,
+      addedUsers: Math.max(0, Object.keys(db.users).length - usersBefore),
+      updatedUsers: Object.keys(db.users).length,
+      restoredRecordsCount: 0,
+      restoredSkinsCount: 0,
+      addedRunsCount: Math.max(0, countAllRuns() - runsBefore),
+      totalRuns: countAllRuns(),
+      changes: []
+    };
+  }
+
+  // ---- SAFE ADDITIVE MERGE MODE ----
+  const unionStrings = (a, b, limit = 500) => {
+    const out = [];
+    const seen = new Set();
+    for (const list of [a, b]) {
+      if (!Array.isArray(list)) continue;
+      for (const item of list) {
+        const s = typeof item === 'string' ? item.trim() : '';
+        if (s && !seen.has(s)) {
+          seen.add(s);
+          out.push(s);
+          if (out.length >= limit) return out;
+        }
+      }
+    }
+    return out;
+  };
+
+  let addedUsers = 0;
+  let updatedUsers = 0;
+  let restoredRecordsCount = 0;
+  let restoredSkinsCount = 0;
+  const changes = [];
+
+  if (!db.users || typeof db.users !== 'object') db.users = {};
+  for (const [rawKey, incUser] of Object.entries(incoming.users)) {
+    if (!incUser || typeof incUser !== 'object' || !incUser.username) continue;
+    const uKey = String(rawKey || incUser.username).toLowerCase();
+    const curUser = db.users[uKey];
+
+    if (!curUser) {
+      db.users[uKey] = JSON.parse(JSON.stringify(incUser));
+      addedUsers++;
+      const r = incUser.records || {};
+      changes.push(`+ Restored player "${incUser.username}" (E:${r.easy || 0} M:${r.medium || 0} H:${r.hard || 0} X:${r.extreme || 0}, BGs:${(incUser.unlockedBackgrounds || []).length}, Granted:${(incUser.grantedSkins || []).length})`);
+      continue;
+    }
+
+    let userTouched = false;
+    const userDiffNotes = [];
+
+    // 1. Best records: take MAX per mode
+    if (!curUser.records || typeof curUser.records !== 'object') {
+      curUser.records = { easy: 0, medium: 0, hard: 0, extreme: 0 };
+    }
+    const incRec = incUser.records || {};
+    for (const m of ALL_MODES) {
+      const curVal = Math.max(0, Math.floor(Number(curUser.records[m]) || 0));
+      const incVal = Math.max(0, Math.floor(Number(incRec[m]) || 0));
+      if (incVal > curVal) {
+        curUser.records[m] = incVal;
+        restoredRecordsCount++;
+        userTouched = true;
+        userDiffNotes.push(`${m.toUpperCase()} ${curVal}→${incVal}`);
+      }
+    }
+
+    // 2. Skins: union of unlockedBackgrounds, grantedSkins, unlockedLeaderboardSkins
+    const prevBgs = Array.isArray(curUser.unlockedBackgrounds) ? curUser.unlockedBackgrounds : [];
+    const mergedBgs = unionStrings(prevBgs, incUser.unlockedBackgrounds, 200);
+    if (mergedBgs.length > prevBgs.length) {
+      const gained = mergedBgs.length - prevBgs.length;
+      curUser.unlockedBackgrounds = mergedBgs;
+      restoredSkinsCount += gained;
+      userTouched = true;
+      userDiffNotes.push(`+${gained} bg skin(s)`);
+    }
+
+    const prevGranted = Array.isArray(curUser.grantedSkins) ? curUser.grantedSkins : [];
+    const mergedGranted = unionStrings(prevGranted, incUser.grantedSkins, 300);
+    if (mergedGranted.length > prevGranted.length) {
+      const gained = mergedGranted.length - prevGranted.length;
+      curUser.grantedSkins = mergedGranted;
+      restoredSkinsCount += gained;
+      userTouched = true;
+      userDiffNotes.push(`+${gained} granted skin(s)`);
+    }
+
+    const prevLbSkins = Array.isArray(curUser.unlockedLeaderboardSkins) ? curUser.unlockedLeaderboardSkins : [];
+    const mergedLbSkins = unionStrings(prevLbSkins, incUser.unlockedLeaderboardSkins, 100);
+    if (mergedLbSkins.length > prevLbSkins.length) {
+      const gained = mergedLbSkins.length - prevLbSkins.length;
+      curUser.unlockedLeaderboardSkins = mergedLbSkins;
+      restoredSkinsCount += gained;
+      userTouched = true;
+      userDiffNotes.push(`+${gained} LB skin(s)`);
+    }
+
+    // 3. Quest & Career progression (Pokémon & Meme quest skins!)
+    const prevQuestCount = curUser.trollQuests && curUser.trollQuests.unlockedIds
+      ? Object.values(curUser.trollQuests.unlockedIds).filter(Boolean).length : 0;
+    if (mergeUserProgressionData(curUser, incUser, false)) {
+      userTouched = true;
+      const newQuestCount = curUser.trollQuests && curUser.trollQuests.unlockedIds
+        ? Object.values(curUser.trollQuests.unlockedIds).filter(Boolean).length : 0;
+      if (newQuestCount > prevQuestCount) {
+        const gainedQ = newQuestCount - prevQuestCount;
+        restoredSkinsCount += gainedQ;
+        userDiffNotes.push(`+${gainedQ} quest skin(s)`);
+      }
+    }
+
+    // 4. Extreme access grant
+    if (incUser.extremeAccessGranted && !curUser.extremeAccessGranted) {
+      curUser.extremeAccessGranted = true;
+      userTouched = true;
+      userDiffNotes.push('+Extreme grant');
+    }
+
+    // 5. Duel Coins, ELO & Match counters
+    const curCoins = Math.max(0, Math.floor(Number(curUser.duelCoins) || 0));
+    const incCoins = Math.max(0, Math.floor(Number(incUser.duelCoins) || 0));
+    if (incCoins > curCoins) {
+      curUser.duelCoins = incCoins;
+      userTouched = true;
+      userDiffNotes.push(`coins ${curCoins}→${incCoins}`);
+    }
+    const curMatches = Math.max(0, Math.floor(Number(curUser.duelMatches) || 0));
+    const incMatches = Math.max(0, Math.floor(Number(incUser.duelMatches) || 0));
+    if (incMatches > curMatches) {
+      curUser.duelMatches = incMatches;
+      curUser.duelWins = Math.max(Math.floor(Number(curUser.duelWins) || 0), Math.floor(Number(incUser.duelWins) || 0));
+      curUser.duelLosses = Math.max(Math.floor(Number(curUser.duelLosses) || 0), Math.floor(Number(incUser.duelLosses) || 0));
+      if (Number.isFinite(Number(incUser.duelElo))) {
+        curUser.duelElo = Math.round(Number(incUser.duelElo));
+      }
+      userTouched = true;
+      userDiffNotes.push(`duels ${curMatches}→${incMatches}`);
+    }
+
+    // 6. Custom background media (keep newest non-null!)
+    const curMediaTs = Number(curUser.customBgUpdatedAt) || 0;
+    const incMediaTs = Number(incUser.customBgUpdatedAt) || 0;
+    const incHasValidMedia = (v) => Boolean(v && v !== '__mediaFile__');
+    if (incHasValidMedia(incUser.customBackgroundDrawing) && (!incHasValidMedia(curUser.customBackgroundDrawing) || incMediaTs > curMediaTs)) {
+      curUser.customBackgroundDrawing = incUser.customBackgroundDrawing;
+      curUser.customBgUpdatedAt = Math.max(curMediaTs, incMediaTs, Date.now());
+      userTouched = true;
+      userDiffNotes.push('+custom drawing');
+    }
+    if (incHasValidMedia(incUser.customBackgroundImage) && (!incHasValidMedia(curUser.customBackgroundImage) || incMediaTs > curMediaTs)) {
+      curUser.customBackgroundImage = incUser.customBackgroundImage;
+      curUser.customBgUpdatedAt = Math.max(curMediaTs, incMediaTs, Date.now());
+      userTouched = true;
+      userDiffNotes.push('+custom pic');
+    }
+    if (incHasValidMedia(incUser.customBackgroundVideo) && (!incHasValidMedia(curUser.customBackgroundVideo) || incMediaTs > curMediaTs)) {
+      curUser.customBackgroundVideo = incUser.customBackgroundVideo;
+      curUser.customBgUpdatedAt = Math.max(curMediaTs, incMediaTs, Date.now());
+      userTouched = true;
+      userDiffNotes.push('+custom video');
+    }
+
+    // 7. Adopt equipped skins if current is still default and incoming is owned
+    if ((!curUser.selectedSkin || curUser.selectedSkin === 'classic') && incUser.selectedSkin && incUser.selectedSkin !== 'classic' && isSkinUnlockedForUser(incUser.selectedSkin, curUser)) {
+      curUser.selectedSkin = incUser.selectedSkin;
+      userTouched = true;
+    }
+    if ((!curUser.selectedPipeSkin || curUser.selectedPipeSkin === 'classic_pipe') && incUser.selectedPipeSkin && incUser.selectedPipeSkin !== 'classic_pipe' && isSkinUnlockedForUser(incUser.selectedPipeSkin, curUser)) {
+      curUser.selectedPipeSkin = incUser.selectedPipeSkin;
+      userTouched = true;
+    }
+    if ((!curUser.selectedBackground || curUser.selectedBackground === 'bg_classic') && incUser.selectedBackground && incUser.selectedBackground !== 'bg_classic' && isSkinUnlockedForUser(incUser.selectedBackground, curUser)) {
+      curUser.selectedBackground = incUser.selectedBackground;
+      userTouched = true;
+    }
+
+    // 8. Activity/client metadata
+    curUser.loginCount = Math.max(Number(curUser.loginCount) || 0, Number(incUser.loginCount) || 0);
+    curUser.lastLoginAt = Math.max(Number(curUser.lastLoginAt) || 0, Number(incUser.lastLoginAt) || 0);
+    curUser.ips = unionStrings(curUser.ips, incUser.ips, 40);
+    curUser.deviceIds = unionStrings(curUser.deviceIds, incUser.deviceIds, 40);
+    curUser.cookieIds = unionStrings(curUser.cookieIds, incUser.cookieIds, 40);
+    curUser.knownAccounts = unionStrings(curUser.knownAccounts, incUser.knownAccounts, 40);
+    if (userTouched) {
+      curUser.cosmeticsVersion = (Number(curUser.cosmeticsVersion) || 0) + 1;
+      curUser.recordsVersion = (Number(curUser.recordsVersion) || 0) + 1;
+      updatedUsers++;
+      if (userDiffNotes.length > 0) {
+        changes.push(`↻ Updated "${curUser.username}": ${userDiffNotes.join(', ')}`);
+      }
+    }
+  }
+
+  // 9. Merge Verified Runs across all 4 modes (deduplicated by id or signature)
+  let addedRunsCount = 0;
+  if (!db.runs || typeof db.runs !== 'object') db.runs = { easy: [], medium: [], hard: [], extreme: [] };
+  for (const m of ALL_MODES) {
+    if (!Array.isArray(db.runs[m])) db.runs[m] = [];
+    const incList = (incoming.runs && Array.isArray(incoming.runs[m])) ? incoming.runs[m] : [];
+    const seenIds = new Set();
+    const seenSigs = new Set();
+    for (const r of db.runs[m]) {
+      if (!r) continue;
+      if (r.id) seenIds.add(String(r.id));
+      seenSigs.add(`${String(r.username || '').toLowerCase()}|${r.score}|${r.createdAt || 0}`);
+    }
+    for (const r of incList) {
+      if (!r || !r.username) continue;
+      const rid = r.id ? String(r.id) : '';
+      const sig = `${String(r.username || '').toLowerCase()}|${r.score}|${r.createdAt || 0}`;
+      if ((rid && seenIds.has(rid)) || seenSigs.has(sig)) continue;
+      db.runs[m].push(JSON.parse(JSON.stringify(r)));
+      if (rid) seenIds.add(rid);
+      seenSigs.add(sig);
+      addedRunsCount++;
+
+      // Ensure user's best score reflects non-hidden recovered runs too
+      const uKey = String(r.username).toLowerCase();
+      const uObj = db.users[uKey];
+      if (uObj && !r.hidden) {
+        if (!uObj.records) uObj.records = { easy: 0, medium: 0, hard: 0, extreme: 0 };
+        const sc = Math.max(0, Math.floor(Number(r.score) || 0));
+        if (sc > (Number(uObj.records[m]) || 0)) {
+          uObj.records[m] = sc;
+          restoredRecordsCount++;
+        }
+      }
+    }
+    db.runs[m].sort((a, b) => (b.score - a.score) || ((a.createdAt || 0) - (b.createdAt || 0)));
+  }
+
+  // 10. Merge Duel High Scores & Match History
+  if (Array.isArray(incoming.duelMatchHighScores)) {
+    if (!Array.isArray(db.duelMatchHighScores)) db.duelMatchHighScores = [];
+    const seenD = new Set(db.duelMatchHighScores.map(e => e && (e.id || `${e.username}|${e.points}|${e.createdAt || 0}`)));
+    for (const e of incoming.duelMatchHighScores) {
+      if (!e || !e.username) continue;
+      const k = e.id || `${e.username}|${e.points}|${e.createdAt || 0}`;
+      if (!seenD.has(k)) {
+        db.duelMatchHighScores.push(JSON.parse(JSON.stringify(e)));
+        seenD.add(k);
+      }
+    }
+    db.duelMatchHighScores.sort((a, b) => (b.points - a.points) || ((a.createdAt || 0) - (b.createdAt || 0)));
+    db.duelMatchHighScores = db.duelMatchHighScores.slice(0, 200);
+  }
+  if (Array.isArray(incoming.duelMatchHistory)) {
+    if (!Array.isArray(db.duelMatchHistory)) db.duelMatchHistory = [];
+    const seenH = new Set(db.duelMatchHistory.map(h => h && (h.matchId || h.id || `${h.finishedAt || h.createdAt || 0}`)));
+    for (const h of incoming.duelMatchHistory) {
+      if (!h) continue;
+      const k = h.matchId || h.id || `${h.finishedAt || h.createdAt || 0}`;
+      if (!seenH.has(k)) {
+        db.duelMatchHistory.push(JSON.parse(JSON.stringify(h)));
+        seenH.add(k);
+      }
+    }
+    db.duelMatchHistory.sort((a, b) => ((b.finishedAt || b.createdAt || 0) - (a.finishedAt || a.createdAt || 0)));
+    db.duelMatchHistory = db.duelMatchHistory.slice(0, 500);
+  }
+
+  // 11. Merge Chat, Giveaways, Feedback, Announcements, Sessions & Leaderboard Skin Ledger
+  const mergeById = (curArr, incArr, sortKey, limit) => {
+    const out = Array.isArray(curArr) ? [...curArr] : [];
+    const seen = new Set(out.map(x => x && x.id).filter(Boolean));
+    for (const item of (Array.isArray(incArr) ? incArr : [])) {
+      if (!item || (item.id && seen.has(item.id))) continue;
+      out.push(JSON.parse(JSON.stringify(item)));
+      if (item.id) seen.add(item.id);
+    }
+    if (sortKey) out.sort((a, b) => (Number(b[sortKey]) || 0) - (Number(a[sortKey]) || 0));
+    return limit ? out.slice(0, limit) : out;
+  };
+  db.chatMessages = mergeById(db.chatMessages, incoming.chatMessages, 'createdAt', 200);
+  db.giveaways = mergeById(db.giveaways, incoming.giveaways, 'createdAt', 100);
+  db.feedbackSubmissions = mergeById(db.feedbackSubmissions, incoming.feedbackSubmissions, 'createdAt', 300);
+  db.globalAnnouncements = mergeById(db.globalAnnouncements, incoming.globalAnnouncements, 'createdAt', 50);
+
+  if (incoming.sessions && typeof incoming.sessions === 'object') {
+    if (!db.sessions || typeof db.sessions !== 'object') db.sessions = {};
+    for (const [tok, sess] of Object.entries(incoming.sessions)) {
+      if (tok && sess && !db.sessions[tok]) db.sessions[tok] = JSON.parse(JSON.stringify(sess));
+    }
+  }
+  if (incoming.leaderboardSkinLedger && typeof incoming.leaderboardSkinLedger === 'object') {
+    if (!db.leaderboardSkinLedger || typeof db.leaderboardSkinLedger !== 'object') {
+      db.leaderboardSkinLedger = JSON.parse(JSON.stringify(incoming.leaderboardSkinLedger));
+    } else {
+      for (const bucket of ['settledDailyPeriods', 'settledWeeklyPeriods']) {
+        if (incoming.leaderboardSkinLedger[bucket] && typeof incoming.leaderboardSkinLedger[bucket] === 'object') {
+          if (!db.leaderboardSkinLedger[bucket]) db.leaderboardSkinLedger[bucket] = {};
+          for (const [pk, pv] of Object.entries(incoming.leaderboardSkinLedger[bucket])) {
+            if (!db.leaderboardSkinLedger[bucket][pk]) {
+              db.leaderboardSkinLedger[bucket][pk] = JSON.parse(JSON.stringify(pv));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  invalidateLeaderboardCaches();
+  syncAndRebuildOverview(false);
+  enrichOverviewWithClientSignals();
+  logDatabaseEvent(
+    'DATABASE_RECOVERY',
+    'MeDonut',
+    `🛡️ Merged recovery snapshot: +${addedUsers} players, ${updatedUsers} updated, +${restoredRecordsCount} records, +${restoredSkinsCount} skins, +${addedRunsCount} runs.`
+  );
+  saveDatabase(true);
+
+  return {
+    ok: true,
+    mode: 'merge',
+    usersBefore,
+    usersAfter: Object.keys(db.users).length,
+    addedUsers,
+    updatedUsers,
+    restoredRecordsCount,
+    restoredSkinsCount,
+    addedRunsCount,
+    totalRuns: countAllRuns(),
+    changes: changes.slice(0, 120)
+  };
+}
+
 if (!IS_CF_WORKER) {
   loadDatabase(false);
 
@@ -5257,5 +5641,6 @@ module.exports = {
   EXTREME_UNLOCK_REQS,
   hasNaturallyUnlockedExtremeMode,
   hasUnlockedExtremeMode,
-  adminSetExtremeAccess
+  adminSetExtremeAccess,
+  mergeDatabaseSnapshotAdmin
 };

@@ -1,7 +1,7 @@
 {
   // Cloudflare Workers (Free Plan) Configuration for 3D Flappy Bird Online
   // IMPORTANT: Make sure "name" below matches your Worker name in Cloudflare Dashboard -> Workers & Pages!
-  "name": "flappy-bird-3d",
+  "name": "3d-flappy-bird",
   "main": "src/worker.js",
   "compatibility_date": "2025-11-01",
   "compatibility_flags": [

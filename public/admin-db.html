@@ -1267,6 +1267,8 @@
         </label>
         <button type="button" class="btn" id="btn-refresh">↻ Refresh Now</button>
         <a href="/api/database/export" id="btn-export-db" class="btn btn-primary">⬇️ Download db.json</a>
+        <button type="button" class="btn" id="btn-import-db" style="border-color:rgba(168,85,247,0.65); color:#e9d5ff; background:rgba(147,51,234,0.22);" title="Safely merge missing records, runs, coins & skins from a backup db.json without overwriting newer data">⬆️ Merge / Recover db.json</button>
+        <input type="file" id="input-import-db-file" accept=".json,application/json" style="display:none;" />
         <a href="/" class="btn btn-success">🎮 Back to 3D Game</a>
       </div>
     </div>
@@ -1867,6 +1869,55 @@
         exportBtn.href = token ? `/api/database/export?token=${encodeURIComponent(token)}` : '/api/database/export';
       }
     }
+
+    (function wireImportRecoveryButton() {
+      const importBtn = document.getElementById('btn-import-db');
+      const fileInput = document.getElementById('input-import-db-file');
+      if (!importBtn || !fileInput) return;
+      importBtn.addEventListener('click', () => {
+        fileInput.value = '';
+        fileInput.click();
+      });
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        const origText = importBtn.textContent;
+        importBtn.disabled = true;
+        importBtn.textContent = '⏳ Merging...';
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          if (!parsed || typeof parsed !== 'object' || !parsed.users) {
+            throw new Error('Selected file is not a valid Flappy Bird db.json backup.');
+          }
+          const userCount = Object.keys(parsed.users).length;
+          if (!confirm(`Safely MERGE "${file.name}" (${userCount} players) into the live server?\n\n• Keeps all existing players, records, coins & skins on Cloudflare\n• Recovers any missing/higher records, runs, coins & unlocked skins from the backup!`)) {
+            return;
+          }
+          const res = await fetch('/api/database/import', {
+            method: 'POST',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ mode: 'merge', snapshot: parsed })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Import failed');
+          showToast(`🛡️ ${data.message || 'Database merged & recovered!'}`);
+          if (typeof fetchLiveDatabase === 'function') {
+            await fetchLiveDatabase();
+          }
+          if (Array.isArray(data.changes) && data.changes.length > 0) {
+            alert(`✅ Recovery Complete!\n\n${data.message}\n\nRecovered changes:\n${data.changes.slice(0, 25).join('\n')}${data.changes.length > 25 ? `\n...and ${data.changes.length - 25} more` : ''}`);
+          } else {
+            alert(`✅ Merge Complete!\n\n${data.message}`);
+          }
+        } catch (err) {
+          alert('❌ Recovery Import Error: ' + (err && err.message ? err.message : err));
+        } finally {
+          importBtn.disabled = false;
+          importBtn.textContent = origText;
+        }
+      });
+    })();
 
     function showToast(text) {
       const t = document.getElementById('toast-msg');

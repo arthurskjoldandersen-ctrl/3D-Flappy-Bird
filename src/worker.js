@@ -172,12 +172,12 @@ export class FlappyGameServerDO extends DurableObject {
       headersObj['host'] = url.host;
     }
 
-    // Read body upfront for write methods (up to 10 MB for HD drawings / 30 FPS videos)
+    // Read body upfront for write methods (up to 15 MB for HD drawings / 30 FPS videos / DB recovery imports)
     let rawBody = '';
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       try {
         rawBody = await request.text();
-        if (rawBody.length > 10 * 1024 * 1024) {
+        if (rawBody.length > 15 * 1024 * 1024) {
           return new Response(JSON.stringify({ error: 'Payload too large' }), {
             status: 413,
             headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }

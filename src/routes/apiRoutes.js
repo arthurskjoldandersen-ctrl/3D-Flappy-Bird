@@ -71,7 +71,8 @@ const {
   ALL_MODES,
   EXTREME_UNLOCK_REQS,
   hasUnlockedExtremeMode,
-  adminSetExtremeAccess
+  adminSetExtremeAccess,
+  mergeDatabaseSnapshotAdmin
 } = require('../services/database');
 
 function parseCookies(req) {
@@ -3257,6 +3258,27 @@ async function handleApiRequest(req, res, pathname, port) {
       res.end(jsonBody);
     }
     return;
+  }
+
+  if (req.method === 'POST' && pathname === '/api/database/import') {
+    try {
+      const payload = await readJsonBody(req, 14 * 1024 * 1024);
+      const mode = (payload && payload.mode === 'replace') ? 'replace' : 'merge';
+      const snapshot = (payload && payload.snapshot && typeof payload.snapshot === 'object') ? payload.snapshot : payload;
+      const summary = mergeDatabaseSnapshotAdmin(snapshot, { mode });
+      const freshDb = getDb();
+      return sendJSON(res, 200, {
+        ...summary,
+        message: `Recovered data (${mode}): +${summary.addedUsers} players, ${summary.updatedUsers} updated, +${summary.restoredRecordsCount} best records, +${summary.restoredSkinsCount} skins, +${summary.addedRunsCount} runs!`,
+        databaseStatus: freshDb.databaseStatus,
+        playerRecordsOverview: freshDb.playerRecordsOverview,
+        leaderboards: buildLeaderboards(),
+        allRuns: getAllRunsAdmin(),
+        activityFeed: (freshDb.activityFeed || []).slice(0, 60)
+      });
+    } catch (err) {
+      return sendJSON(res, 400, { error: (err && err.message) || 'Failed to import database snapshot.' });
+    }
   }
 
   if (req.method === 'POST' && pathname === '/api/database/update-record') {

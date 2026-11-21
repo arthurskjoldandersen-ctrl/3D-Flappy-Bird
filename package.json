@@ -8,6 +8,7 @@
     "dev": "node server.js",
     "test-server": "node scripts/start-simulation.js",
     "sync-db": "node scripts/sync-live-db.js",
+    "recover-db": "node scripts/recover-from-render.js",
     "restore-db": "node scripts/restore-backup.js"
   },
   "engines": {
