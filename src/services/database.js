@@ -22,18 +22,34 @@ const path = require('path');
 const crypto = require('crypto');
 const https = require('https');
 
-const ROOT_DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : ROOT_DATA_DIR;
+const IS_CF_WORKER = Boolean(
+  typeof globalThis !== 'undefined' &&
+  (globalThis.__FLAPPY_CF_WORKER__ || (typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers'))
+);
+
+const ROOT_DATA_DIR = IS_CF_WORKER ? '/data' : path.join(__dirname, '..', '..', 'data');
+const DATA_DIR = (!IS_CF_WORKER && process.env.DATA_DIR) ? path.resolve(process.env.DATA_DIR) : ROOT_DATA_DIR;
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
-const TEMPLATE_FILE = path.join(__dirname, '..', 'config', 'default-db-template.json');
+const MEDIA_DIR = path.join(DATA_DIR, 'media');
+const TEMPLATE_FILE = IS_CF_WORKER ? '/default-db-template.json' : path.join(__dirname, '..', 'config', 'default-db-template.json');
 const SEED_FILE = path.join(ROOT_DATA_DIR, 'seed-db.json');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(BACKUPS_DIR)) {
-  fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+let BUNDLED_DEFAULT_TEMPLATE = null;
+try {
+  BUNDLED_DEFAULT_TEMPLATE = require('../config/default-db-template.json');
+} catch (_) {}
+
+if (!IS_CF_WORKER) {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(BACKUPS_DIR)) {
+    fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(MEDIA_DIR)) {
+    fs.mkdirSync(MEDIA_DIR, { recursive: true });
+  }
 }
 
 let BIRD_SKINS = [];
@@ -45,7 +61,7 @@ const LEADERBOARD_SKIN_MAP = new Map();
 const BACKGROUND_SKIN_IDS = new Set();
 const VALID_QUEST_IDS = new Set();
 try {
-  const skinsModule = require(path.join(__dirname, '..', '..', 'public', 'js', 'skins-data.js'));
+  const skinsModule = require('../../public/js/skins-data.js');
   BIRD_SKINS = skinsModule.BIRD_SKINS || [];
   PIPE_SKINS = skinsModule.PIPE_SKINS || [];
   BACKGROUND_SKINS = skinsModule.BACKGROUND_SKINS || [];
@@ -620,6 +636,8 @@ let lastInternalWriteAt = 0;
 let cachedLeaderboards = new Map();
 let cachedAllLeaderboards = new Map();
 let cachedLiveAllTimeSkinState = null;
+let cachedDuelRankedLb = null;
+let cachedDuelHighScoreLb = new Map();
 let cachedLbDayKey = 0;
 let cachedLbWeekKey = 0;
 
@@ -627,6 +645,8 @@ function invalidateLeaderboardCaches() {
   cachedLeaderboards.clear();
   cachedAllLeaderboards.clear();
   cachedLiveAllTimeSkinState = null;
+  cachedDuelRankedLb = null;
+  cachedDuelHighScoreLb.clear();
   cachedLbDayKey = 0;
   cachedLbWeekKey = 0;
 }
@@ -1493,55 +1513,79 @@ function syncAndRebuildOverview(fromExternalFileLoad = false, onlyDiff = null) {
 
 function loadDatabase(fromWatcher = false) {
   try {
-    // 1. If runtime DB does not exist, initialize from template or seed
-    if (!fs.existsSync(DB_FILE)) {
-      if (fs.existsSync(TEMPLATE_FILE)) {
-        fs.copyFileSync(TEMPLATE_FILE, DB_FILE);
-        console.log('📦 Initialized fresh database from template: ' + TEMPLATE_FILE);
-      } else if (fs.existsSync(SEED_FILE)) {
-        fs.copyFileSync(SEED_FILE, DB_FILE);
-        console.log('📦 Initialized fresh database from seed: ' + SEED_FILE);
-      }
-    }
-
     let parsed = null;
-    if (fs.existsSync(DB_FILE)) {
-      try {
-        const raw = fs.readFileSync(DB_FILE, 'utf8');
-        const candidate = JSON.parse(raw);
-        if (candidate && typeof candidate === 'object' && candidate.users && Object.keys(candidate.users).length > 0) {
-          parsed = candidate;
-        } else if (candidate && typeof candidate === 'object' && candidate.users) {
-          parsed = candidate;
-        }
-      } catch (parseErr) {
-        console.error('⚠️ Warning: db.json was corrupted or unreadable:', parseErr.message);
-      }
-    }
-    // If db.json failed to parse OR has 0 users while a valid backup exists, auto-recover from newest backup!
-    if ((!parsed || !parsed.users || Object.keys(parsed.users).length === 0) && fs.existsSync(BACKUPS_DIR)) {
-      try {
-        const backupFiles = fs.readdirSync(BACKUPS_DIR)
-          .filter(f => f.endsWith('.json'))
-          .map(f => ({ path: path.join(BACKUPS_DIR, f), mtime: fs.statSync(path.join(BACKUPS_DIR, f)).mtimeMs }))
-          .sort((a, b) => b.mtime - a.mtime);
-        for (const bk of backupFiles) {
-          try {
-            const bkParsed = JSON.parse(fs.readFileSync(bk.path, 'utf8'));
-            if (bkParsed && bkParsed.users && Object.keys(bkParsed.users).length > 0) {
-              parsed = bkParsed;
-              console.log('🛡️ Successfully recovered database from latest valid backup: ' + bk.path);
-              break;
+    let shouldPersistInitialCfSeed = false;
+
+    if (IS_CF_WORKER) {
+      const cfStore = globalThis.__FLAPPY_CF_STORAGE__;
+      if (cfStore && typeof cfStore.loadDb === 'function') {
+        try {
+          const raw = cfStore.loadDb();
+          if (raw && typeof raw === 'string') {
+            const candidate = JSON.parse(raw);
+            if (candidate && typeof candidate === 'object' && candidate.users) {
+              parsed = candidate;
             }
-          } catch (bkErr) {
-            console.error('Failed to parse backup:', bkErr.message);
           }
+        } catch (cfParseErr) {
+          console.error('⚠️ Warning: Cloudflare SQLite DB parse failed:', cfParseErr.message);
         }
-      } catch (_) {}
+      }
+      if (!parsed && BUNDLED_DEFAULT_TEMPLATE && typeof BUNDLED_DEFAULT_TEMPLATE === 'object') {
+        parsed = JSON.parse(JSON.stringify(BUNDLED_DEFAULT_TEMPLATE));
+        shouldPersistInitialCfSeed = true;
+      }
+    } else {
+      // 1. If runtime DB does not exist, initialize from template or seed
+      if (!fs.existsSync(DB_FILE)) {
+        if (fs.existsSync(TEMPLATE_FILE)) {
+          fs.copyFileSync(TEMPLATE_FILE, DB_FILE);
+          console.log('📦 Initialized fresh database from template: ' + TEMPLATE_FILE);
+        } else if (fs.existsSync(SEED_FILE)) {
+          fs.copyFileSync(SEED_FILE, DB_FILE);
+          console.log('📦 Initialized fresh database from seed: ' + SEED_FILE);
+        }
+      }
+
+      if (fs.existsSync(DB_FILE)) {
+        try {
+          const raw = fs.readFileSync(DB_FILE, 'utf8');
+          const candidate = JSON.parse(raw);
+          if (candidate && typeof candidate === 'object' && candidate.users && Object.keys(candidate.users).length > 0) {
+            parsed = candidate;
+          } else if (candidate && typeof candidate === 'object' && candidate.users) {
+            parsed = candidate;
+          }
+        } catch (parseErr) {
+          console.error('⚠️ Warning: db.json was corrupted or unreadable:', parseErr.message);
+        }
+      }
+      // If db.json failed to parse OR has 0 users while a valid backup exists, auto-recover from newest backup!
+      if ((!parsed || !parsed.users || Object.keys(parsed.users).length === 0) && fs.existsSync(BACKUPS_DIR)) {
+        try {
+          const backupFiles = fs.readdirSync(BACKUPS_DIR)
+            .filter(f => f.endsWith('.json'))
+            .map(f => ({ path: path.join(BACKUPS_DIR, f), mtime: fs.statSync(path.join(BACKUPS_DIR, f)).mtimeMs }))
+            .sort((a, b) => b.mtime - a.mtime);
+          for (const bk of backupFiles) {
+            try {
+              const bkParsed = JSON.parse(fs.readFileSync(bk.path, 'utf8'));
+              if (bkParsed && bkParsed.users && Object.keys(bkParsed.users).length > 0) {
+                parsed = bkParsed;
+                console.log('🛡️ Successfully recovered database from latest valid backup: ' + bk.path);
+                break;
+              }
+            } catch (bkErr) {
+              console.error('Failed to parse backup:', bkErr.message);
+            }
+          }
+        } catch (_) {}
+      }
     }
 
     // 2. Safe schema migration and default field enforcement
     if (parsed && typeof parsed.users === 'object') {
+      hydrateUsersMediaFromDisk(parsed.users);
       db = {
         databaseStatus: parsed.databaseStatus || {},
         playerRecordsOverview: parsed.playerRecordsOverview || {},
@@ -1598,7 +1642,9 @@ function loadDatabase(fromWatcher = false) {
     syncAndRebuildOverview(fromWatcher);
     enrichOverviewWithClientSignals();
     if (!fromWatcher) {
-      saveDatabase(false);
+      if (!IS_CF_WORKER || shouldPersistInitialCfSeed) {
+        saveDatabase(false);
+      }
     }
   } catch (err) {
     console.error('Error loading database:', err.message);
@@ -1636,19 +1682,151 @@ function getFullDatabaseSnapshot() {
   };
 }
 
-function buildOrderedDbSnapshotString(forcePretty = false) {
+const syncedUserMediaVersions = new Map();
+
+function getUserMediaFilePath(uKey) {
+  const safeKey = String(uKey || '').toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 64) || 'unknown';
+  return path.join(MEDIA_DIR, `${safeKey}.json`);
+}
+
+function hydrateUsersMediaFromDisk(usersObj) {
+  if (!usersObj || typeof usersObj !== 'object') return;
+  const cfStore = IS_CF_WORKER ? globalThis.__FLAPPY_CF_STORAGE__ : null;
+  for (const [uKey, u] of Object.entries(usersObj)) {
+    if (!u || typeof u !== 'object') continue;
+    const hasRef = u.customBackgroundImage === '__mediaFile__' ||
+      u.customBackgroundDrawing === '__mediaFile__' ||
+      u.customBackgroundVideo === '__mediaFile__';
+    if (!hasRef) continue;
+    try {
+      let m = null;
+      if (cfStore && typeof cfStore.loadUserMedia === 'function') {
+        const rawM = cfStore.loadUserMedia(uKey);
+        if (rawM) m = JSON.parse(rawM);
+      } else if (!IS_CF_WORKER) {
+        const mPath = getUserMediaFilePath(uKey);
+        if (fs.existsSync(mPath)) {
+          m = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+        }
+      }
+      if (m) {
+        if (u.customBackgroundImage === '__mediaFile__') u.customBackgroundImage = m.customBackgroundImage || null;
+        if (u.customBackgroundDrawing === '__mediaFile__') u.customBackgroundDrawing = m.customBackgroundDrawing || null;
+        if (u.customBackgroundVideo === '__mediaFile__') u.customBackgroundVideo = m.customBackgroundVideo || null;
+        syncedUserMediaVersions.set(uKey, Number(u.customBgUpdatedAt) || 1);
+      } else {
+        if (u.customBackgroundImage === '__mediaFile__') u.customBackgroundImage = null;
+        if (u.customBackgroundDrawing === '__mediaFile__') u.customBackgroundDrawing = null;
+        if (u.customBackgroundVideo === '__mediaFile__') u.customBackgroundVideo = null;
+      }
+    } catch (_) {
+      if (u.customBackgroundImage === '__mediaFile__') u.customBackgroundImage = null;
+      if (u.customBackgroundDrawing === '__mediaFile__') u.customBackgroundDrawing = null;
+      if (u.customBackgroundVideo === '__mediaFile__') u.customBackgroundVideo = null;
+    }
+  }
+}
+
+function syncExternalUserMediaFilesAndStrip(usersObj) {
+  if (!usersObj || typeof usersObj !== 'object') return {};
+  const cfStore = IS_CF_WORKER ? globalThis.__FLAPPY_CF_STORAGE__ : null;
+  const lightUsers = {};
+  for (const [uKey, u] of Object.entries(usersObj)) {
+    if (!u || typeof u !== 'object') continue;
+    const hasHeavyMedia = Boolean(u.customBackgroundImage || u.customBackgroundDrawing || u.customBackgroundVideo);
+    if (!hasHeavyMedia) {
+      lightUsers[uKey] = u;
+      continue;
+    }
+    const ver = Number(u.customBgUpdatedAt) || 1;
+    if (cfStore && typeof cfStore.saveUserMedia === 'function') {
+      if (syncedUserMediaVersions.get(uKey) !== ver) {
+        try {
+          const mPayload = JSON.stringify({
+            customBackgroundImage: u.customBackgroundImage || null,
+            customBackgroundDrawing: u.customBackgroundDrawing || null,
+            customBackgroundVideo: u.customBackgroundVideo || null,
+            customBgUpdatedAt: ver
+          });
+          cfStore.saveUserMedia(uKey, ver, mPayload);
+          syncedUserMediaVersions.set(uKey, ver);
+        } catch (_) {
+          lightUsers[uKey] = u;
+          continue;
+        }
+      }
+      lightUsers[uKey] = {
+        ...u,
+        ...(u.customBackgroundImage ? { customBackgroundImage: '__mediaFile__' } : {}),
+        ...(u.customBackgroundDrawing ? { customBackgroundDrawing: '__mediaFile__' } : {}),
+        ...(u.customBackgroundVideo ? { customBackgroundVideo: '__mediaFile__' } : {})
+      };
+      continue;
+    }
+    const mPath = getUserMediaFilePath(uKey);
+    if (syncedUserMediaVersions.get(uKey) !== ver || !fs.existsSync(mPath)) {
+      try {
+        if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR, { recursive: true });
+        const mPayload = JSON.stringify({
+          customBackgroundImage: u.customBackgroundImage || null,
+          customBackgroundDrawing: u.customBackgroundDrawing || null,
+          customBackgroundVideo: u.customBackgroundVideo || null,
+          customBgUpdatedAt: ver
+        });
+        const mTmp = `${mPath}.tmp.${process.pid}`;
+        fs.writeFileSync(mTmp, mPayload, 'utf8');
+        try { fs.renameSync(mTmp, mPath); } catch (_) {
+          fs.copyFileSync(mTmp, mPath);
+          try { fs.unlinkSync(mTmp); } catch (__) {}
+        }
+        syncedUserMediaVersions.set(uKey, ver);
+      } catch (_) {
+        lightUsers[uKey] = u;
+        continue;
+      }
+    }
+    lightUsers[uKey] = {
+      ...u,
+      ...(u.customBackgroundImage ? { customBackgroundImage: '__mediaFile__' } : {}),
+      ...(u.customBackgroundDrawing ? { customBackgroundDrawing: '__mediaFile__' } : {}),
+      ...(u.customBackgroundVideo ? { customBackgroundVideo: '__mediaFile__' } : {})
+    };
+  }
+  return lightUsers;
+}
+
+function buildOrderedDbSnapshotString(forcePretty = false, externalizeMedia = false) {
   const orderedDb = getFullDatabaseSnapshot();
-  // Compact JSON on Render/production cuts RAM allocation & write time by ~45%, preventing OOM & healthcheck timeouts
+  // Externalizing multi-MB base64 drawings/videos into data/media/<user>.json keeps hot db.json writes ~1.2 MB
+  // and eliminates multi-second V8 GC pauses / OOM kills on Render Free (512 MB RAM)!
+  const payloadObj = externalizeMedia
+    ? { ...orderedDb, users: syncExternalUserMediaFilesAndStrip(orderedDb.users) }
+    : orderedDb;
   return (IS_PRODUCTION_ENV && !forcePretty)
-    ? JSON.stringify(orderedDb)
-    : JSON.stringify(orderedDb, null, 2);
+    ? JSON.stringify(payloadObj)
+    : JSON.stringify(payloadObj, null, 2);
 }
 
 function writeOrderedDbToDisk(forceBackup = false) {
+  if (IS_CF_WORKER) {
+    try {
+      const cfStore = globalThis.__FLAPPY_CF_STORAGE__;
+      if (!cfStore || typeof cfStore.saveDb !== 'function') return;
+      const orderedDb = getFullDatabaseSnapshot();
+      const payloadObj = { ...orderedDb, users: syncExternalUserMediaFilesAndStrip(orderedDb.users) };
+      const jsonStr = JSON.stringify(payloadObj);
+      if (jsonStr && jsonStr.length >= 20) {
+        cfStore.saveDb(jsonStr);
+      }
+    } catch (err) {
+      console.error('Error saving Cloudflare SQLite database:', err && err.message ? err.message : err);
+    }
+    return;
+  }
   try {
     isInternalWrite = true;
     lastInternalWriteAt = Date.now();
-    const jsonStr = buildOrderedDbSnapshotString();
+    const jsonStr = buildOrderedDbSnapshotString(false, IS_PRODUCTION_ENV);
     if (!jsonStr || jsonStr.length < 20) {
       isInternalWrite = false;
       return;
@@ -1699,7 +1877,7 @@ async function writeOrderedDbToDiskAsync() {
       diskWritePendingAgain = false;
       isInternalWrite = true;
       lastInternalWriteAt = Date.now();
-      const jsonStr = buildOrderedDbSnapshotString();
+      const jsonStr = buildOrderedDbSnapshotString(false, IS_PRODUCTION_ENV);
       if (!jsonStr || jsonStr.length < 20) continue;
       const tmpFile = `${DB_FILE}.tmp.${process.pid}`;
       await fs.promises.writeFile(tmpFile, jsonStr, 'utf8');
@@ -1890,6 +2068,11 @@ function saveDatabase(forceBackup = false, opts = {}) {
       reconcileUsersLostAllTimeSkins();
     }
 
+    if (IS_CF_WORKER) {
+      writeOrderedDbToDisk(false);
+      return;
+    }
+
     if (forceBackup) {
       if (pendingSaveTimer) {
         clearTimeout(pendingSaveTimer);
@@ -1898,8 +2081,20 @@ function saveDatabase(forceBackup = false, opts = {}) {
       writeOrderedDbToDisk(true);
       scheduleCloudBackupIfConfigured(true);
     } else {
-      const debounceMs = (opts && opts.urgent) ? 55 : (IS_PRODUCTION_ENV ? 250 : 65);
-      if (pendingSaveTimer) clearTimeout(pendingSaveTimer);
+      // On Render Free (0.1 shared vCPU + throttled disk), coalesce routine saves to 3s & urgent run saves to 450ms
+      // to eliminate disk/GC storms while keeping records safely persisted!
+      const debounceMs = (opts && opts.urgent)
+        ? (IS_PRODUCTION_ENV ? 450 : 55)
+        : (IS_PRODUCTION_ENV ? 3000 : 80);
+      if (pendingSaveTimer) {
+        if (opts && opts.urgent) {
+          clearTimeout(pendingSaveTimer);
+          pendingSaveTimer = null;
+        } else {
+          scheduleCloudBackupIfConfigured(false);
+          return;
+        }
+      }
       pendingSaveTimer = setTimeout(() => {
         pendingSaveTimer = null;
         writeOrderedDbToDiskAsync();
@@ -1942,16 +2137,18 @@ function resetAllRecordsAdmin() {
   };
 }
 
-// Watch `data/db.json` so if the owner edits & saves `db.json` in a text editor, changes apply live!
-fs.watchFile(DB_FILE, { interval: 2500, persistent: false }, (curr, prev) => {
-  if (isInternalWrite || pendingSaveTimer !== null) return;
-  if (lastInternalWriteAt && (Date.now() - lastInternalWriteAt < 4000)) return;
-  if (lastInternalSavedMtime && Math.abs(curr.mtimeMs - lastInternalSavedMtime) < 250) return;
-  if (curr.mtimeMs !== prev.mtimeMs) {
-    console.log('🔄 Detected genuine external edit to data/db.json — reloading & syncing records...');
-    loadDatabase(true);
-  }
-});
+// Watch `data/db.json` ONLY in local dev so Render/Cloudflare NEVER false-triggers a blocking reload!
+if (!IS_PRODUCTION_ENV && !IS_CF_WORKER) {
+  fs.watchFile(DB_FILE, { interval: 2500, persistent: false }, (curr, prev) => {
+    if (isInternalWrite || pendingSaveTimer !== null) return;
+    if (lastInternalWriteAt && (Date.now() - lastInternalWriteAt < 4000)) return;
+    if (lastInternalSavedMtime && Math.abs(curr.mtimeMs - lastInternalSavedMtime) < 250) return;
+    if (curr.mtimeMs !== prev.mtimeMs) {
+      console.log('🔄 Detected genuine external edit to data/db.json — reloading & syncing records...');
+      loadDatabase(true);
+    }
+  });
+}
 
 /**
  * Builds the 3-Difficulty Leaderboards for a specific timeframe (all, weekly, daily).
@@ -2423,9 +2620,10 @@ function toggleUserRunsVisibilityAdmin(username, difficulty, hidden) {
 }
 
 let cachedAllRunsAdmin = null;
+const runAdminMetaWeakCache = new WeakMap();
 
 /**
- * Returns all runs across Easy, Medium, and Hard (including hidden runs) with formatted timestamps and visible rank.
+ * Returns all runs across Easy, Medium, Hard & Extreme (including hidden runs) with cached formatted timestamps & visible rank.
  */
 function getAllRunsAdmin() {
   if (cachedAllRunsAdmin) return cachedAllRunsAdmin;
@@ -2433,28 +2631,39 @@ function getAllRunsAdmin() {
   ALL_MODES.forEach(diff => {
     const list = (db.runs && Array.isArray(db.runs[diff])) ? db.runs[diff] : [];
     let visibleRankCounter = 0;
-    result[diff] = list
-      .slice()
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      })
-      .map(r => {
-        const isOffHours = !isWithinDanishWindow(r.createdAt);
-        const isHidden = r.adminOverride ? Boolean(r.hidden) : (Boolean(r.hidden) || isOffHours);
-        if (!isHidden) visibleRankCounter++;
-        return {
-          id: r.id,
-          username: r.username,
-          score: r.score,
-          hidden: isHidden,
-          isOffHours,
-          danishTime: formatDanishTime(r.createdAt),
-          visibleRank: isHidden ? null : visibleRankCounter,
-          createdAt: r.createdAt || 0,
-          readableTime: formatReadableTimestamp(r.createdAt)
+    const sorted = list.slice().sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+    const out = new Array(sorted.length);
+    for (let i = 0; i < sorted.length; i++) {
+      const r = sorted[i];
+      const ts = r.createdAt || 0;
+      let meta = runAdminMetaWeakCache.get(r);
+      if (!meta || meta.ts !== ts) {
+        meta = {
+          ts,
+          isOffHours: !isWithinDanishWindow(ts),
+          danishTime: formatDanishTime(ts),
+          readableTime: formatReadableTimestamp(ts)
         };
-      });
+        runAdminMetaWeakCache.set(r, meta);
+      }
+      const isHidden = r.adminOverride ? Boolean(r.hidden) : (Boolean(r.hidden) || meta.isOffHours);
+      if (!isHidden) visibleRankCounter++;
+      out[i] = {
+        id: r.id,
+        username: r.username,
+        score: r.score,
+        hidden: isHidden,
+        isOffHours: meta.isOffHours,
+        danishTime: meta.danishTime,
+        visibleRank: isHidden ? null : visibleRankCounter,
+        createdAt: ts,
+        readableTime: meta.readableTime
+      };
+    }
+    result[diff] = out;
   });
   cachedAllRunsAdmin = result;
   return result;
@@ -2540,6 +2749,12 @@ function adminUpdateUserSkins(username, options = {}) {
     if (BACKGROUND_SKIN_IDS.has(skinId)) {
       user.unlockedBackgrounds = user.unlockedBackgrounds.filter(id => id !== skinId);
       if (user.selectedBackground === skinId) user.selectedBackground = 'bg_classic';
+    }
+    if (user.selectedSkin === skinId && !isSkinNaturallyUnlockedForUser(skinId, user)) {
+      user.selectedSkin = 'classic';
+    }
+    if (user.selectedPipeSkin === skinId && !isSkinNaturallyUnlockedForUser(skinId, user)) {
+      user.selectedPipeSkin = 'classic_pipe';
     }
     actionLog.push(`Revoked skin "${skinId}"`);
     changed = true;
@@ -3097,6 +3312,10 @@ function getPlayerRankedDuelHistory(username, limit = 60) {
  * Uses `db.duelMatchHighScores` + `users[*].duelBestMatchPoints` so nothing is ever lost.
  */
 function buildDuelHighScoreLeaderboard(uniqueOnly = false, limit = 100) {
+  const cacheKey = `${uniqueOnly ? 1 : 0}:${limit}`;
+  if (cachedDuelHighScoreLb.has(cacheKey)) {
+    return cachedDuelHighScoreLb.get(cacheKey);
+  }
   const rawList = Array.isArray(db.duelMatchHighScores) ? db.duelMatchHighScores.slice() : [];
   const seenBestByUser = new Set();
   for (const e of rawList) {
@@ -3160,6 +3379,7 @@ function buildDuelHighScoreLeaderboard(uniqueOnly = false, limit = 100) {
     });
     if (finalItems.length >= limit) break;
   }
+  cachedDuelHighScoreLb.set(cacheKey, finalItems);
   return finalItems;
 }
 
@@ -3167,6 +3387,7 @@ function buildDuelHighScoreLeaderboard(uniqueOnly = false, limit = 100) {
  * Builds the Ranked Duels Leaderboard with strictly 1 placement per player, sorted by highest Elo.
  */
 function buildDuelRankedLeaderboard() {
+  if (cachedDuelRankedLb) return cachedDuelRankedLb;
   if (!db.users || typeof db.users !== 'object') return [];
   const seenKeys = new Set();
   const list = [];
@@ -3209,7 +3430,7 @@ function buildDuelRankedLeaderboard() {
     return a.username.localeCompare(b.username);
   });
 
-  return list.map((item, idx) => ({
+  cachedDuelRankedLb = list.map((item, idx) => ({
     rank: idx + 1,
     username: item.username,
     duelElo: item.duelElo,
@@ -3220,6 +3441,7 @@ function buildDuelRankedLeaderboard() {
     selectedSkin: item.selectedSkin,
     avatarSkinId: item.avatarSkinId
   }));
+  return cachedDuelRankedLb;
 }
 
 /**
@@ -4941,24 +5163,26 @@ function adminSetExtremeAccess(username, granted) {
   return db.playerRecordsOverview[user.username];
 }
 
-loadDatabase(false);
+if (!IS_CF_WORKER) {
+  loadDatabase(false);
 
-const giveawayCheckTimer = setInterval(() => {
-  try {
-    settleExpiredGiveaways(Date.now());
-  } catch (_) {}
-}, 2000);
-if (typeof giveawayCheckTimer.unref === 'function') {
-  giveawayCheckTimer.unref();
-}
+  const giveawayCheckTimer = setInterval(() => {
+    try {
+      settleExpiredGiveaways(Date.now());
+    } catch (_) {}
+  }, 2000);
+  if (typeof giveawayCheckTimer.unref === 'function') {
+    giveawayCheckTimer.unref();
+  }
 
-const lbPeriodCheckTimer = setInterval(() => {
-  try {
-    settleCompletedLeaderboardPeriods(Date.now(), { saveOnAward: true });
-  } catch (_) {}
-}, 60 * 1000);
-if (typeof lbPeriodCheckTimer.unref === 'function') {
-  lbPeriodCheckTimer.unref();
+  const lbPeriodCheckTimer = setInterval(() => {
+    try {
+      settleCompletedLeaderboardPeriods(Date.now(), { saveOnAward: true });
+    } catch (_) {}
+  }, 60 * 1000);
+  if (typeof lbPeriodCheckTimer.unref === 'function') {
+    lbPeriodCheckTimer.unref();
+  }
 }
 
 module.exports = {

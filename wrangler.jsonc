@@ -1,0 +1,35 @@
+{
+  // Cloudflare Workers (Free Plan) Configuration for 3D Flappy Bird Online
+  // IMPORTANT: Make sure "name" below matches your Worker name in Cloudflare Dashboard -> Workers & Pages!
+  "name": "flappy-bird-3d",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-11-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/*",
+      "/database",
+      "/database/*"
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "FLAPPY_GAME_DO",
+        "class_name": "FlappyGameServerDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "FlappyGameServerDO"
+      ]
+    }
+  ]
+}

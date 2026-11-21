@@ -155,9 +155,14 @@ function extractClientInfo(req) {
   return { ip, deviceId, cookieId, cookieAccepted, fingerprint, banToken, knownAccounts };
 }
 
+const IS_CF_WORKER = Boolean(
+  typeof globalThis !== 'undefined' &&
+  (globalThis.__FLAPPY_CF_WORKER__ || (typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers'))
+);
+
 let BIRD_SKINS_LIST = [];
 try {
-  const skinsModule = require(path.join(__dirname, '..', '..', 'public', 'js', 'skins-data.js'));
+  const skinsModule = require('../../public/js/skins-data.js');
   BIRD_SKINS_LIST = skinsModule.BIRD_SKINS || [];
 } catch (_) {}
 
@@ -949,7 +954,7 @@ function getPublicDuelLobbiesList() {
 }
 
 // Periodic background clock advancement & cleanup (wrapped in try/catch so a single duel edge case NEVER crashes the server)
-setInterval(() => {
+function runBackgroundCleanupTick() {
   try {
     const now = Date.now();
     for (const [runId, run] of activeRuns.entries()) {
@@ -970,7 +975,12 @@ setInterval(() => {
   } catch (err) {
     console.error('Background cleanup tick error:', err && err.message ? err.message : err);
   }
-}, 250).unref();
+}
+
+if (!IS_CF_WORKER) {
+  const bgCleanupTimer = setInterval(runBackgroundCleanupTick, 250);
+  if (typeof bgCleanupTimer.unref === 'function') bgCleanupTimer.unref();
+}
 
 function detachPlayerFromFinishedLobbies(caller) {
   if (!caller) return;
@@ -990,7 +1000,7 @@ function detachPlayerFromFinishedLobbies(caller) {
   }
 }
 
-function sendJSON(res, statusCode, payload, setCookies = null) {
+function sendJSON(res, statusCode, payload, setCookies = null, opts = null) {
   if (!res || res.headersSent || res.writableEnded || res.destroyed) return;
   const body = JSON.stringify(payload);
   const headers = {
@@ -1000,7 +1010,8 @@ function sendJSON(res, statusCode, payload, setCookies = null) {
   if (Array.isArray(setCookies) && setCookies.length > 0) {
     headers['Set-Cookie'] = setCookies;
   }
-  if (res._acceptGzip && body.length > 1536) {
+  const allowGzip = !(opts && opts.noGzip);
+  if (allowGzip && res._acceptGzip && body.length > 1536) {
     zlib.gzip(body, { level: 5 }, (gzErr, gzBuf) => {
       if (!res || res.headersSent || res.writableEnded || res.destroyed) return;
       try {
@@ -1024,6 +1035,18 @@ function sendJSON(res, statusCode, payload, setCookies = null) {
 }
 
 function readJsonBody(req, maxBytes = 512 * 1024) {
+  if (req && typeof req._rawBody === 'string') {
+    const raw = req._rawBody;
+    if (raw.length > maxBytes) {
+      return Promise.reject(new Error('Payload too large'));
+    }
+    if (!raw) return Promise.resolve({});
+    try {
+      return Promise.resolve(JSON.parse(raw));
+    } catch (e) {
+      return Promise.reject(new Error('Invalid JSON payload'));
+    }
+  }
   return new Promise((resolve, reject) => {
     let raw = '';
     req.on('data', chunk => {
@@ -1138,16 +1161,25 @@ function isMeDonutAdmin(req) {
   return null;
 }
 
+let CACHED_LAN_ADDRESSES = null;
 function getLocalAddresses() {
-  const interfaces = os.networkInterfaces();
+  if (CACHED_LAN_ADDRESSES) return CACHED_LAN_ADDRESSES;
+  if (IS_CF_WORKER) {
+    CACHED_LAN_ADDRESSES = [];
+    return CACHED_LAN_ADDRESSES;
+  }
   const addresses = [];
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        addresses.push(iface.address);
+  try {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          addresses.push(iface.address);
+        }
       }
     }
-  }
+  } catch (_) {}
+  CACHED_LAN_ADDRESSES = addresses;
   return addresses;
 }
 
@@ -1503,7 +1535,18 @@ async function handleApiRequest(req, res, pathname, port) {
   }
 
   // 1. Server Info & Healthcheck (Used by Render healthCheckPath)
+  // Responds synchronously (no libuv/gzip queue!) so Render health checks NEVER stall or reset
   if (req.method === 'GET' && pathname === '/api/server-info') {
+    const ua = String((req.headers && req.headers['user-agent']) || '');
+    const isHealthProbe = (!req.headers || (!req.headers.authorization && !req.headers.cookie)) &&
+      (/go-http-client|render|kube-probe|healthcheck/i.test(ua) || !ua);
+    if (isHealthProbe) {
+      return sendJSON(res, 200, {
+        status: 'ok',
+        port,
+        uptimeSec: (typeof process !== 'undefined' && typeof process.uptime === 'function') ? Math.floor(process.uptime()) : 0
+      }, null, { noGzip: true });
+    }
     const sess = getSessionUserEvenIfBanned(req);
     const banStatus = getRequestBanStatus(req, sess ? sess.usernameKey : null);
     const reqCookies = parseCookies(req);
@@ -1532,7 +1575,7 @@ async function handleApiRequest(req, res, pathname, port) {
       adminSettings: {
         blockDuelEloGapOver150: Boolean(db.adminSettings && db.adminSettings.blockDuelEloGapOver150)
       }
-    }, setCookies);
+    }, setCookies, { noGzip: true });
   }
 
   if (req.method === 'GET' && pathname === '/api/ban-status') {
@@ -1823,7 +1866,7 @@ async function handleApiRequest(req, res, pathname, port) {
     if (auth && db.sessions[auth.token]) {
       delete db.sessions[auth.token];
       logDatabaseEvent('LOGOUT', auth.user.username, `🚪 ${auth.user.username} logged out`);
-      saveDatabase();
+      saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
     }
     return sendJSON(res, 200, { ok: true });
   }
@@ -1893,7 +1936,14 @@ async function handleApiRequest(req, res, pathname, port) {
       auth.user.avatarSkinId = avatarSkinId.trim();
     }
     auth.user.cosmeticsVersion = (Number(auth.user.cosmeticsVersion) || 0) + 1;
-    saveDatabase();
+    if (db.playerRecordsOverview && db.playerRecordsOverview[auth.user.username]) {
+      const ov = db.playerRecordsOverview[auth.user.username];
+      ov.selectedSkin = auth.user.selectedSkin || 'classic';
+      ov.selectedPipeSkin = auth.user.selectedPipeSkin || 'classic_pipe';
+      ov.selectedBackground = auth.user.selectedBackground || 'bg_classic';
+      ov.cosmeticsVersion = auth.user.cosmeticsVersion;
+    }
+    saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
     return sendJSON(res, 200, {
       ok: true,
       cosmeticsVersion: auth.user.cosmeticsVersion,
@@ -1976,7 +2026,7 @@ async function handleApiRequest(req, res, pathname, port) {
     const { avatarSkinId } = await readJsonBody(req);
     if (typeof avatarSkinId === 'string' && avatarSkinId.length <= 40) {
       auth.user.avatarSkinId = avatarSkinId.trim();
-      saveDatabase();
+      saveDatabase(false, { skipOverviewSync: true, keepLeaderboardCache: true });
       return sendJSON(res, 200, {
         ok: true,
         avatarSkinId: auth.user.avatarSkinId
@@ -3605,5 +3655,6 @@ async function handleApiRequest(req, res, pathname, port) {
 
 module.exports = {
   handleApiRequest,
-  getLocalAddresses
+  getLocalAddresses,
+  runBackgroundCleanupTick
 };
